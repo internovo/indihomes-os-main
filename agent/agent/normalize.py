@@ -85,6 +85,15 @@ def normalize_project_name(name: str) -> str:
 
 def normalize_location(evidence: EvidenceItem) -> str | None:
     loc = (evidence.get("location") or "").strip()
+    # Same bug as the name side (see SOCIAL_PLATFORM_BARE_NAME_RE below,
+    # which is defined later in this module) — a location field literally
+    # equal to the source platform's own name ("Instagram") is metadata
+    # leakage, not a real locality. Checked by value here rather than
+    # importing the regex from further down the file (defined after this
+    # function) — kept as its own tiny local check to avoid a forward
+    # reference; same word list either way.
+    if loc and loc.strip().lower() in {"instagram", "facebook", "twitter", "x", "pinterest", "threads", "youtube", "tiktok", "linkedin", "snapchat"}:
+        loc = ""
     if loc:
         return loc
     # Portal/web-search snippets often carry the locality in the TITLE
@@ -555,6 +564,68 @@ def reclassify_lifecycle_from_enriched_evidence(prop: NormalizedProperty) -> Nor
 ALLOWED_LIFECYCLE_STATUSES = {"UNDER_CONSTRUCTION", "NEAR_POSSESSION", "NEW_LAUNCH"}
 
 
+# Part 2 of the Places-augmented pipeline — a candidate's name-VALIDITY
+# check, the actual gate for a garbage extraction like the live "Security
+# Alert" case (traced to a 99acres page that most plausibly served a bot-
+# detection/interstitial page instead of its real listing content —
+# refetching the identical URL moments later returned entirely different,
+# legitimate content, confirming the page is non-deterministic per-request
+# under repeated automated access). Deliberately a PATTERN FAMILY (portal UI
+# chrome / interstitial / generic-action phrasing), not a hardcoded
+# blocklist of "Security Alert" alone — that would be overfit to one bad
+# example and miss the next differently-worded interstitial. Mirrors
+# backend/scoring.cjs's looksLikeInvalidName() exactly.
+#
+# Only ever consulted as a gate when Places verification did NOT resolve
+# the name (see graph.py's _apply_hard_eligibility_filter) — a real project
+# simply absent from Places must never be rejected on Places-absence alone.
+INVALID_NAME_RE = re.compile(
+    r"^(security|fraud|scam|safety)\s+(alert|warning|notice)$|"
+    r"\b(click here|view details?|read more|learn more|sign[\s-]?in|log[\s-]?in|log[\s-]?out|"
+    r"register now|book\s+now|enquire\s+now|contact\s+us|about\s+us|"
+    r"terms\s+(and|&)\s+conditions|privacy\s+policy|cookie\s+policy|"
+    r"page\s+not\s+found|access\s+denied|please\s+wait|loading|coming\s+soon|"
+    r"under\s+maintenance|verify\s+you.?re\s+human|are\s+you\s+a\s+robot|session\s+expired)\b",
+    re.IGNORECASE,
+)
+# A bare social-platform name ("Instagram", "Facebook", ...) as the ENTIRE
+# extracted name/location — live-caught: an Instagram-sourced candidate
+# (a real Reel from Gagangiri Developers, mentioning a real project) had
+# its NAME and LOCATION both come out as the literal string "Instagram",
+# because Instagram serves a generic og:title="Instagram" for logged-out/
+# scraper embed requests instead of the real caption text (the actual
+# project name only appears in the caption body, which fact_extraction's
+# page-title/JSON-LD extraction never reaches for a login-walled page).
+# Matched as the WHOLE string (optionally with surrounding whitespace),
+# not a substring — a real project genuinely named e.g. "Instagram
+# Heights" (however unlikely) must not be caught by this.
+SOCIAL_PLATFORM_BARE_NAME_RE = re.compile(
+    r"^(instagram|facebook|twitter|x|pinterest|threads|youtube|tiktok|linkedin|snapchat)$",
+    re.IGNORECASE,
+)
+# Small, narrow, non-proper-noun word list — same discipline as this
+# module's other regex-family heuristics, not a real dictionary check.
+_GENERIC_NAME_WORDS = {"alert", "notice", "warning", "error", "info", "details", "update", "news", "status", "message", "popup", "modal", "banner", "ad", "ads", "advertisement"}
+
+
+def looks_like_invalid_name(name: str) -> bool:
+    n = (name or "").strip()
+    if not n:
+        return True
+    if INVALID_NAME_RE.search(n):
+        return True
+    if SOCIAL_PLATFORM_BARE_NAME_RE.match(n):
+        return True
+    # Structural fallback: a very short (<=2 word) name built ENTIRELY from
+    # generic, non-proper-noun UI/status words doesn't read as a real
+    # project name at all — a real project's name always has SOMETHING
+    # distinctive ("Rivali Park", "Chandak Greenairy").
+    words = n.lower().split()
+    if len(words) <= 2 and all(w in _GENERIC_NAME_WORDS for w in words):
+        return True
+    return False
+
+
 def normalize_evidence_item(evidence: EvidenceItem) -> NormalizedProperty:
     min_inr, max_inr, price_display = normalize_price(evidence)
     possession_year, possession_display = normalize_possession_year(evidence)
@@ -589,6 +660,18 @@ def normalize_evidence_item(evidence: EvidenceItem) -> NormalizedProperty:
         lifecycle_status=lifecycle_status,
         lifecycle_evidence_text=lifecycle_evidence_text,
     )
+    # Real Places-provided coordinates (Part 1) — threaded straight through
+    # from a places_search evidence item so downstream (Project
+    # Intelligence's map) can use them directly instead of re-geocoding via
+    # Nominatim/Google Geocoding string-matching for these specific
+    # candidates. Absent (key not set at all) for every other source —
+    # never a fabricated 0.0/None-as-if-checked placeholder.
+    if evidence.get("lat") is not None and evidence.get("lon") is not None:
+        prop["places_lat"] = evidence["lat"]
+        prop["places_lon"] = evidence["lon"]
+        prop["places_place_id"] = evidence.get("place_id")
+        prop["places_address"] = evidence.get("formatted_address")
+        prop["places_verified"] = True  # came FROM Places itself — trivially verified
     return prop
 
 

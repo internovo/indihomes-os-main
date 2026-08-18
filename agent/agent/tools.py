@@ -251,6 +251,61 @@ async def portal_search(query: str, market: str, locations: list[str], configura
                                      duration_ms=duration_ms, error=err, cache_hit=cache_hit)
 
 
+# ── places_search — Google Places (New)-based candidate discovery (Part 1
+# of the Places-augmented pipeline). Runs ALONGSIDE the tools above, in the
+# SAME discovery fan-out (see graph.py's node_discovery_search) — never a
+# replacement for any of them.
+#
+# Real scope, disclosed here (and reflected honestly downstream — an empty
+# result from this tool is never treated as "no projects exist"): Google
+# Places indexes real, physically-existing, publicly-listed buildings —
+# strongest for READY-TO-MOVE/completed inventory a developer has already
+# registered with Google Business/Maps. A genuine pre-launch or early-
+# construction project (marketed via Instagram/portal listings before the
+# building physically exists, or before the developer has set up a Places
+# listing for it) will often NOT appear here yet. This tool contributing
+# candidate NAMES does not itself make them eligible — every Places-sourced
+# candidate still goes through the SAME lifecycle/geography hard-eligibility
+# gate as everything else; Places evidence carries no lifecycle language on
+# its own (a bare address, not "under construction"/"new launch"), so a
+# Places-only candidate with no other corroborating evidence correctly stays
+# UNKNOWN and is rejected on the final pass exactly like today — this tool
+# does NOT create a bypass for completed/ready-to-move buildings.
+@traceable(name="places_search", run_type="tool")
+async def places_search(query: str, market: str, locations: list[str], configuration: Optional[str]) -> tuple[list[EvidenceItem], ToolCallRecord]:
+    payload = {"query": query, "market": market, "locations": locations, "configuration": configuration}
+    data, duration_ms, err, cache_hit = await _call_bridge(
+        "/internal/agent-tools/places-search", payload,
+        cache_namespace="places-search", cache_key=f"{market}:{','.join(sorted(locations))}:{configuration or ''}",
+    )
+    evidence = data.get("evidence", [])
+    return evidence, ToolCallRecord(tool="places_search", args=payload,
+                                     status="error" if err and not evidence else "ok", count=len(evidence),
+                                     duration_ms=duration_ms, error=err, cache_hit=cache_hit)
+
+
+# ── places_verify — Part 2's per-candidate name-verification lookup, called
+# from deep_research.py's research_candidates() loop once a candidate's name
+# is finalized (post extract_project_name) — bounded by the SAME
+# MAX_CANDIDATES_FOR_DEEP_RESEARCH budget that loop already has, not a new
+# unbounded pass over every discovered candidate. Returns None (never a
+# fabricated match) whenever Places simply doesn't have this building yet —
+# an expected, common outcome for a genuine pre-launch project, not treated
+# as evidence against it (see normalize.looks_like_invalid_name, the actual
+# gate for a garbage-name extraction, only consulted when this returns None).
+@traceable(name="places_verify", run_type="tool")
+async def places_verify(name: str, locality: Optional[str], city: Optional[str]) -> tuple[Optional[dict], ToolCallRecord]:
+    payload = {"name": name, "locality": locality, "city": city}
+    data, duration_ms, err, cache_hit = await _call_bridge(
+        "/internal/agent-tools/places-verify", payload,
+        cache_namespace="places-verify", cache_key=f"{name.lower()}:{(locality or '').lower()}:{(city or '').lower()}",
+    )
+    found = bool(data.get("found"))
+    return (data.get("place") if found else None), ToolCallRecord(
+        tool="places_verify", args=payload, status="error" if err else "ok",
+        count=1 if found else 0, duration_ms=duration_ms, error=err, cache_hit=cache_hit)
+
+
 # apify-search's own real latency (Node's APIFY_TIMEOUT_MS, 60s default —
 # a genuinely synchronous "run-sync-get-dataset-items" Apify API call, see
 # external-connectors.cjs) is structurally longer than the shared

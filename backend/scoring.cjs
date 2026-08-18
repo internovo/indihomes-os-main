@@ -393,11 +393,41 @@ function isBareLocalityTitle(name) {
 // a real listing's own title) — matches only this exact recurring phrase,
 // unanchored, mirroring agent/agent/normalize.py's PORTAL_SEO_SUFFIX_RE.
 const PORTAL_SEO_SUFFIX_RE = /new\s+projects?\s*(&|and)\s*propert(y|ies)\s+in\s+[A-Z]/i
+// "Projects in <Place>" ANYWHERE in the title — mirrors
+// agent/agent/normalize.py's PROJECTS_IN_PLACE_RE exactly. This side never
+// received that fix when it originally landed on the Python side (the
+// anchored regex below only ever looks at the START of the title, same
+// class of gap the "Page 3 -" fix addressed there). Live-caught on "2BHK in
+// Borivali East": "New Launch Projects in Borivali East, Mumbai" and "Under
+// Construction Projects in Borivali East, Mumbai" (both from 99acres.com)
+// scored PRIMARY/SECONDARY through this fallback pipeline because the
+// anchored check requires "new projects?" etc. to open the title — "New
+// Launch"/"Under Construction" as the actual opening phrase defeated it,
+// exactly like "Page 3 -" once defeated the Python side's anchored check.
+// Deliberately unanchored and generic (doesn't care what lifecycle-status
+// phrase, if any, precedes "Projects in") so it covers the whole family
+// ("Ready to Move Projects in...", "Upcoming Projects in...", "Ongoing
+// Projects in...") without needing a new pattern per phrase.
+const PROJECTS_IN_PLACE_RE = /\bprojects?\s+in\s+[A-Z]/i
+// "Page N - ..." prefix — mirrors agent/agent/normalize.py's
+// PAGINATION_PREFIX_RE/PAGINATION_URL_RE exactly. This was the ONE fix from
+// the Python P0 pass explicitly, deliberately left unmirrored here (per
+// structure.md's "Wiring fix" section: "the correct fix was routing the
+// browser to the already-fixed pipeline, not duplicating the fix into the
+// fallback path too" — the assumption being the agent would always be the
+// one serving real requests). Confirmed live this stayed a real, exploitable
+// gap: a request that silently fell back to this Node pipeline (agent
+// unreachable/timed out — this has now happened multiple times in this same
+// session) let "Page 7 — 2 BHK Flats in Malad West, Mumbai" (99acres.com)
+// score PRIMARY 97% and render as a real project. Relying on "the agent is
+// always up" is not a safe assumption to keep this gap open on.
+const PAGINATION_PREFIX_RE = /^\s*page\s+\d+\b/i
 
 function isAggregatorTitle(name) {
   const n = String(name || '').trim()
   if (!n) return true
   if (isBareLocalityTitle(n)) return true
+  if (PAGINATION_PREFIX_RE.test(n)) return true
   return (
     /\bmap\b|property rates|photos\s*&?\s*video|video tour|: overview|complete guide|how to buy|buying guide|\bguide\b/i.test(n) ||
     // Portal category/search-results-page title patterns: "BHK Flats in X",
@@ -408,7 +438,8 @@ function isAggregatorTitle(name) {
     // Trailing "N+ Properties/Flats/Apartments" count — with or without a
     // following preposition (e.g. "...Borivali East – 16+ Properties").
     /\d+\+?\s*(propert(y|ies)|flats?|apartments?)\s*$/i.test(n) ||
-    PORTAL_SEO_SUFFIX_RE.test(n)
+    PORTAL_SEO_SUFFIX_RE.test(n) ||
+    PROJECTS_IN_PLACE_RE.test(n)
   )
 }
 
@@ -469,11 +500,39 @@ function scoreExternalProject(item = {}, filters = {}) {
     confidence = Math.round(((earned + qualityPts) / (applicable + EXTERNAL_WEIGHTS.quality)) * 100)
   }
   // Same "wrong area caps below Secondary" rule as scoreIndiHomesProject.
-  const [, extLocationPts] = parts
+  const [, extLocationPts, extConfigPts] = parts
   if (filters.locations?.length && extLocationPts === 0) confidence = Math.min(confidence, 55)
+  // Configuration cap — live-caught on "2BHK in Borivali East": two 3 BHK
+  // "New Launch"/"Under Construction" listings (both explicitly saying "3
+  // BHK does not match your 2 BHK request" in their own reasons) still
+  // scored 58% and were labeled PRIMARY/SECONDARY — an exact location match
+  // alone was enough to compensate for an explicitly wrong BHK count. A
+  // configuration the user explicitly asked for is exactly the same kind of
+  // "core requirement" the location cap above already protects (same 55
+  // ceiling — TERTIARY at best, never Primary/Secondary — deliberately not
+  // a full exclusion: the project is still real and in the right place, so
+  // it's shown, just never overstated as a strong match). Applies whenever
+  // configuration was requested and didn't score, same as the location
+  // cap's own "any non-match, known or unknown, gets capped" rule — not
+  // just an explicit mismatch, since "we don't know if it matches" is no
+  // more a strong match than "we know it doesn't."
+  if (filters.configuration || filters.bedrooms != null) {
+    if (bhkOf(filters.configuration, filters.bedrooms) != null && extConfigPts === 0) confidence = Math.min(confidence, 55)
+  }
   confidence = Math.max(0, Math.min(100, confidence))
+  // Real, score-derived tier — mirrors agent/agent/scoring.py's score_property
+  // exactly (same 80/60 PRIMARY/SECONDARY/TERTIARY thresholds, same
+  // uppercase labels). Previously left unset on this (Node fallback) path
+  // entirely, which meant ProjectSelection.jsx's PropertyCard fell back to
+  // pure ARRAY-POSITION labeling (`p.match_tier || rankOf(i).label`) — the
+  // actual mechanism behind "PRIMARY (58%)" and "SECONDARY (58%)" showing
+  // the identical score under different badges: position, not score,
+  // decided the label. Setting a real tier here means that positional
+  // fallback is never reached for this pipeline's results again, for any
+  // query, not just this one.
+  const tier = confidence >= 80 ? 'PRIMARY' : confidence >= 60 ? 'SECONDARY' : 'TERTIARY'
 
-  return { confidence, freshnessLabel: freshnessLabelOf(item), reasons }
+  return { confidence, tier, freshnessLabel: freshnessLabelOf(item), reasons }
 }
 
 // ── Lifecycle / transaction-type classifier (Node fallback path) ───────────
@@ -519,6 +578,46 @@ function looksLikeUnrelatedCommerce(text) {
   const m = UNRELATED_COMMERCE_RE.exec(String(text || ''))
   if (!m) return null
   return String(text).slice(Math.max(0, m.index - 25), Math.min(text.length, m.index + m[0].length + 25)).trim()
+}
+
+// Part 2 of the Places-augmented pipeline — a candidate's name-VALIDITY
+// check, used as the actual gate for a garbage extraction like the live
+// "Security Alert" case (traced to a 99acres page that most plausibly
+// served a bot-detection/interstitial page instead of its real listing
+// content — refetching the identical URL moments later returned entirely
+// different, legitimate content, confirming the page is non-deterministic
+// per-request under repeated automated access). Deliberately a PATTERN
+// FAMILY (portal UI chrome / interstitial / generic-action phrasing), not
+// a hardcoded blocklist of "Security Alert" alone — that would be overfit
+// to one bad example and miss the next differently-worded interstitial.
+// Only used as a gate when Places verification did NOT resolve the name
+// (see placesVerify in external-connectors.cjs) — a real project simply
+// absent from Places must never be rejected on Places-absence alone.
+const INVALID_NAME_RE = /^(security|fraud|scam|safety)\s+(alert|warning|notice)$|\b(click here|view details?|read more|learn more|sign[\s-]?in|log[\s-]?in|log[\s-]?out|register now|book\s+now|enquire\s+now|contact\s+us|about\s+us|terms\s+(and|&)\s+conditions|privacy\s+policy|cookie\s+policy|page\s+not\s+found|access\s+denied|please\s+wait|loading|coming\s+soon|under\s+maintenance|verify\s+you.?re\s+human|are\s+you\s+a\s+robot|session\s+expired)\b/i
+// A bare social-platform name ("Instagram", "Facebook", ...) as the ENTIRE
+// extracted name — mirrors agent/agent/normalize.py's
+// SOCIAL_PLATFORM_BARE_NAME_RE fix exactly. Live-caught: an Instagram-
+// sourced candidate had its NAME come out as the literal string
+// "Instagram" (Instagram serves a generic og:title="Instagram" for
+// logged-out/scraper embed requests instead of the real caption text).
+// Matched as the WHOLE string, not a substring.
+const SOCIAL_PLATFORM_BARE_NAME_RE = /^(instagram|facebook|twitter|x|pinterest|threads|youtube|tiktok|linkedin|snapchat)$/i
+function looksLikeInvalidName(name) {
+  const n = String(name || '').trim()
+  if (!n) return true
+  if (INVALID_NAME_RE.test(n)) return true
+  if (SOCIAL_PLATFORM_BARE_NAME_RE.test(n)) return true
+  // Structural fallback: a very short (<=2 word) name built ENTIRELY from
+  // generic, non-proper-noun UI/status words doesn't read as a real
+  // project name at all — a real project's name always has SOMETHING
+  // distinctive ("Rivali Park", "Chandak Greenairy"); this catches short
+  // generic labels the specific-phrase family above doesn't happen to
+  // name. Deliberately a small, narrow list (not a real dictionary check)
+  // — same discipline as this codebase's other regex-family heuristics.
+  const GENERIC_NAME_WORDS = new Set(['alert', 'notice', 'warning', 'error', 'info', 'details', 'update', 'news', 'status', 'message', 'popup', 'modal', 'banner', 'ad', 'ads', 'advertisement'])
+  const words = n.toLowerCase().split(/\s+/).filter(Boolean)
+  if (words.length <= 2 && words.every(w => GENERIC_NAME_WORDS.has(w))) return true
+  return false
 }
 const UNDER_CONSTRUCTION_RE = /\bunder[\s-]?construction\b|\bwork\s+in\s+progress\b|\bconstruction\s+(is\s+)?ongoing\b/i
 // `new\s+project\s+by` mirrors agent/agent/normalize.py's NEW_LAUNCH_RE fix
@@ -574,4 +673,4 @@ function classifyLifecycleStatus(item = {}) {
 // inventory. Same set as agent/agent/normalize.py's ALLOWED_LIFECYCLE_STATUSES.
 const ALLOWED_LIFECYCLE_STATUSES = new Set(['UNDER_CONSTRUCTION', 'NEAR_POSSESSION', 'NEW_LAUNCH'])
 
-module.exports = { scoreIndiHomesProject, scoreExternalProject, filtersFromBuckets, filtersFromParams, labelFor, isAggregatorTitle, classifyLifecycleStatus, ALLOWED_LIFECYCLE_STATUSES, looksLikeUnrelatedCommerce }
+module.exports = { scoreIndiHomesProject, scoreExternalProject, filtersFromBuckets, filtersFromParams, labelFor, isAggregatorTitle, classifyLifecycleStatus, ALLOWED_LIFECYCLE_STATUSES, looksLikeUnrelatedCommerce, looksLikeInvalidName }

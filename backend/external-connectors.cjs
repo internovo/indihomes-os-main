@@ -22,6 +22,7 @@
 
 const { parseNLQuery, extractBudgetMax, extractConfiguration, extractPossession, extractAmenities } = require('./query-parser.cjs')
 const legacyPortalConnector = require('./legacy-portal-connector.cjs')
+const placesClient = require('./places-client.cjs')
 
 function clean(s = '') { return String(s).replace(/\s+/g, ' ').trim() }
 
@@ -258,6 +259,114 @@ const tavilyConnector = {
   },
 }
 
+// ── Google Places (New) — residential candidate discovery (Part 1 of the
+// Places-augmented pipeline; agent/agent/tools.py's places_search mirrors
+// this exact shape for the LangGraph pipeline, both calling the SAME
+// underlying places-client.cjs). Runs ALONGSIDE the existing discovery
+// connectors above (tavily/google-cse/bing/apify/portal), never replacing
+// any of them.
+//
+// Real scope, disclosed here and in every result this connector produces
+// (never silently treated as "no projects exist" when empty): Google
+// Places indexes real, physically-existing, publicly-listed buildings —
+// strongest for READY-TO-MOVE/completed inventory a developer has already
+// registered with Google Business/Maps. A genuine pre-launch or
+// early-construction project (marketed via Instagram/portal listings
+// before the building physically exists, or before the developer has set
+// up a Places listing for it yet) will often NOT appear here. Absence of a
+// Places result is one signal among several — exactly like every other
+// connector returning zero results — never itself a rejection reason.
+const placesConnector = {
+  id: 'google-places', name: 'Google Places (residential discovery)',
+  // India-only in this pass — the textQuery-based place-name biasing below
+  // was only verified against Indian locality names; not extended to
+  // Dubai/UAE without separate verification.
+  market: ['india'],
+  isConfigured() { return placesClient.isPlacesConfigured() },
+  async search(query, filters = {}, market = 'india') {
+    if (market !== 'india' || !this.isConfigured()) return []
+    const locality = (filters.locations || [])[0] || ''
+    const configuration = filters.configuration || ''
+    // "residential apartment [configuration] near [locality]" — Places Text
+    // Search resolves the locality mention itself; no locationBias circle
+    // here (unlike /api/competing-projects), since discovery has no
+    // already-known project coordinates to search AROUND — that's exactly
+    // what this connector is trying to find in the first place.
+    const textQuery = ['residential apartment', configuration, locality ? `near ${locality}` : ''].filter(Boolean).join(' ').trim()
+    if (!textQuery || textQuery === 'residential apartment') return []
+    const { places } = await placesClient.searchPlacesText(textQuery, { maxResultCount: 20 })
+    const currency = market === 'dubai' ? 'AED' : 'INR'
+    return places.map(p => ({
+      id: p.placeId,
+      market, country: market === 'dubai' ? 'UAE' : 'India', currency,
+      city: null, location: locality || null, community: null,
+      name: clean(p.name), developer: null,
+      // Places doesn't know BHK/price/possession — never fabricated, left
+      // null exactly like any other connector field it can't answer.
+      configuration: null, bedrooms: null,
+      budgetMin: null, budgetMax: null,
+      possessionDate: null, handoverDate: null,
+      propertyType: 'Apartment',
+      sourceName: 'Google Places', sourceUrl: p.mapsUrl, lastSeenAt: new Date().toISOString(),
+      // 'high' — a Places-indexed result is a real, Google-verified
+      // physical building, not a snippet-derived guess.
+      sourceQuality: 'high',
+      description: p.address || '', amenities: [],
+      // Real Places-provided fields (Part 1's own explicit ask) — threaded
+      // through so downstream (Project Intelligence's map) can use these
+      // directly instead of re-geocoding via Nominatim/Google Geocoding
+      // string-matching for these specific candidates.
+      lat: p.lat, lon: p.lon, placeId: p.placeId, formattedAddress: p.address,
+    }))
+  },
+}
+
+// Deterministic name-similarity check (Part 2) — NOT the same fuzzy dedup
+// machinery external-search.cjs's mergeDuplicateProperties uses (that's
+// tuned for project-vs-project matching using locality/developer as a
+// SECOND corroborating signal); this compares an already-extracted
+// candidate name against Places' own displayName with nothing else to
+// cross-check against, so it has to be conservative on its own.
+//
+// Deliberately CONTIGUOUS SUBSTRING containment, not token-set overlap —
+// live-caught a real false positive during this pass: an earlier
+// token-overlap version matched "Security Alert" against "Alert Securitas
+// | Security Guard Services in Mumbai" (an unrelated security-guard
+// COMPANY, not a residential building at all) purely because both share
+// the tokens "security" and "alert" as separate words. Requiring the
+// words to appear ADJACENT, IN ORDER, as one continuous phrase (either
+// direction — the candidate's name inside Places' name, or vice versa)
+// rejects that exact case while still matching the real, common shapes
+// ("Rivali Park" inside "RIVALI PARK"; "CCI Rivali Park Skyleap" inside/
+// around a shorter official "Rivali Park" Places entry).
+function normalizeNameForCompare(s) {
+  return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+}
+function namesLooselyMatch(a, b) {
+  const na = normalizeNameForCompare(a), nb = normalizeNameForCompare(b)
+  if (na.length < 4 || nb.length < 4) return false
+  return na === nb || na.includes(nb) || nb.includes(na)
+}
+
+// Part 2's per-candidate verification lookup — a real Places Text Search
+// for this exact (already name-extracted) candidate's name + locality,
+// checked against the top result via namesLooselyMatch above. Returns null
+// (never a fabricated match) whenever nothing resolves OR the top result
+// doesn't actually look like the same building — a candidate NOT resolving
+// here is NOT itself a rejection (see placesConnector's own scope comment
+// above); it's the trigger for the separate looksLikeInvalidName() name-
+// shape check below, never a hard gate on its own.
+async function placesVerify(name, locality, city) {
+  if (!placesClient.isPlacesConfigured()) return null
+  const textQuery = [name, locality, city].filter(Boolean).join(', ')
+  if (!textQuery) return null
+  const { places } = await placesClient.searchPlacesText(textQuery, { maxResultCount: 3 })
+  if (!places.length) return null
+  const top = places[0]
+  if (!namesLooselyMatch(name, top.name)) return null
+  return top
+}
+
 // ── Stub descriptors — documented adapter shape for future partner APIs.
 // Always unconfigured; exist so the registry/status UI can show "not
 // connected yet" per source instead of pretending these don't exist.
@@ -273,10 +382,10 @@ const stubConnectors = [
   stub('developer-sites', 'Developer Websites', ['india', 'dubai'], 'Needs a per-developer feed/sitemap list to index.'),
 ]
 
-const CONNECTORS = [tavilyConnector, googleCseConnector, bingConnector, apifyConnector, legacyPortalConnector, ...stubConnectors]
+const CONNECTORS = [tavilyConnector, googleCseConnector, bingConnector, apifyConnector, legacyPortalConnector, placesConnector, ...stubConnectors]
 
 function getConnectorStatus() {
   return CONNECTORS.map(c => ({ id: c.id, name: c.name, market: c.market, configured: c.isConfigured(), note: c.note || null }))
 }
 
-module.exports = { CONNECTORS, getConnectorStatus, tavilyConnector, googleCseConnector, bingConnector, apifyConnector, legacyPortalConnector }
+module.exports = { CONNECTORS, getConnectorStatus, tavilyConnector, googleCseConnector, bingConnector, apifyConnector, legacyPortalConnector, placesConnector, placesVerify, namesLooselyMatch }

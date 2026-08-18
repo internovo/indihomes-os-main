@@ -5,7 +5,7 @@
 // in this file — that's the whole point of this rework (brief rule 3).
 
 const azureSearch = require('./azure-search.cjs')
-const { CONNECTORS, getConnectorStatus } = require('./external-connectors.cjs')
+const { CONNECTORS, getConnectorStatus, placesConnector, placesVerify } = require('./external-connectors.cjs')
 const scoring = require('./scoring.cjs')
 const queryParser = require('./query-parser.cjs')
 
@@ -495,7 +495,13 @@ async function queryExternal(query, filters = {}, market = 'india', { skip = 0, 
   // matches agent/agent/curator.py's _retrieval_metrics, which counts
   // deduplicated_properties (also post-expansion), not the raw pre-
   // extraction retrieval count.
-  const retrievalCounts = { total: expandedResults.length, aggregator: 0, resale: 0, rental: 0, unknown: 0 }
+  const retrievalCounts = { total: expandedResults.length, aggregator: 0, resale: 0, rental: 0, unknown: 0, invalidName: 0 }
+  // How many raw candidates this run's discovery pool got specifically from
+  // the new Places connector (Part 1) — tracked regardless of whether they
+  // survive the filter chain below, so the empty-result explanation can
+  // honestly say "Places was also checked" rather than leaving Places'
+  // involvement invisible to whoever reads a zero-result response.
+  const placesContributedCount = expandedResults.filter(d => d.sourceName === 'Google Places').length
   const rawProperties = expandedResults
     // Guide/category/aggregator pages ("Complete Guide: How to Buy...",
     // "14+ Flats for Sale in Liberty Garden") are excluded outright here,
@@ -539,6 +545,29 @@ async function queryExternal(query, filters = {}, market = 'india', { skip = 0, 
       doc._lifecycleStatus = status // stashed for the .map() below, avoids re-classifying
       doc._lifecycleEvidence = evidence
       if (!scoring.ALLOWED_LIFECYCLE_STATUSES.has(status)) {
+        // Places-verified escape hatch — mirrors agent/agent/graph.py's
+        // identical fix exactly. A candidate discovered directly by
+        // placesConnector (doc.lat/doc.lon already set at this point in
+        // the pipeline — see external-connectors.cjs) is a REAL, EXISTING
+        // building Google itself confirmed; Places has no concept of
+        // construction lifecycle at all, so a Places-sourced candidate is
+        // STRUCTURALLY unable to ever satisfy this gate the normal way.
+        // Confirmed live: real Places-verified buildings near a searched
+        // locality were being discarded here purely for lacking
+        // construction-status language no Places listing ever has. Kept
+        // (not rejected) but flagged _unverifiedLifecycle so the .map()
+        // below can cap its score/tier and add an honest reason — same
+        // standard Competitor Analysis already uses for real buildings
+        // with no lifecycle claim attached. Only covers candidates
+        // ALREADY Places-verified at this pipeline stage (i.e. discovered
+        // BY placesConnector) — a candidate that would only be verified by
+        // the separate placesVerify pass LATER in this function isn't
+        // known-real yet here, so it's correctly still rejected at this
+        // point, same as before.
+        if (doc.lat != null && doc.lon != null && (status === 'UNKNOWN' || status === 'READY_TO_MOVE')) {
+          doc._unverifiedLifecycle = true
+          return true
+        }
         if (status === 'RESALE') retrievalCounts.resale++
         else if (status === 'RENTAL') retrievalCounts.rental++
         else retrievalCounts.unknown++ // READY_TO_MOVE + UNKNOWN — neither is an eligible new-project stage
@@ -579,7 +608,7 @@ async function queryExternal(query, filters = {}, market = 'india', { skip = 0, 
       // differently-matching listings no longer land on the same flat
       // score. `filters` here is this function's own parsed-query argument,
       // already in scope.
-      const { confidence, freshnessLabel, reasons } = scoring.scoreExternalProject(doc, filters)
+      const { confidence, tier, freshnessLabel, reasons } = scoring.scoreExternalProject(doc, filters)
       const extractedRera = extractReraFromText(doc.name, doc.description)
       // Extracted straight from this same result's own text — no extra web
       // request, no LLM call (see extractPropertyFacts' header comment).
@@ -590,7 +619,18 @@ async function queryExternal(query, filters = {}, market = 'india', { skip = 0, 
       // score dimension) so "Matches: 2 BHK · Liberty Garden · deck" is
       // possible without changing the underlying confidence weighting.
       const matchedAmenities = (filters.amenities || []).filter(a => (doc.amenities || []).some(x => String(x).toLowerCase().includes(String(a).toLowerCase())))
-      const allReasons = matchedAmenities.length ? [...reasons, `${matchedAmenities.join(', ')} available`] : reasons
+      let allReasons = matchedAmenities.length ? [...reasons, `${matchedAmenities.join(', ')} available`] : reasons
+      // Places-verified-but-lifecycle-unconfirmed candidates (see the
+      // filter step above) get the same 55-point ceiling this codebase
+      // already uses for a wrong-location/aggregator-page result — real,
+      // but never claimed as a strong confirmed match.
+      let finalConfidence = confidence
+      let finalTier = tier
+      if (doc._unverifiedLifecycle) {
+        finalConfidence = Math.min(confidence, 55)
+        finalTier = finalConfidence >= 40 ? 'TERTIARY' : 'LOW_MATCH'
+        allReasons = [...allReasons, 'Real building confirmed via Google Places near your search — new-launch/construction status could not be independently verified']
+      }
       const propertyResult = {
         id: buildCanonicalCandidateId({ rera: extractedRera, name: doc.name, location: doc.location || doc.community || doc.city, sourceUrl: doc.sourceUrl }),
         name: doc.name, developer: doc.developer, location: doc.location || doc.community || doc.city,
@@ -610,9 +650,24 @@ async function queryExternal(query, filters = {}, market = 'india', { skip = 0, 
         description: doc.description || null,
         sourceName: doc.sourceName, sourceUrl: doc.sourceUrl, lastSeenAt: doc.lastSeenAt,
         sourceQuality: doc.sourceQuality, sources: doc.sourceUrl ? [{ url: doc.sourceUrl, name: doc.sourceName }] : [],
-        confidence, freshnessLabel,
-        match_score: confidence,
-        why: allReasons.length ? `${allReasons.join(' · ')} · ${freshnessLabel}` : `${confidence}% source confidence · ${freshnessLabel}`,
+        // Real Places-provided coordinates (Part 1/38) — present only when
+        // THIS candidate was itself discovered by placesConnector (doc.lat/
+        // lon are set only there, see external-connectors.cjs). Trivially
+        // verified — it came FROM Places itself — so the Part 2 pass below
+        // skips re-verifying it (no redundant second Places call for the
+        // same candidate).
+        ...(doc.lat != null && doc.lon != null ? {
+          placesVerified: true, placesLat: doc.lat, placesLon: doc.lon,
+          placesPlaceId: doc.placeId, placesAddress: doc.formattedAddress,
+        } : {}),
+        confidence: finalConfidence, freshnessLabel,
+        match_score: finalConfidence,
+        // Real, score-derived tier (Part 32) — previously unset on this
+        // path, which left ProjectSelection.jsx's PropertyCard falling back
+        // to pure array-position labeling for every Node-fallback result.
+        // See scoreExternalProject's own comment in scoring.cjs.
+        match_tier: finalTier,
+        why: allReasons.length ? `${allReasons.join(' · ')} · ${freshnessLabel}` : `${finalConfidence}% source confidence · ${freshnessLabel}`,
         matchReason: allReasons.join(' · ') || null,
         // "External market listing" — distinguishes this from an official
         // IndiHomes-catalog project everywhere the frontend needs to (see
@@ -642,6 +697,52 @@ async function queryExternal(query, filters = {}, market = 'india', { skip = 0, 
   // market with no strong matches).
   const filteredByFloor = properties.filter(p => p.match_score >= 15)
   if (filteredByFloor.length) properties = filteredByFloor
+
+  // ── Part 2 (Places-augmented pipeline) — per-candidate name verification.
+  // Bounded to the candidates that already survived every gate above (real,
+  // eligible-looking, geography-matched) — not the raw discovery pool —
+  // same cost-control principle as the Python pipeline's bounded deep-
+  // research budget (5 candidates there; 8 here, matching the existing
+  // "top 8" convention /api/competing-projects already uses). This pipeline
+  // has no separate "name finalization" step the way the LangGraph
+  // pipeline's fact_extraction.extract_project_name does — every Node
+  // candidate's name comes straight from its connector snippet, so
+  // verification runs as soon as a candidate is otherwise final.
+  //
+  // A Places match is a POSITIVE signal only (places_verified: true, real
+  // coordinates attached) — never itself required. A candidate that does
+  // NOT resolve is NOT rejected on that alone (many legitimate new-launch
+  // projects genuinely aren't in Places yet, per placesConnector's own
+  // scope comment) — only when it ALSO fails looksLikeInvalidName() (a
+  // name-SHAPE check, independent of Places) is it actually dropped, with
+  // an honest reason recorded, matching the live "Security Alert" case
+  // this was built to catch.
+  const PLACES_VERIFY_MAX = 8
+  if (placesConnector.isConfigured() && properties.length) {
+    // Skip a candidate ALREADY placesVerified===true (it was itself
+    // discovered by placesConnector — see the .map() above) — no
+    // redundant second Places call for the same candidate.
+    const toVerify = properties.filter(p => p.placesVerified !== true).slice(0, PLACES_VERIFY_MAX)
+    const verifyResults = await Promise.allSettled(toVerify.map(p => placesVerify(p.name, p.location, p.city)))
+    const rejectedIds = new Set()
+    verifyResults.forEach((r, i) => {
+      const p = toVerify[i]
+      const match = r.status === 'fulfilled' ? r.value : null
+      if (match) {
+        p.placesVerified = true
+        p.placesLat = match.lat; p.placesLon = match.lon; p.placesPlaceId = match.placeId; p.placesAddress = match.address
+      } else {
+        p.placesVerified = false
+        if (scoring.looksLikeInvalidName(p.name)) {
+          rejectedIds.add(p.id)
+          retrievalCounts.invalidName++
+          if (isDebugTraceEnabled()) rejectedForDebug.push({ name: p.name, reason: 'Could not verify this is a real project name' })
+        }
+      }
+    })
+    if (rejectedIds.size) properties = properties.filter(p => !rejectedIds.has(p.id))
+  }
+
   // Never silently swallow a connector failure — when every connector that
   // ran this query failed, say exactly why (and what to configure instead)
   // rather than handing back an empty result with no explanation.
@@ -662,8 +763,17 @@ async function queryExternal(query, filters = {}, market = 'india', { skip = 0, 
     const rr = retrievalCounts.resale + retrievalCounts.rental
     if (rr) bits.push(`${rr} were resale/rental listings`)
     if (retrievalCounts.unknown) bits.push(`${retrievalCounts.unknown} had a lifecycle stage that couldn't be confidently verified`)
+    if (retrievalCounts.invalidName) bits.push(`${retrievalCounts.invalidName} had a name that could not be verified as a real project`)
     const breakdown = bits.length > 1 ? `${bits.slice(0, -1).join(', ')}, and ${bits[bits.length - 1]}` : (bits[0] || 'None matched the active new-project search policy')
-    message = `No verified new residential projects found. ${retrievalCounts.total} candidate${retrievalCounts.total !== 1 ? 's' : ''} were reviewed. ${breakdown}.`
+    // Part 1's explicit transparency requirement — a zero-result response
+    // must say whether Google Places was ALSO checked (and found nothing),
+    // not leave that connector's involvement invisible. Only mentioned when
+    // Places is actually configured; silent when it isn't (same "never
+    // claim a check that didn't happen" rule as connectorErrors above).
+    const placesNote = placesConnector.isConfigured()
+      ? ` Google Places was also checked (${placesContributedCount} additional candidate${placesContributedCount !== 1 ? 's' : ''} found${placesContributedCount ? ', none eligible' : ''}).`
+      : ''
+    message = `No verified new residential projects found. ${retrievalCounts.total} candidate${retrievalCounts.total !== 1 ? 's' : ''} were reviewed. ${breakdown}.${placesNote}`
   }
   const response = { configured: true, enabled: true, market, properties, total: result.total, facets: result.facets, connectorErrors, message }
   // Dev-only debug trace (Part 27) — same server-side-only gate as the
@@ -683,8 +793,15 @@ async function queryExternal(query, filters = {}, market = 'india', { skip = 0, 
         resale_candidates: retrievalCounts.resale,
         rental_candidates: retrievalCounts.rental,
         unknown_candidates: retrievalCounts.unknown,
+        invalid_name_candidates: retrievalCounts.invalidName,
         eligible_candidates: properties.length,
         rejected_candidates: rejectedForDebug.length,
+        // Places-augmented pipeline (Part 1/38) — how many raw candidates
+        // came specifically from the new Google Places connector, real
+        // regardless of whether Places is even configured (0 either way
+        // when it isn't) — never inferred, always a genuine count.
+        places_configured: placesConnector.isConfigured(),
+        places_contributed_candidates: placesContributedCount,
       },
     }
   }

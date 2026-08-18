@@ -48,10 +48,25 @@ MAX_TARGETED_SEARCHES_PER_ITERATION = int(os.getenv("AI_SEARCH_MAX_TARGETED_SEAR
 # candidate's already-known source URLs to actually spend a fetch on.
 _SOURCE_PRIORITY = {"official": 0, "developer": 1, "portal": 2, "web": 3, "category_page_extract": 4}
 
+# A Google Maps place-detail "cid" link (https://maps.google.com/?cid=...) is
+# a REDIRECT into Google's own app, not a fetchable content page — there is
+# no HTML for fact_extraction to read on the other end of it. Confirmed live
+# (LangSmith trace, 2026-08-18): two separate fetch_page attempts on cid
+# URLs took 17.2s and 15.8s before failing with ReadTimeout — nearly the
+# entire per-candidate fetch budget spent on a URL that could never have
+# returned useful content even on success. Places-sourced candidates already
+# carry everything Places itself knows (name/address/lat/lon, set directly
+# in normalize.py) — there's nothing this fetch could add, only cost.
+# Excluded from source-URL selection entirely; a candidate whose ONLY known
+# source is a cid link simply gets zero fetches, same as a candidate with no
+# sources at all, rather than wasting a fetch attempt on it.
+def _is_unfetchable_url(url: str) -> bool:
+    return "maps.google.com/?cid=" in url or "maps.google.com/place?cid=" in url
+
 
 def _prioritized_source_urls(prop: NormalizedProperty, limit: int, already_fetched: set[str]) -> list[tuple[str, str]]:
     sources = prop.get("sources") or []
-    candidates = [s for s in sources if s.get("url") and s["url"] not in already_fetched]
+    candidates = [s for s in sources if s.get("url") and s["url"] not in already_fetched and not _is_unfetchable_url(s["url"])]
     candidates.sort(key=lambda s: _SOURCE_PRIORITY.get(s.get("source_type"), 4))
     seen: set[str] = set()
     out: list[tuple[str, str]] = []
@@ -122,14 +137,49 @@ async def research_candidates(
     for prop in candidates[:max_candidates]:
         name = prop.get("name", "")
         urls = _prioritized_source_urls(prop, max_fetches_per_candidate, already_fetched)
-        if not urls:
-            continue
-        pages, facts, features, tool_calls = await _fetch_and_extract(name, urls, candidate_id=prop.get("id"))
-        already_fetched.update(u for u, _ in urls)
-        all_tool_calls.extend(tool_calls)
-        all_pages.extend(pages)
-        all_facts.extend(facts)
-        updated.append(dedupe_mod.merge_extracted_facts(prop, facts, features))
+        current = prop
+        if urls:
+            pages, facts, features, tool_calls = await _fetch_and_extract(name, urls, candidate_id=prop.get("id"))
+            already_fetched.update(u for u, _ in urls)
+            all_tool_calls.extend(tool_calls)
+            all_pages.extend(pages)
+            all_facts.extend(facts)
+            current = dedupe_mod.merge_extracted_facts(prop, facts, features)
+
+        # Part 2 (Places-augmented pipeline) — per-candidate name
+        # verification, on EVERY candidate reaching this bounded loop
+        # regardless of source or whether a page was even fetchable (a
+        # candidate's name can already be final even with no fetchable
+        # URL). Skipped whenever a verification attempt was ALREADY made —
+        # `places_verified` already present as True (discovered by
+        # places_search itself, or a prior iteration's lookup resolved it)
+        # OR False (a prior iteration already tried and found nothing) —
+        # `is None` (the key genuinely never set) is the only case that
+        # still runs it. This loop can re-enter across the gap-driven
+        # research iterations (Part 3/12); without this, a candidate
+        # already checked in iteration 1 was being re-verified — a real,
+        # observed, wasteful duplicate call live-caught during this pass —
+        # every iteration, burning real Places API quota for a result
+        # already known. A candidate that does NOT resolve is NOT itself
+        # rejected (see places_verify's own scope comment) — only graph.py's
+        # hard-eligibility filter's separate looks_like_invalid_name()
+        # check, consulted ONLY when this is False, actually gates anything.
+        if current.get("places_verified") is None:
+            locality = current.get("micro_location") or current.get("location")
+            city = current.get("city")
+            match, verify_record = await tools_mod.places_verify(current.get("name", ""), locality, city)
+            all_tool_calls.append(verify_record)
+            current = dict(current)
+            if match:
+                current["places_verified"] = True
+                current["places_lat"] = match.get("lat")
+                current["places_lon"] = match.get("lon")
+                current["places_place_id"] = match.get("placeId")
+                current["places_address"] = match.get("address")
+            else:
+                current["places_verified"] = False
+
+        updated.append(current)
 
     return updated, all_tool_calls, all_pages, all_facts
 

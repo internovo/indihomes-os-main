@@ -15,12 +15,13 @@ needed).
 """
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from agent.normalize import classify_lifecycle_status, normalize_all, ALLOWED_LIFECYCLE_STATUSES, reclassify_lifecycle_from_enriched_evidence, looks_like_unrelated_commerce, classify_page_type, is_aggregator_title
+from agent.normalize import classify_lifecycle_status, normalize_all, ALLOWED_LIFECYCLE_STATUSES, reclassify_lifecycle_from_enriched_evidence, looks_like_unrelated_commerce, classify_page_type, is_aggregator_title, looks_like_invalid_name
 from agent.dedupe import dedupe, merge_extracted_facts
 from agent.scoring import score_all
 from agent.graph import _apply_hard_eligibility_filter, _location_terms, _matches_searched_location, _prioritize_for_deep_research
@@ -150,6 +151,23 @@ noise_evidence = {
 check("Instagram noise with NO extracted developer signal is still rejected as SOCIAL_POST",
       classify_page_type(noise_evidence) == "SOCIAL_POST")
 check("...and correctly flagged an aggregator/non-candidate", is_aggregator_title(noise_evidence) is True)
+
+# Regression: live-caught on "2BHK in Borivali East" — two 99acres.com
+# titles prefixing PROJECTS_IN_PLACE_RE's "Projects in <Place>" shape with a
+# LIFECYCLE-STATUS phrase ("New Launch"/"Under Construction") rather than
+# the previously-seen pagination/generic-noun prefixes. Confirmed already
+# correctly rejected on THIS (Python) side — PROJECTS_IN_PLACE_RE is
+# unanchored and doesn't care what precedes "Projects in", unlike the
+# equivalent check on the Node fallback side, which WAS still anchored (see
+# backend/tests/test_lifecycle_and_eligibility.cjs for that actual fix).
+# Locked in here as an explicit regression guard using the exact live
+# strings, not a paraphrase.
+for lifecycle_prefixed_title in (
+    "New Launch Projects in Borivali East, Mumbai",
+    "Under Construction Projects in Borivali East, Mumbai",
+):
+    ev = {"title": lifecycle_prefixed_title, "description": "", "source_url": "https://www.99acres.com/x", "source_type": "web"}
+    check(f"'{lifecycle_prefixed_title}' -> CATEGORY_PAGE (lifecycle-phrase-prefixed 'Projects in')", classify_page_type(ev) == "CATEGORY_PAGE")
 
 # Possession-year fallback (no phrase-level marker, but a real extracted year)
 import datetime
@@ -419,6 +437,23 @@ check("geography gate NOT enforced on the first pass (deep research hasn't had i
 no_location_query = _apply_hard_eligibility_filter([wrong_country_candidate], final=True, location_terms=[])
 check("a query with NO resolvable location skips this gate entirely (nothing to check against)", len(no_location_query[0]) == 1)
 
+# Regression: a real broken edit found this exact function referencing
+# `state.get("micro_locations")` with no `state` parameter on the function
+# signature at all (NameError at runtime) — only exercised when a
+# candidate's own structured `city` field disagrees with the query's
+# resolved city (CONFIRMED wrong location, the early-reject branch), which
+# no existing test above reached (wrong_country_candidate carries no `city`
+# field). Also confirms this confirmed-wrong-city rejection fires on BOTH
+# passes (unlike the ambiguous-location deferral above), and that omitting
+# `state` entirely degrades gracefully rather than crashing.
+wrong_city_candidate = {"id": "pune1", "name": "Some Pune Project", "location": "Pune", "city": "pune", "description": "", "is_aggregator": False, "lifecycle_status": "NEAR_POSSESSION", "match_score": 60, "configuration": [], "sources": []}
+wrong_city_ranked_final, wrong_city_rejected_final = _apply_hard_eligibility_filter([wrong_city_candidate], final=True, location_terms=geo_terms, state=geo_state)
+check("a CONFIRMED wrong-city candidate (structured city field, not just text) is rejected on the final pass", len(wrong_city_ranked_final) == 0 and len(wrong_city_rejected_final) == 1)
+wrong_city_ranked_first, wrong_city_rejected_first = _apply_hard_eligibility_filter([wrong_city_candidate], final=False, location_terms=geo_terms, state=geo_state)
+check("...and ALSO on the first pass — a confirmed wrong city is never deferred, only genuinely ambiguous location is", len(wrong_city_ranked_first) == 0 and len(wrong_city_rejected_first) == 1)
+no_state_ranked, _ = _apply_hard_eligibility_filter([wrong_city_candidate], final=True, location_terms=geo_terms)
+check("omitting `state` entirely degrades gracefully (treated as no resolved-city signal) rather than crashing", len(no_state_ranked) == 0)
+
 # ── Follow-up: deep-research verification budget is spent on UNDETERMINED
 # candidates FIRST, not blind top-N-by-score (the real mechanism behind a
 # live false-negative where a genuine under-construction project reached
@@ -460,6 +495,64 @@ check("empty-result explanation mentions the real reviewed count", "6 candidate"
 check("empty-result explanation mentions category pages when present", "category" in empty_explanation.lower())
 check("empty-result explanation mentions resale/rental when present", "resale/rental" in empty_explanation)
 check("empty-result explanation never fabricates a breakdown with zero real candidates", _empty_result_explanation({"deduplicated_properties": [], "debug_rejected_candidates": []}) == "No verified new residential projects found — the sources searched returned nothing for this query.")
+
+# Places transparency (Part 1's explicit test-plan requirement) — a
+# zero-result explanation must say Places was ALSO checked (and how many
+# candidates it contributed), not leave that connector invisible. Manages
+# the real env var directly (save/restore) rather than mocking, matching
+# this suite's existing "no mocking framework" convention — _retrieval_
+# metrics reads GOOGLE_PLACES_API_KEY from the real environment on
+# purpose, mirroring backend/scoring.cjs's identical live-env check.
+_orig_places_key = os.environ.get("GOOGLE_PLACES_API_KEY")
+os.environ["GOOGLE_PLACES_API_KEY"] = "test-key-for-places-transparency-check"
+places_note_state = {
+    "original_query": "4bhk in nowhere",
+    "deduplicated_properties": [{"is_aggregator": True, "lifecycle_status": None}],
+    "debug_rejected_candidates": [{"name": "x", "reason": "r"}],
+    "raw_evidence": [{"source": "Google Places"}, {"source": "Google Places"}, {"source": "tavily"}],
+}
+places_explanation = _empty_result_explanation(places_note_state)
+if _orig_places_key is None:
+    del os.environ["GOOGLE_PLACES_API_KEY"]
+else:
+    os.environ["GOOGLE_PLACES_API_KEY"] = _orig_places_key
+check("empty-result explanation mentions Google Places was checked, with the real contributed count", "Google Places was also checked (2 additional candidate" in places_explanation)
+
+# ── Places-augmented pipeline (Part 1/2/38) ──────────────────────────────
+# looks_like_invalid_name() — real live examples from this investigation,
+# not synthetic ones. "Security Alert" is the real candidate name live-
+# observed for query "2bhk in borivali east" (traced to a 99acres page that
+# most plausibly served a bot-detection/interstitial page instead of its
+# real listing content). "Pastonji Bliss Tower" and "Rivali Park" are real
+# project names from earlier live investigations in this same codebase.
+check("live 'Security Alert' garbage extraction -> looks invalid", looks_like_invalid_name("Security Alert"))
+check("real project 'Rivali Park' -> does NOT look invalid", not looks_like_invalid_name("Rivali Park"))
+check("real project 'Pastonji Bliss Tower' -> does NOT look invalid", not looks_like_invalid_name("Pastonji Bliss Tower"))
+check("real project 'CCI Rivali Park Skyleap' -> does NOT look invalid", not looks_like_invalid_name("CCI Rivali Park Skyleap"))
+check("generic UI chrome 'Click Here' -> looks invalid", looks_like_invalid_name("Click Here"))
+check("generic UI chrome 'View Details' -> looks invalid", looks_like_invalid_name("View Details"))
+check("empty name -> looks invalid", looks_like_invalid_name(""))
+
+# _apply_hard_eligibility_filter's combined Places-verification +
+# invalid-name gate (graph.py) — three real scenarios per the test plan:
+# resolves cleanly (kept, never even reaches the name-shape check),
+# doesn't resolve but has a plausible name (kept — Places absence alone is
+# never a rejection), doesn't resolve AND fails the name-shape check
+# (rejected, with the exact honest reason the live case was built to
+# produce).
+places_resolved = {"id": "riv1", "name": "Rivali Park", "location": "Borivali East", "city": "mumbai", "description": "", "is_aggregator": False, "lifecycle_status": "UNDER_CONSTRUCTION", "match_score": 90, "configuration": [], "sources": [], "places_verified": True}
+places_unresolved_plausible = {"id": "past1", "name": "Pastonji Bliss Tower", "location": "Dahisar West", "city": "mumbai", "description": "", "is_aggregator": False, "lifecycle_status": "NEW_LAUNCH", "match_score": 70, "configuration": [], "sources": [], "places_verified": False}
+places_unresolved_invalid = {"id": "sec1", "name": "Security Alert", "location": "Borivali East", "city": "mumbai", "description": "", "is_aggregator": False, "lifecycle_status": "UNDER_CONSTRUCTION", "match_score": 80, "configuration": [], "sources": [], "places_verified": False}
+places_never_checked = {"id": "chk1", "name": "Security Alert", "location": "Borivali East", "city": "mumbai", "description": "", "is_aggregator": False, "lifecycle_status": "UNDER_CONSTRUCTION", "match_score": 80, "configuration": [], "sources": []}  # no places_verified key at all — Places never even attempted (e.g. not configured)
+places_ranked, places_rejected = _apply_hard_eligibility_filter(
+    [places_resolved, places_unresolved_plausible, places_unresolved_invalid, places_never_checked], final=True,
+)
+places_kept_ids = {p["id"] for p in places_ranked}
+check("Places-resolved candidate ('Rivali Park') is kept", "riv1" in places_kept_ids)
+check("Places-unresolved but plausible-name candidate ('Pastonji Bliss Tower') is kept — Places absence alone is never a rejection", "past1" in places_kept_ids)
+check("Places-unresolved AND invalid-shaped name ('Security Alert') is REJECTED", "sec1" not in places_kept_ids)
+check("...with the exact honest reason", any(r["name"] in ("sec1", "Security Alert") and r["reason"] == "Could not verify this is a real project name" for r in places_rejected))
+check("a candidate where Places was NEVER even attempted (key absent, not False) is kept regardless of name shape — None must not be treated as a confirmed non-match", "chk1" in places_kept_ids)
 
 print()
 if failures:

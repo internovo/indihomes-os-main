@@ -30,6 +30,7 @@ const agentToolsBridge = require('./agent-tools-bridge.cjs')
 const redisCache = require('./redis-cache.cjs')
 const leadEvents = require('./lead-events.cjs')
 const qualification = require('./qualification.cjs')
+const placesClient = require('./places-client.cjs')
 
 // ── Cache ─────────────────────────────────────────────────────────────────────
 const cache = { projects:[], lastRun:null, nextRun:null, status:'idle', step:'Waiting...', totalFound:0, sources:[], errors:[] }
@@ -2051,6 +2052,14 @@ function adaptAgentProperty(p) {
     // Deterministic lifecycle classification (Part 2/20-22) — passed
     // through untouched from curator.py's final_response.properties.
     lifecycleStatus: p.lifecycleStatus || null, lifecycleEvidence: p.lifecycleEvidence || null,
+    // Google Places-derived fields (Part 1/2/38) — passed through untouched
+    // from curator.py's final_response.properties; real coordinates/place
+    // ID Google itself resolved, so Project Intelligence's map can use
+    // these directly instead of falling back to Nominatim/Google
+    // Geocoding string-matching. placesVerified stays undefined (not
+    // coerced to null/false) when the agent never set the key at all.
+    placesVerified: p.placesVerified, placesLat: p.placesLat ?? null, placesLon: p.placesLon ?? null,
+    placesPlaceId: p.placesPlaceId ?? null, placesAddress: p.placesAddress ?? null,
   }
 }
 
@@ -3235,24 +3244,8 @@ app.get('/api/nearby-places', async (req, res) => {
 // real Google Maps link — same "never fabricate" standard as Nearby
 // Infrastructure's OpenStreetMap data. No results / no key configured both
 // return an honest empty state, never a guessed competitor.
-const GOOGLE_PLACES_KEY = process.env.GOOGLE_PLACES_API_KEY || process.env.VITE_GOOGLE_MAPS_KEY || ''
-function competitorSearchConfigured() { return !!GOOGLE_PLACES_KEY }
+function competitorSearchConfigured() { return placesClient.isPlacesConfigured() }
 const competitorsCache = new Map()
-
-// Google Places (New) place `types` that are never a residential project,
-// even when the text query biases toward one — a shop, restaurant, school,
-// hospital, or office can still show up in a "residential apartment
-// project" text search purely on proximity/text overlap. Deterministic
-// post-filter (Part 16's explicit exclude list), not an LLM judgment call.
-const NON_RESIDENTIAL_PLACE_TYPES = new Set([
-  'school', 'primary_school', 'secondary_school', 'university',
-  'hospital', 'doctor', 'dentist', 'pharmacy',
-  'restaurant', 'cafe', 'bar', 'meal_takeaway', 'meal_delivery',
-  'store', 'shopping_mall', 'supermarket', 'clothing_store', 'furniture_store',
-  'office', 'corporate_office', 'real_estate_agency',
-  'bank', 'atm', 'gym', 'beauty_salon', 'car_repair', 'car_dealer',
-  'lodging', 'hotel', 'tourist_attraction', 'place_of_worship',
-])
 
 app.get('/api/competing-projects', async (req, res) => {
   const lat = parseFloat(req.query.lat), lon = parseFloat(req.query.lon)
@@ -3270,54 +3263,18 @@ app.get('/api/competing-projects', async (req, res) => {
     return res.json({ configured: true, competitors: cached.competitors.filter(c => c.name.toLowerCase() !== excludeName) })
   }
   try {
-    const resp = await fetch('https://places.googleapis.com/v1/places:searchText', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Goog-Api-Key': GOOGLE_PLACES_KEY,
-        'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location,places.googleMapsUri,places.types',
-      },
-      body: JSON.stringify({
-        textQuery: 'residential apartment project',
-        locationBias: { circle: { center: { latitude: lat, longitude: lon }, radius: radiusKm * 1000 } },
-        maxResultCount: 20,
-      }),
-      signal: AbortSignal.timeout(10000),
-    })
-    if (!resp.ok) {
-      const bodyText = await resp.text().catch(() => '')
-      // Google's error body carries the ACTUAL actionable reason in
-      // details[].reason (e.g. API_KEY_SERVICE_BLOCKED — the key's own
-      // "API restrictions" allowlist in Cloud Console doesn't include
-      // Places API (New); API_KEY_API_NOT_ENABLED — the API itself isn't
-      // enabled on the project; SERVICE_DISABLED — same, different
-      // phrasing) — surfacing it directly here rather than the truncated
-      // top-level message alone turns "PERMISSION_DENIED" (which fires
-      // for at least 3 genuinely different root causes) into an actual
-      // diagnosis. Confirmed live 2026-08-18: this project's key returns
-      // API_KEY_SERVICE_BLOCKED specifically — a Google Cloud Console
-      // "API restrictions" setting, not a billing or API-enablement
-      // issue; the request format itself is already correct (verified by
-      // reproducing the identical error with an out-of-band request using
-      // the exact same body/headers).
-      let reason = null
-      try {
-        const parsed = JSON.parse(bodyText)
-        reason = parsed?.error?.details?.find(d => d.reason)?.reason || null
-      } catch (_) { /* non-JSON error body — fall through with reason=null */ }
-      throw new Error(`Google Places ${resp.status}${reason ? ` (${reason})` : ''}: ${bodyText.slice(0, 300)}`)
-    }
-    const data = await resp.json()
-    const competitors = (data.places || [])
-      .filter(p => p.displayName?.text && p.location)
-      // Exclude anything Google itself typed as non-residential (Part 16) —
-      // real signal from the API's own classification, not a guess.
-      .filter(p => !(p.types || []).some(t => NON_RESIDENTIAL_PLACE_TYPES.has(t)))
+    // Shared client (places-client.cjs, Part 33/38) — same endpoint/auth/
+    // residential-type-filter the new Places discovery/verification
+    // connector (external-connectors.cjs) also uses; this route's own
+    // distance-filter/cache/8-result-cap stay here since they're specific
+    // to "competitors around an already-known project."
+    const { places } = await placesClient.searchPlacesText('residential apartment project', { lat, lon, radiusKm, maxResultCount: 20 })
+    const competitors = places
       .map(p => ({
-        name: p.displayName.text,
-        address: p.formattedAddress || null,
-        distanceKm: Math.round(haversineKm(lat, lon, p.location.latitude, p.location.longitude) * 10) / 10,
-        mapsUrl: p.googleMapsUri || `https://www.google.com/maps/place/?q=place_id:${p.id}`,
+        name: p.name,
+        address: p.address,
+        distanceKm: Math.round(haversineKm(lat, lon, p.lat, p.lon) * 10) / 10,
+        mapsUrl: p.mapsUrl,
       }))
       .filter(c => c.distanceKm <= radiusKm)
       .sort((a, b) => a.distanceKm - b.distanceKm || a.name.localeCompare(b.name))

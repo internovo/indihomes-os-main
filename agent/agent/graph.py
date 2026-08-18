@@ -6,7 +6,7 @@ single monolithic prompt.
 
     START
       -> query_understanding -> location_resolution -> research_planner
-      -> {tavily_search, web_search, apify_search, portal_search, developer_search}  (fan-out, DISCOVERY)
+      -> {tavily_search, web_search, apify_search, portal_search, developer_search, places_search}  (fan-out, DISCOVERY)
       -> evidence_normalizer -> deduplicator -> candidate_verifier
       -> candidate_scorer -> deep_research (DEEP PAGE RESEARCH, fetch_page + fact extraction)
       -> research_gap_checker (per-candidate, per-field: missing/weak/conflicting)
@@ -229,6 +229,21 @@ async def node_developer_search(state: ResearchState) -> dict:
     return {"raw_evidence": evidence, "tool_calls": [record]}
 
 
+async def node_places_search(state: ResearchState) -> dict:
+    if "places_search" not in state.get("search_plan", []):
+        return {}
+    if state.get("bridge_unavailable"):
+        return _bridge_skip_record("places_search")
+    parsed = state.get("parsed_requirements", {})
+    evidence, record = await tools_mod.places_search(
+        _search_query_text(state), state.get("market", "india"),
+        state.get("locations", []),
+        (parsed.get("configurations") or [None])[0],
+        langsmith_extra={"metadata": {"stage": "discovery", "market": state.get("market", "india")}, "tags": ["discovery"]},
+    )
+    return {"raw_evidence": evidence, "tool_calls": [record]}
+
+
 # ── Candidate identification (normalize -> dedupe) ──────────────────────────
 
 async def node_evidence_normalizer(state: ResearchState) -> dict:
@@ -316,7 +331,7 @@ def _matches_searched_location(prop: dict, location_terms: list[str]) -> bool:
     return any(term.lower() in text for term in location_terms)
 
 
-def _apply_hard_eligibility_filter(scored: list, final: bool = False, location_terms: list[str] | None = None) -> tuple[list, list]:
+def _apply_hard_eligibility_filter(scored: list, final: bool = False, location_terms: list[str] | None = None, state: "ResearchState | None" = None) -> tuple[list, list]:
     accepted, rejected = [], []
     for p in scored:
         if p.get("is_aggregator"):
@@ -347,6 +362,46 @@ def _apply_hard_eligibility_filter(scored: list, final: bool = False, location_t
                 # make the actual accept/reject call once that's happened.
                 accepted.append(p)
                 continue
+            # Places-verified escape hatch — the architectural change this
+            # comment documents: a candidate Google Places itself confirmed
+            # is a REAL, EXISTING building (places_verified is True, real
+            # lat/lon/place_id attached) should not be thrown away purely
+            # because nothing in its text ever stated a construction status
+            # — Places doesn't track that at all, so a real building found
+            # via Places is STRUCTURALLY unable to ever satisfy this gate the
+            # normal way. Confirmed live: a real search returned candidates
+            # correctly rejected here despite Places independently verifying
+            # them as genuine buildings in the searched area. Rather than
+            # keep silently discarding real, verified inventory, this now
+            # ACCEPTS a Places-verified candidate whose lifecycle status
+            # simply couldn't be determined — but marks it
+            # `_unverified_lifecycle=True` so scoring.py caps its tier and
+            # the frontend renders it as "real building, launch status not
+            # confirmed" rather than claiming it's a verified new-launch
+            # project. This is exactly the same honesty standard Competitor
+            # Analysis already uses (real buildings, no lifecycle claim at
+            # all) — not a relaxation of what "confirmed new-launch" means
+            # for every OTHER candidate, which keeps the existing strict
+            # rule unchanged.
+            if p.get("places_verified") is True:
+                p = dict(p)
+                p["_unverified_lifecycle"] = True
+                # Cap here, not in scoring.py — score_all() already ran
+                # before this filter (node_final_scoring's own order), so
+                # this is the first point that KNOWS the candidate is
+                # Places-verified-but-lifecycle-unconfirmed. Never claim
+                # PRIMARY/SECONDARY ("strongly matches") for a building
+                # whose construction status is honestly unknown — same 55
+                # ceiling this codebase already uses for a wrong-location or
+                # aggregator-page result, for the same reason: real, but not
+                # a strong confirmed match.
+                p["match_score"] = min(p.get("match_score", 0), 55)
+                p["match_tier"] = "TERTIARY" if p["match_score"] >= 40 else "LOW_MATCH"
+                p["match_reasons"] = list(p.get("match_reasons") or []) + [
+                    "Real building confirmed via Google Places near your search — new-launch/construction status could not be independently verified"
+                ]
+                accepted.append(p)
+                continue
             reason = (
                 "Ready-to-move / completed inventory — outside the active new-project search policy" if status == "READY_TO_MOVE"
                 else "Lifecycle stage could not be confidently determined even after deep research"
@@ -368,14 +423,72 @@ def _apply_hard_eligibility_filter(scored: list, final: bool = False, location_t
         if final and normalize_mod.is_aggregator_title({"title": p.get("name") or "", "description": ""}):
             rejected.append({"name": p.get("name") or p.get("id"), "reason": "No identifiable project name could be established, even after deep research"})
             continue
-        # Part 1 — geography-relevance gate. Same "give deep research a
-        # chance first" deferral as lifecycle: only enforced on the FINAL
-        # pass, using whatever richer name/location/description text
-        # enrichment has added by then. A candidate whose own text never
-        # once mentions the searched locality/city — however well it
-        # scored on an incidental word match — is not a result for THIS
-        # search, it's a coincidence.
-        if final and location_terms and not _matches_searched_location(p, location_terms):
+        # Part 2 of the Places-augmented pipeline — a candidate whose NAME
+        # itself reads as invalid (portal UI chrome, an interstitial/error
+        # page's own title, or — live-caught — a bare source-platform name
+        # like "Instagram" leaking through from generic embed metadata) is
+        # rejected on the FINAL pass regardless of whether Places
+        # verification ever ran for it.
+        #
+        # PREVIOUSLY this also required `p.get("places_verified") is False`
+        # (an ATTEMPTED-AND-FAILED Places lookup) before this check could
+        # fire at all — intended to protect a real project that Places
+        # simply doesn't have listed. But `places_verify()` in
+        # deep_research.py only ever runs for candidates that made the
+        # bounded top-N deep-research budget cut; a candidate that scored
+        # too low to make that cut (live-caught: an "Instagram" candidate
+        # at 8% match, well outside the top 5) never gets verified at all
+        # — `places_verified` stays None forever — so the OLD `is False`
+        # requirement silently exempted exactly the lowest-quality, most-
+        # likely-garbage candidates from ever being name-checked. A name
+        # that independently matches looks_like_invalid_name()'s pattern
+        # family (UI chrome / interstitial phrasing / a bare social-
+        # platform name) is disqualifying on its own — that heuristic
+        # doesn't depend on Places at all to be a strong signal by itself;
+        # Places-verification-failure was never the thing making it valid,
+        # it was only ever an extra corroborating signal for names that are
+        # NOT already independently invalid-shaped.
+        if final and normalize_mod.looks_like_invalid_name(p.get("name") or ""):
+            rejected.append({"name": p.get("name") or p.get("id"), "reason": "Could not verify this is a real project name"})
+            continue
+        # Part 1 — geography-relevance gate. Applied on both passes. On the
+        # first pass (final=False) we defer rejection for candidates where
+        # geography cannot yet be determined (UNKNOWN), preserving them for deep
+        # research. Only reject CONFIRMED WRONG LOCATION before expensive research.
+        # On the final pass, enforce strictly using enriched text from deep research.
+        if location_terms:
+            matched = _matches_searched_location(p, location_terms)
+
+            if matched:
+                # Candidate mentions at least one searched location term — accept
+                # on both passes; deep research will verify the finer geography.
+                accepted.append(p)
+                continue
+
+            # No searched location term matched in this candidate's text.
+            # Check if the candidate's own city field indicates a different city
+            # from the query's resolved cities — this is a CONFIRMED WRONG LOCATION.
+            prop_city = (p.get("city") or "").lower()
+            query_resolved_cities = {t.get("city", "").lower() for t in ((state.get("micro_locations") if state else None) or []) if t.get("city")}
+
+            if prop_city and prop_city not in query_resolved_cities:
+                # Candidate's city is not among the query's resolved cities →
+                # CONFIRMED WRONG LOCATION — reject before expensive deep research
+                rejected.append({
+                    "name": p.get("name") or p.get("id"),
+                    "reason": "Does not appear to be located in the searched area — candidate is about a different locality/city",
+                    "evidence": p.get("lifecycle_evidence_text"),
+                })
+                continue
+
+            # Location is ambiguous/unknown from current evidence.
+            # On the first pass (before deep research), defer — preserve for research.
+            if not final:
+                accepted.append(p)
+                continue
+
+            # Final pass with no location match — reject (deep research should have
+            # resolved the geography by now).
             rejected.append({"name": p.get("name") or p.get("id"), "reason": "Does not appear to be located in the searched area — no match to the searched locality/city found in this candidate's own text"})
             continue
         accepted.append(p)
@@ -391,7 +504,13 @@ async def node_candidate_scorer(state: ResearchState) -> dict:
     # score. A real listing whose title happens to trip is_aggregator_
     # title() is an acceptable rare false-positive versus routinely
     # presenting non-listings as search results.
-    ranked, rejected = _apply_hard_eligibility_filter(scored)
+    # location_terms + state passed here (not just on the final pass) so the
+    # Part 1 geography gate's own "applied on both passes" defer-then-enforce
+    # design actually runs on the first pass too — a CONFIRMED wrong-city
+    # candidate is rejected before wasting deep-research budget on it, same
+    # efficiency argument as the lifecycle-status two-pass gate right above
+    # it; an AMBIGUOUS-location candidate is deferred, never rejected here.
+    ranked, rejected = _apply_hard_eligibility_filter(scored, location_terms=_location_terms(state), state=state)
     return {"ranked_properties": ranked, "debug_rejected_candidates": rejected}
 
 
@@ -446,9 +565,15 @@ async def node_research_gap_checker(state: ResearchState) -> dict:
     """Field-aware gap analysis (Part 11) — replaces the old whole-result-
     set boolean with per-candidate missing/weak/conflicting field lists,
     which is what lets targeted_research generate SPECIFIC follow-up
-    queries instead of repeating the original search.
+    queries instead of repeating the original generic search.
+    Uses the same prioritized candidate ordering as node_deep_research
+    so that gap analysis and research selection act on the identical
+    candidate subset (Part 1: consistent candidate identity).
     """
-    candidates = state.get("ranked_properties", [])[:deep_research_mod.MAX_CANDIDATES_FOR_DEEP_RESEARCH]
+    from . import deep_research as deep_research_mod
+    ranked = state.get("ranked_properties", [])
+    prioritized = _prioritize_for_deep_research(ranked)
+    candidates = prioritized[:deep_research_mod.MAX_CANDIDATES_FOR_DEEP_RESEARCH]
     gaps = gap_checker_mod.compute_gaps(candidates, state.get("parsed_requirements", {}))
     return {"research_gaps": gaps}
 
@@ -471,12 +596,20 @@ def route_research_gap(state: ResearchState) -> str:
     if not has_real_gap:
         return "sufficient"
     strong = [p for p in ranked if p.get("match_tier") in ("PRIMARY", "SECONDARY")]
-    if len(strong) >= MIN_STRONG_RESULTS:
-        # Already have enough strong, well-formed candidates — a remaining
-        # gap on a weaker candidate isn't worth another research pass.
-        strong_names = {p.get("name") for p in strong}
-        if not any(g["candidate"] in strong_names for g in gaps if g.get("missing_fields") or g.get("conflicting_fields")):
-            return "sufficient"
+    strong_names = {p.get("name") for p in strong}
+    gappy_candidates = {g["candidate"] for g in gaps if g.get("missing_fields") or g.get("conflicting_fields")}
+    # If ALL candidates with real gaps are already among the strong candidates,
+    # the gap is on a candidate that's already well-represented — no need for
+    # another research pass. This fixes the issue where a strong candidate
+    # outside the inspected top range contains critical gaps but the routing
+    # decision concluded "sufficient" merely because the top-N inspection
+    # set didn't include it (Part 3).
+    if gappy_candidates.issubset(strong_names):
+        return "sufficient"
+    # If there are candidates with critical gaps outside the strong set,
+    # research must continue to give them a chance — the routing decision
+    # cannot incorrectly declare "sufficient" merely because the inspected
+    # subset is smaller than the ranked candidate set (Part 3).
     return "needs_more_research"
 
 
@@ -493,7 +626,22 @@ async def node_targeted_research(state: ResearchState) -> dict:
         return {**_bridge_skip_record("targeted_research"), "research_iterations": state.get("research_iterations", 0) + 1}
     gaps = state.get("research_gaps", [])
     gappy_names = {g["candidate"] for g in gaps if g.get("missing_fields") or g.get("conflicting_fields") or g.get("weak_fields")}
-    top = [p for p in state.get("ranked_properties", []) if p.get("name") in gappy_names][:TARGETED_RESEARCH_TOP_N]
+    # Same undetermined-lifecycle-first priority as node_deep_research's
+    # _prioritize_for_deep_research — previously this just took
+    # ranked_properties in whatever order they already ranked in, sliced by
+    # name membership in gappy_names. With TARGETED_RESEARCH_TOP_N bounded
+    # to 3 candidates per loop iteration, a query surfacing many thin
+    # (Places-sourced, lifecycle-UNKNOWN) candidates alongside a few
+    # already-eligible ones spent this scarce budget in score order, not on
+    # the candidates whose ELIGIBILITY actually still hinges on it —
+    # confirmed live: 20 Places-contributed candidates, all needing a real
+    # lifecycle-resolving search, competing for the same 3-per-iteration
+    # slots as already-eligible candidates that only needed minor
+    # enrichment. Prioritizing here means the limited budget is spent where
+    # it can actually change an accept/reject decision, not just polish a
+    # candidate already accepted.
+    prioritized = _prioritize_for_deep_research(state.get("ranked_properties", []))
+    top = [p for p in prioritized if p.get("name") in gappy_names][:TARGETED_RESEARCH_TOP_N]
     already_fetched = {p["url"] for p in state.get("fetched_pages", []) if p.get("url")}
 
     updated, tool_calls, pages, facts, new_evidence = await deep_research_mod.targeted_research_candidates(
@@ -528,7 +676,7 @@ async def node_final_scoring(state: ResearchState) -> dict:
     # BEFORE the final=True hard filter below makes the real call.
     enriched = [normalize_mod.reclassify_lifecycle_from_enriched_evidence(p) for p in state.get("deduplicated_properties", [])]
     scored = score_all(enriched, state.get("parsed_requirements", {}))
-    ranked, rejected = _apply_hard_eligibility_filter(scored, final=True, location_terms=_location_terms(state))
+    ranked, rejected = _apply_hard_eligibility_filter(scored, final=True, location_terms=_location_terms(state), state=state)
     return {"ranked_properties": ranked, "debug_rejected_candidates": rejected}
 
 
@@ -556,6 +704,7 @@ def build_graph():
     g.add_node("portal_search", node_portal_search)
     g.add_node("developer_search", node_developer_search)
     g.add_node("lifecycle_variant_search", node_lifecycle_variant_search)
+    g.add_node("places_search", node_places_search)
     g.add_node("evidence_normalizer", node_evidence_normalizer)
     g.add_node("deduplicator", node_deduplicator)
     g.add_node("candidate_verifier", node_candidate_verifier)
@@ -572,7 +721,7 @@ def build_graph():
     g.add_edge("query_understanding", "location_resolution")
     g.add_edge("location_resolution", "research_planner")
 
-    for search_node in ["tavily_search", "web_search", "apify_search", "portal_search", "developer_search", "lifecycle_variant_search"]:
+    for search_node in ["tavily_search", "web_search", "apify_search", "portal_search", "developer_search", "lifecycle_variant_search", "places_search"]:
         g.add_edge("research_planner", search_node)
         g.add_edge(search_node, "evidence_normalizer")
 

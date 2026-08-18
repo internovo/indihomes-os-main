@@ -147,6 +147,11 @@ def _retrieval_metrics(state: ResearchState, rejected: list[dict]) -> dict:
         if not p.get("is_aggregator") and (p.get("lifecycle_status") or "UNKNOWN") in normalize_mod.ALLOWED_LIFECYCLE_STATUSES
     )
     unknown = total - aggregator - resale - rental - eligible
+    # Part 2 of the Places-augmented pipeline — counted from the real
+    # per-candidate rejection reason, not re-derived from lifecycle status
+    # (a name-invalid rejection can happen to an otherwise lifecycle-
+    # eligible candidate, so it isn't captured by `unknown` above).
+    invalid_name = sum(1 for r in rejected if r.get("reason") == "Could not verify this is a real project name")
     return {
         "total_candidates": total,
         "individual_project_candidates": total - aggregator,
@@ -154,8 +159,17 @@ def _retrieval_metrics(state: ResearchState, rejected: list[dict]) -> dict:
         "resale_candidates": resale,
         "rental_candidates": rental,
         "unknown_candidates": max(unknown, 0),
+        "invalid_name_candidates": invalid_name,
         "eligible_candidates": eligible,
         "rejected_candidates": len(rejected),
+        # Places transparency (Part 1/38) — real, regardless of query
+        # outcome, never inferred: how many raw candidates this specific
+        # run's discovery actually got from places_search, and whether
+        # Places is even configured at all (a query with no resolvable
+        # location skips places_search entirely per planner.py — that's
+        # not "unconfigured", so this is checked independently).
+        "places_configured": bool(os.environ.get("GOOGLE_PLACES_API_KEY") or os.environ.get("VITE_GOOGLE_MAPS_KEY")),
+        "places_contributed_candidates": sum(1 for e in (state.get("raw_evidence") or []) if e.get("source") == "Google Places"),
     }
 
 
@@ -278,10 +292,19 @@ def _empty_result_explanation(state: ResearchState) -> str:
         breakdown.append(f"{rr} were resale/rental listings")
     if m["unknown_candidates"]:
         breakdown.append(f"{m['unknown_candidates']} had a lifecycle stage that couldn't be confidently verified")
+    if m.get("invalid_name_candidates"):
+        breakdown.append(f"{m['invalid_name_candidates']} had a name that could not be verified as a real project")
     if breakdown:
         parts.append(" ".join([", ".join(breakdown[:-1] + [f"and {breakdown[-1]}"]) if len(breakdown) > 1 else breakdown[0]]) + ".")
     else:
         parts.append("None matched the active new-project search policy.")
+    # Places transparency (Part 1's explicit requirement) — say plainly
+    # that Google Places was ALSO checked (and how many candidates it
+    # contributed), rather than leaving that connector's involvement
+    # invisible in a zero-result response. Only when actually configured.
+    if m.get("places_configured"):
+        n = m.get("places_contributed_candidates", 0)
+        parts.append(f"Google Places was also checked ({n} additional candidate{'s' if n != 1 else ''} found{', none eligible' if n else ''}).")
     return "No verified new residential projects found. " + " ".join(parts)
 
 
@@ -436,6 +459,18 @@ async def curate(state: ResearchState) -> dict:
                 # classified from, never fabricated.
                 "lifecycleStatus": p.get("lifecycle_status"),
                 "lifecycleEvidence": p.get("lifecycle_evidence_text"),
+                # Google Places-derived fields (Part 1/2/38) — real
+                # coordinates/place ID Google itself resolved (either this
+                # candidate WAS discovered by places_search, or a later
+                # places_verify lookup confirmed it) so Project
+                # Intelligence's map can use these directly instead of
+                # falling back to Nominatim/Google Geocoding string-
+                # matching. placesVerified is False (verification
+                # attempted, not found) or None (never attempted) for
+                # everything else — never a fabricated coordinate.
+                "placesVerified": p.get("places_verified"),
+                "placesLat": p.get("places_lat"), "placesLon": p.get("places_lon"),
+                "placesPlaceId": p.get("places_place_id"), "placesAddress": p.get("places_address"),
             }
             for p in selected
         ],

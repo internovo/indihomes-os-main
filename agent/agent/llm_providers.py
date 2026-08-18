@@ -1,21 +1,32 @@
-"""LLM provider abstraction — Grok (xAI) / Gemini / any OpenAI-compatible
-endpoint / an optional local model. NO Anthropic anywhere in this file or
-anything it imports — that's a hard project rule (see requirements.md).
+"""LLM provider abstraction — Grok (xAI) / Gemini / Groq / NVIDIA NIM (Nemotron) /
+any OpenAI-compatible endpoint / an optional local model. NO Anthropic
+anywhere in this file or anything it imports — that's a hard project rule
+(see requirements.md).
 
-All four providers speak the OpenAI chat-completions wire format (xAI and
-Gemini both expose OpenAI-compatible endpoints; "openai"/"local" are that
-format by definition), so one thin client class covers all of them — no
-per-provider SDK branching.
+All providers speak the OpenAI chat-completions wire format (xAI, Gemini,
+Groq, and NVIDIA NIM all expose OpenAI-compatible endpoints; "openai"/
+"local" are that format by definition), so one thin client class covers all
+of them — no per-provider SDK branching.
 
 Role-based routing (Part 22 of the brief): MODEL_REASONING / MODEL_EXTRACTION
 / MODEL_FALLBACK env vars each hold a provider key ("xai" | "gemini" |
-"openai" | "local") naming which provider handles that role. A role's
-candidate list is [that provider, MODEL_FALLBACK's provider, then every
-other configured provider] — deduplicated — so a role always has somewhere
-to fall back to if its preferred provider is unset or its call fails.
+"groq" | "nvidia" | "openai" | "local") naming which provider handles that
+role. A role's candidate list is [that provider, MODEL_FALLBACK's provider,
+then every other configured provider] — deduplicated — so a role always has
+somewhere to fall back to if its preferred provider is unset or its call
+fails.
 
-If NO provider is configured at all (this dev environment's actual state —
-no XAI_API_KEY/GEMINI_API_KEY are set), `LLMRouter.is_configured()` returns
+Groq/NVIDIA added as the primary providers after Gemini's prepaid credits
+ran out mid-session (confirmed live: RESOURCE_EXHAUSTED 429) and no
+XAI_API_KEY was ever configured — both were entirely idle as a result
+despite being 2 of the 4 originally-supported providers. Groq's default
+model is intentionally NOT llama-3.3-70b-versatile: Groq announced its
+deprecation June 17, 2026 in favor of openai/gpt-oss-120b (Groq's own
+migration recommendation) — defaulting to a model already flagged for
+shutdown would just recreate the exact "model 404s, circuit breaks, falls
+back to nothing" failure this file exists to prevent.
+
+If NO provider is configured at all, `LLMRouter.is_configured()` returns
 False and every caller in this codebase treats that as "run the
 deterministic-only path" (Part 28: graceful degradation), never a crash and
 never a fabricated LLM-shaped response.
@@ -114,6 +125,14 @@ PROVIDER_SPECS: dict[str, ProviderSpec] = {
         "https://generativelanguage.googleapis.com/v1beta/openai/",
         "GEMINI_API_KEY", "GEMINI_MODEL", "gemini-2.5-flash",
     ),
+    "groq": ProviderSpec(
+        "groq", "Groq", "https://api.groq.com/openai/v1",
+        "GROQ_API_KEY", "GROQ_MODEL", "openai/gpt-oss-120b",
+    ),
+    "nvidia": ProviderSpec(
+        "nvidia", "NVIDIA NIM (Nemotron)", "https://integrate.api.nvidia.com/v1",
+        "NVIDIA_API_KEY", "NVIDIA_MODEL", "nvidia/nemotron-3-super-120b-a12b",
+    ),
     "openai": ProviderSpec(
         "openai", "OpenAI-compatible", None,
         "OPENAI_API_KEY", "OPENAI_MODEL", "gpt-4o-mini",
@@ -129,10 +148,16 @@ ROLE_ENV = {
     "extraction": "MODEL_EXTRACTION",
     "fallback": "MODEL_FALLBACK",
 }
+# Switched from xai/gemini defaults — xai was never configured (no
+# XAI_API_KEY was ever set in this deployment) and gemini's prepaid credits
+# ran out mid-session (RESOURCE_EXHAUSTED, confirmed live), so both original
+# defaults were pointing at providers that were either always-idle or
+# freshly dead. groq is the new default for every role: it's the provider
+# actually configured and working in this deployment right now.
 ROLE_DEFAULT_PROVIDER = {
-    "reasoning": "xai",     # planning + curation — worth the stronger model
-    "extraction": "gemini", # lightweight structured extraction/reranking
-    "fallback": "gemini",
+    "reasoning": "groq",    # planning + curation
+    "extraction": "groq",   # lightweight structured extraction/reranking
+    "fallback": "nvidia",   # a genuinely independent provider/account from groq, not just a second model on the same one
 }
 
 
@@ -219,9 +244,9 @@ class LLMRouter:
 
     def __init__(self, role: str):
         self.role = role
-        preferred = os.getenv(ROLE_ENV.get(role, ""), ROLE_DEFAULT_PROVIDER.get(role, "xai"))
+        preferred = os.getenv(ROLE_ENV.get(role, ""), ROLE_DEFAULT_PROVIDER.get(role, "groq"))
         fallback = os.getenv(ROLE_ENV["fallback"], ROLE_DEFAULT_PROVIDER["fallback"])
-        order = [preferred, fallback, "xai", "gemini", "openai", "local"]
+        order = [preferred, fallback, "groq", "nvidia", "xai", "gemini", "openai", "local"]
         seen: set[str] = set()
         self.candidates: list[LLMClient] = []
         self.attempted_providers: list[str] = []

@@ -66,6 +66,15 @@ def build_search_plan(parsed: ParsedRequirements, market: str) -> list[str]:
     if has_location:
         plan.append("lifecycle_variant_search")
 
+    # Google Places (New)-based discovery (Part 1 of the Places-augmented
+    # pipeline) — a genuinely different signal source (Google's own
+    # business/building index, not a web-search snippet), gated on
+    # has_location for the same "unbounded/location-less would be noise"
+    # reason as portal_search/lifecycle_variant_search above, and India-only
+    # in this pass (not verified against Dubai/UAE locality naming).
+    if has_location and market == "india":
+        plan.append("places_search")
+
     return plan
 
 
@@ -88,6 +97,14 @@ def build_targeted_query(property_name: str, location: str | None) -> str:
 # tends to surface unrelated deck/patio furniture listings instead of the
 # project itself).
 _FIELD_QUERY_HINTS = {
+    # Checked FIRST in compute_gaps' missing-field append order (lifecycle is
+    # appended before developer/rera/etc there) and deliberately phrased to
+    # surface construction-status language directly — not "<name> status"
+    # (too vague), but the same lifecycle vocabulary
+    # classify_lifecycle_status() itself scans for, so a hit here is likely
+    # to actually resolve the classification, not just add more text that
+    # still doesn't mention it.
+    "lifecycle": "under construction new launch possession status RERA",
     "developer": "developer builder",
     "rera": "RERA number registration",
     "possession": "possession date",

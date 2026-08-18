@@ -67,6 +67,15 @@ class EvidenceItem(TypedDict, total=False):
     captured_at: str            # ISO timestamp
     confidence: Literal["high", "medium", "low"]
 
+    # ── Google Places (New)-provided fields (Part 1/38) — present only on
+    # evidence from places_search (never fabricated for any other
+    # connector); real coordinates/place ID Google itself resolved, not a
+    # string-matched geocode guess.
+    lat: Optional[float]
+    lon: Optional[float]
+    place_id: Optional[str]
+    formatted_address: Optional[str]
+
 
 class ToolCallRecord(TypedDict, total=False):
     tool: str
@@ -225,6 +234,20 @@ class NormalizedProperty(TypedDict, total=False):
     # already uses.
     lifecycle_status: str
     lifecycle_evidence_text: Optional[str]
+
+    # ── Google Places-derived fields (Part 1/2/38) — never fabricated;
+    # absent entirely until either a places_search discovery result carries
+    # its own real Places fields through normalize_evidence_item, or
+    # deep_research.py's per-candidate places_verify lookup resolves. A
+    # `places_verified` of `False` means verification was ATTEMPTED and did
+    # NOT resolve (not "never checked" — that case leaves the key absent
+    # entirely) — a real project's own genuine absence from Places is never
+    # itself a rejection (see places_search's scope disclosure).
+    places_verified: Optional[bool]
+    places_lat: Optional[float]
+    places_lon: Optional[float]
+    places_place_id: Optional[str]
+    places_address: Optional[str]
 
 
 class RankedProperty(NormalizedProperty, total=False):

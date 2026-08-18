@@ -248,6 +248,18 @@ def _score_evidence_quality(prop: NormalizedProperty, reasons: list[str], mismat
         pts += 0.25
     if prop.get("rera"):
         pts += 0.25
+    # Part 2 of the Places-augmented pipeline — a real Google Places match
+    # is a genuine, independent corroborating signal (an external, Google-
+    # verified building actually exists at this name/locality), folded in
+    # here as a small AUGMENTING bonus alongside the existing source-count/
+    # RERA/freshness signals — never a replacement for them, never a hard
+    # requirement (see places_verify's own scope comment: a genuine
+    # pre-launch project absent from Places must never be penalized for
+    # that absence — `places_verified is False` adds nothing here, same as
+    # `None`/never-attempted).
+    if prop.get("places_verified") is True:
+        pts += 0.25
+        reasons.append("Verified via Google Places")
     freshest = None
     for s in (prop.get("sources") or []):
         ts = s.get("captured_at")

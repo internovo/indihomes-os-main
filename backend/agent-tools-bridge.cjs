@@ -14,7 +14,7 @@
 // API, even though this deployment only ever calls it from localhost.
 
 const express = require('express')
-const { tavilyConnector, googleCseConnector, bingConnector, apifyConnector, legacyPortalConnector, getConnectorStatus } = require('./external-connectors.cjs')
+const { tavilyConnector, googleCseConnector, bingConnector, apifyConnector, legacyPortalConnector, placesConnector, placesVerify, getConnectorStatus } = require('./external-connectors.cjs')
 const indihomesClient = require('./indihomes-client.cjs')
 
 const router = express.Router()
@@ -69,6 +69,12 @@ function toEvidence(item, { toolId, sourceType }) {
     raw_text: (item.description || '').slice(0, 400) || null,
     captured_at: item.lastSeenAt || new Date().toISOString(),
     confidence: item.sourceQuality === 'high' ? 'high' : item.sourceQuality === 'low' ? 'low' : 'medium',
+    // Real Places-provided fields (Part 1/38) — undefined (never a fake 0/
+    // null placeholder that JSON would still serialize) for every connector
+    // except placesConnector, which is the only one that actually has them.
+    ...(item.lat != null && item.lon != null ? { lat: item.lat, lon: item.lon } : {}),
+    ...(item.placeId ? { place_id: item.placeId } : {}),
+    ...(item.formattedAddress ? { formatted_address: item.formattedAddress } : {}),
   }
 }
 
@@ -170,6 +176,46 @@ router.post('/apify-search', async (req, res) => {
     res.json({ evidence: items.map(item => toEvidence(item, { toolId: 'apify-actor', sourceType: 'web' })), tried: ['apify-actor'] })
   } catch (e) {
     res.status(502).json({ error: e.message, evidence: [], tried: ['apify-actor'] })
+  }
+})
+
+// ── places_search — Google Places (New)-based candidate discovery (Part 1
+// of the Places-augmented pipeline). Thin wrapper around placesConnector in
+// external-connectors.cjs — same shared places-client.cjs endpoint/auth
+// /api/competing-projects already uses successfully. India-only, and
+// strongest for ready-to-move/completed buildings (Places' own real
+// coverage gap for pre-launch/early-construction inventory) — this route
+// never claims otherwise; graph.py's discovery fan-out treats an empty
+// result here the same as any other connector finding nothing.
+router.post('/places-search', async (req, res) => {
+  const { query, market, locations, configuration } = req.body || {}
+  if (!query) return res.status(400).json({ error: 'query required' })
+  const mkt = market === 'dubai' ? 'dubai' : 'india'
+  if (!placesConnector.isConfigured() || mkt !== 'india') {
+    return res.json({ evidence: [], tried: [], note: 'Google Places not configured, or market is not India (Places discovery is India-only in this pass).' })
+  }
+  try {
+    const items = await placesConnector.search(query, { locations, configuration }, mkt)
+    res.json({ evidence: items.map(item => toEvidence(item, { toolId: 'google-places', sourceType: 'web' })), tried: ['google-places'] })
+  } catch (e) {
+    res.status(502).json({ error: e.message, evidence: [], tried: ['google-places'] })
+  }
+})
+
+// ── places_verify — Part 2's per-candidate name-verification lookup.
+// Returns { found: false } (never an error) when Places simply doesn't
+// have this building yet — that's an expected, common outcome for a
+// genuine pre-launch project, not a failure. Only a real network/API
+// failure returns a non-200.
+router.post('/places-verify', async (req, res) => {
+  const { name, locality, city } = req.body || {}
+  if (!name) return res.status(400).json({ error: 'name required' })
+  if (!placesConnector.isConfigured()) return res.json({ found: false, note: 'Google Places not configured.' })
+  try {
+    const match = await placesVerify(name, locality, city)
+    res.json({ found: !!match, place: match || null })
+  } catch (e) {
+    res.status(502).json({ error: e.message, found: false })
   }
 })
 

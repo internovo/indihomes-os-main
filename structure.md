@@ -922,3 +922,267 @@ recorded into every response's `research_metadata.metrics`.
   lifecycle classification from real fetched page content (using the actual
   Arkade page text verbatim, not paraphrased), the "Posted By" filter-widget
   false-positive regression (both pipelines).
+
+  ## "2BHK in Borivali East" — a new category-page shape, a configuration-
+  ## mismatch scoring gap, and a broken in-flight edit found along the way
+
+  Live evidence: "2BHK in Borivali East" returned "New Launch Projects in
+  Borivali East, Mumbai" (PRIMARY, 58%) and "Under Construction Projects in
+  Borivali East, Mumbai" (SECONDARY, 58%) — both 99acres.com category pages,
+  both explicitly 3 BHK (own match reasons said "3 BHK does not match your 2
+  BHK request"). Investigated directly against the real current code, not
+  memory — this surfaced three distinct, real issues, only two of which were
+  the ones originally suspected.
+
+  **Bug 1 — root cause traced, NOT a new gap in `agent/agent/normalize.py`.**
+  `classify_page_type()`'s `PROJECTS_IN_PLACE_RE` (`\bprojects?\s+in\s+[A-Z]`,
+  added for the "Page 3 - RERA registered Projects in Malad West" fix earlier
+  in this doc) is unanchored and generic — confirmed live, both exact titles
+  above (and the whole family: "Ready to Move/Upcoming/Ongoing Projects in
+  X") already classify `CATEGORY_PAGE` on the Python side with zero code
+  change needed. The real gap was in `backend/scoring.cjs`'s
+  `isAggregatorTitle()`, which never received this fix — its own "Projects
+  in X" pattern was still anchored at the START of the title (`^\s*...new
+  projects?\b`), so a lifecycle-status phrase prefix ("New Launch"/"Under
+  Construction") defeated it, the exact same class of gap "Page 3 -" once
+  exploited on the Python side before `PROJECTS_IN_PLACE_RE` existed there.
+  Fixed: added the same unanchored `PROJECTS_IN_PLACE_RE` to
+  `backend/scoring.cjs`. Live-verified against the real running Node fallback
+  pipeline (agent temporarily stopped to force it): "Under Construction
+  Projects in Borivali East, Mumbai" now appears in `debug_trace`'s
+  `candidates_rejected`, reason "Reads like a portal category/search-results
+  page..." — correctly excluded, honest zero-result summary instead.
+
+  **Bug 2 — configuration mismatch: option (b) chosen (score/tier cap, not a
+  hard exclusion).** `backend/scoring.cjs`'s `scoreExternalProject` already
+  had a precedent for exactly this situation, right next to the config
+  scoring: a location mismatch caps `confidence` at 55 (`Math.min(confidence,
+  55)`, comment: "TERTIARY fallback at best, never a strong match"). Applied
+  the identical pattern to configuration — a query-specified BHK count that
+  didn't score (unknown OR explicitly wrong, same "any non-match caps it"
+  rule the location cap already uses) also caps at 55. Chose the cap over a
+  hard exclusion (option a) because: (1) it's the more directly-precedented
+  pattern in this exact function, not an invented new rule; (2) the project
+  is still real and in the right place — hiding it entirely would violate
+  this codebase's own "never silently blank, never padded... explain
+  honestly" philosophy already established for TERTIARY results; the
+  complaint was specifically about the TIER/PRESENTATION ("presented as a
+  strong match"), which a cap resolves precisely without discarding
+  information a salesperson might still find useful (e.g. "this developer
+  has other projects nearby").
+
+  **The actual proximate cause was one level deeper than either bug
+  description assumed.** `ProjectSelection.jsx`'s `PropertyCard`:
+  `const tierLabel = p.match_tier || rankOf(i).label` — the Node fallback
+  path had NEVER set `match_tier` on its results at all (confirmed:
+  `frontend/.../ProjectSelection.jsx`'s own comment already called this out
+  — "the legacy (pre-agent) external-search path, which never set
+  match_tier"), so the frontend fell back to pure ARRAY-POSITION labeling —
+  first result always "PRIMARY", second always "SECONDARY", entirely
+  independent of score. This is why two results sharing the identical 58%
+  score got two different tier badges. Fixed at the root: `scoreExternalProject`
+  now also returns a real `tier` (`confidence >= 80 ? 'PRIMARY' : >= 60 ?
+  'SECONDARY' : 'TERTIARY'`, mirroring `agent/agent/scoring.py`'s
+  `score_property` exactly, same thresholds, same uppercase labels), wired
+  through as `match_tier` on every Node-fallback property in
+  `external-search.cjs`. This is a general fix, not scoped to configuration
+  mismatches only — the positional-labeling bug is now structurally
+  unreachable for this pipeline's results, for any future query.
+
+  **A separate, real, broken in-flight edit was found and fixed while
+  investigating** (not part of either bug above — discovered because the
+  Python test suite failed to even import): `agent/agent/graph.py`'s
+  `_apply_hard_eligibility_filter`'s "Part 1 — geography-relevance gate"
+  block (lines ~371-411) was sitting at the wrong indentation (column 0
+  instead of the enclosing `for p in scored:` loop's 8-space body level) —
+  a `SyntaxError: unexpected indent` that would have crashed the agent
+  process on any restart. Once re-indented, a second bug surfaced: the block
+  referenced `state.get("micro_locations")` but the function signature never
+  received a `state` parameter at all (`NameError` at runtime, only
+  exercised when a candidate carries a structured `city` field that
+  disagrees with the query's resolved city — no existing test reached this
+  branch). Fixed: added `state: ResearchState | None = None` to
+  `_apply_hard_eligibility_filter`'s signature, passed `state=state` from
+  both call sites. While fixing this, also completed the block's own
+  documented intent — its comment says the geography gate is "Applied on
+  both passes," but `node_candidate_scorer` (the first-pass caller) never
+  actually passed `location_terms` at all, so the two-pass defer-then-
+  enforce behavior it describes was dead code on the first pass; now wired
+  identically to the final-pass call site (`node_final_scoring`), so a
+  CONFIRMED wrong-city candidate is rejected before wasting deep-research
+  budget on it — the same efficiency argument already used for the
+  lifecycle-status two-pass gate immediately above it in the same function.
+
+  **Competitor-analysis click-through — confirmed working, nothing to fix.**
+  Traced the full handoff: `toAnalysableProject` → `current.name`/`location`/
+  `city` (populated for AI-Search candidates from both pipelines) → Location
+  Map's `mapQuery` (generic string join, no dependency on `official`/
+  IndiHomes-catalog-only fields) → `NearbyMap` geocodes it → `onGeo`
+  populates `projectGeo.lat/lon` → a `useEffect` fires `/api/competing-
+  projects?lat=...&lon=...`. No special-casing anywhere that would exclude
+  an AI-Search-sourced candidate. Directly probed the live endpoint for
+  Borivali East's real coordinates: 8 real named nearby properties returned
+  with distances and Maps links. Also notable: the `GOOGLE_PLACES_API_KEY`
+  "403 API_KEY_SERVICE_BLOCKED" issue disclosed as a known limitation
+  earlier in this doc appears to be resolved as of this pass — the same key
+  now returns real data live.
+
+  **Tests**: Python suite 99 → 104 checks (new: the lifecycle-phrase-
+  prefixed "Projects in" family already correctly rejected, both exact
+  live-evidence strings; the `state`-dependent confirmed-wrong-city branch,
+  previously untested and the exact branch that had the `NameError`). Node
+  suite 39 → 47 checks (new: both exact live-evidence titles now rejected by
+  `isAggregatorTitle`, the whole lifecycle-phrase family; the configuration-
+  mismatch cap and its real-tier computation, both exact live-evidence items
+  plus a non-category-page control proving the fix is independent of Bug 1).
+  Both suites re-run clean after every change, not just at the end.
+
+  ## Places-augmented pipeline — a new discovery source + per-candidate
+  ## entity verification, and the real "Security Alert" root cause
+
+  Live evidence: "2bhk in borivali east" returned "Security Alert" as a
+  PRIMARY 100%-match result — a garbage extraction, not a real project.
+  Separately, Competitor Analysis (the existing `/api/competing-projects`
+  endpoint) independently proved Google Places has real, well-named,
+  correctly-addressed residential-building signal this pipeline wasn't
+  using at the DISCOVERY stage at all.
+
+  **Part 1 — new discovery connector.** `agent/agent/tools.py`'s
+  `places_search()` (mirrored as `placesConnector` in
+  `backend/external-connectors.cjs`, both built on a newly-extracted shared
+  `backend/places-client.cjs` — the SAME endpoint/auth/residential-type-
+  filter `/api/competing-projects` already used successfully, deduplicated
+  rather than copied a third time) calls Google Places Text Search
+  ("residential apartment [configuration] near [locality]", no
+  locationBias — discovery has no already-known coordinates to search
+  around yet, unlike `/api/competing-projects`). Wired into the SAME
+  discovery fan-out as every other tool (`agent/agent/graph.py`'s
+  `node_places_search`, `agent/agent/planner.py` gates it on
+  has-a-resolvable-location + India market, same reasoning as
+  `portal_search`/`lifecycle_variant_search`). Real scope, disclosed in
+  code comments and every empty result: strongest for ready-to-move/
+  completed buildings a developer has already registered with Google
+  Business/Maps; a genuine pre-launch/early-construction project often
+  isn't in Places yet. **Deliberately does not create an eligibility
+  bypass** — a Places-only candidate carries no lifecycle language of its
+  own (a bare address, not "under construction"), so it correctly still
+  goes through the SAME lifecycle/geography hard-gate as every other
+  candidate and stays UNKNOWN → rejected on the final pass exactly like
+  today, unless something else corroborates it. Real Places fields (lat/
+  lon/place ID/formatted address) thread through `EvidenceItem` →
+  `NormalizedProperty` (`places_lat`/`places_lon`/`places_place_id`/
+  `places_address`, `places_verified=True` — trivially, it came FROM
+  Places) → `curator.py`'s `final_response.properties`
+  (`placesLat`/`placesLon`/`placesPlaceId`/`placesAddress`) →
+  `server.cjs`'s `adaptAgentProperty` → `ProjectSelection.jsx`'s
+  `toAnalysableProject` → `ProjectIntelligence.jsx`'s `NearbyMap`, which now
+  accepts a `knownGeo` prop and skips its own Nominatim/Google-Geocoding
+  round-trip entirely when a candidate already carries a real, Places-
+  resolved coordinate.
+
+  **Part 2 — per-candidate entity verification.** After a name is
+  finalized (`agent/agent/deep_research.py`'s `research_candidates()`, the
+  SAME `MAX_CANDIDATES_FOR_DEEP_RESEARCH`-bounded loop deep-research
+  already uses — no new unbounded pass), `places_verify()` looks up that
+  exact name + locality via Places Text Search. A resolved match is a
+  POSITIVE signal only — `places_verified=True`, real coordinates
+  attached, a small +0.25 bonus folded into `scoring.py`'s existing
+  evidence-quality dimension (`_score_evidence_quality`, same weight
+  family as the RERA/source-count/freshness bonuses already there, never a
+  new top-level scoring dimension). A candidate that does NOT resolve is
+  **not itself rejected** — many legitimate new-launch projects genuinely
+  aren't in Places yet — `places_verified=False` only BECOMES a gate in
+  combination with a separate, independent check: `looks_like_invalid_name()`
+  (`agent/agent/normalize.py`, mirrored as `looksLikeInvalidName()` in
+  `backend/scoring.cjs`) — a regex PATTERN FAMILY (portal UI chrome/
+  interstitial/generic-action phrasing: "Click Here", "View Details",
+  "Security Alert", etc. — deliberately not a blocklist of the one bad
+  example) plus a short-generic-word structural fallback. Only when BOTH
+  "Places doesn't know this name" AND "the name itself doesn't read as a
+  real project name" are true does `agent/agent/graph.py`'s
+  `_apply_hard_eligibility_filter` reject it (final pass only, same
+  discipline as the existing "no identifiable project name" gate right
+  above it), with the honest reason "Could not verify this is a real
+  project name." Mirrored on the Node fallback path inline in
+  `external-search.cjs` (bounded to the top 8 already-eligible candidates,
+  matching the `/api/competing-projects` "top 8" convention) since that
+  pipeline has no separate "name finalization" step to hook.
+
+  **Root cause of "Security Alert", traced (not assumed).** The exact
+  source URL from the live run wasn't recoverable (this session's own
+  extensive re-testing had already rotated the agent's tool-call cache by
+  the time this was investigated) — but re-fetching the SAME URL that
+  produced it moments later returned entirely different, legitimate
+  category-page content (real listings: Chandak Greenairy, AVA Maple,
+  Balaji Heights, real RERA numbers, real builders). The most plausible
+  explanation, consistent with this evidence: 99acres served a bot-
+  detection/interstitial page instead of its real content under this
+  session's own repeated automated access, and `extract_project_name()`
+  picked up that interstitial's title as if it were the project name. The
+  fix doesn't depend on fully diagnosing 99acres' bot-detection behavior —
+  `looks_like_invalid_name()` catches the resulting garbage name on its
+  own shape, regardless of root cause.
+
+  **A real false positive, caught by live testing before it shipped.** An
+  earlier version of the name-similarity check (`namesLooselyMatch()`,
+  Node; Places-side matching only exists on the Node side, since the
+  Python tool trusts the bridge's `found` boolean) used token-SET overlap
+  and matched "Security Alert" against a completely unrelated Places
+  result: "Alert Securitas | Security Guard Services in Mumbai" (a real
+  security-guard company, not a residential building) — purely because
+  both share the tokens "security" and "alert" as separate words,
+  confirmed via a live `/places-verify` call before this was caught.
+  Tightened to CONTIGUOUS SUBSTRING containment (either direction) instead
+  — rejects that exact case while still matching the real, common shapes
+  ("Rivali Park" inside "RIVALI PARK"; "CCI Rivali Park Skyleap"
+  containing/inside a shorter official "Rivali Park" Places entry).
+
+  **Live re-verification.** "2bhk in borivali east": "Security Alert" is
+  gone from results; the real surviving candidate ("Rivali Park By CCI
+  Project Pvt Ltd...") is unaffected. Directly confirmed via a live
+  `/internal/agent-tools/places-verify` call: "Security Alert" →
+  `found: false`; "Rivali Park" → `found: true`, resolves to the real
+  "RIVALI PARK" Places entry with real coordinates. "2bhk in dahisar west"
+  (the query that was zero-result in an earlier pass, before that pass's
+  own separate SOCIAL_URL_RE/NEW_LAUNCH_RE fixes) now returns real results
+  with `places_contributed_candidates: 20` in `retrieval_metrics` —
+  confirming Places discovery is genuinely contributing candidates to this
+  locality, not silently absent. The empty-result explanation sentence
+  (`curator.py`'s `_empty_result_explanation` / `external-search.cjs`'s
+  message-building) now appends "Google Places was also checked (N
+  additional candidates found...)" whenever Places is configured, even on
+  a zero-result response — verified via a direct unit test (an organic
+  zero-result live case wasn't reproducible during this pass; this
+  session's own earlier fixes made most tested localities non-empty).
+
+  **API cost.** Bounded and small: Part 1 is at most 1 Places Text Search
+  call per query (skipped entirely for a location-less query). Part 2 is
+  at most `MAX_CANDIDATES_FOR_DEEP_RESEARCH` (5) calls on the agent path,
+  8 on the Node fallback path — and skips a candidate that already carries
+  `places_verified` (either True from Part 1 discovery, or already
+  attempted in a prior gap-driven research iteration), so a genuinely
+  identical candidate is never re-verified. **Known, disclosed exception**:
+  live-observed 7 Part-2 calls instead of 5 on one run — traced to two
+  DIFFERENT candidate objects (different source URLs) that happened to
+  extract the exact same generic fallback title ("Property in Borivali
+  East, Mumbai - Real Estate in Borivali East, Mumbai") and weren't merged
+  by dedup's exact-key tier (their `location` field text apparently
+  differs enough to defeat it) — the same class of pre-existing dedup
+  granularity gap already disclosed elsewhere in this doc (the "Dem Icon"
+  2-4-separate-cards case), not a new bug introduced by this pass. Worst
+  case is still bounded (≤ budget + a small, disclosed dedup-overlap slop),
+  not unbounded — not chased further here given it's a narrow, low-cost,
+  pre-existing gap rather than a Places-specific one.
+
+  **Tests**: Python suite 104 → 117 checks (new: `looks_like_invalid_name`
+  against the real live "Security Alert"/"Pastonji Bliss Tower"/"Rivali
+  Park" examples; `_apply_hard_eligibility_filter`'s combined Places-
+  verification + invalid-name gate, all three required scenarios — resolves
+  cleanly, doesn't resolve but plausible, doesn't resolve and invalid — plus
+  the `None`-vs-`False` distinction; the Places-transparency empty-result
+  sentence). Node suite 47 → 58 checks (new: `looksLikeInvalidName` on the
+  same real examples; `namesLooselyMatch`'s real false-positive regression
+  test, using the ACTUAL unrelated business Places returned live, not a
+  paraphrase). Both suites re-run clean after every change, including the
+  cost-optimization fix made after live-testing surfaced the redundant-call
+  observation above.

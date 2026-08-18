@@ -64,6 +64,25 @@ def compute_gaps(candidates: list[RankedProperty], parsed: ParsedRequirements) -
         missing: list[str] = []
         weak: list[str] = []
 
+        # Lifecycle status (Places-augmented pipeline follow-up) — the real
+        # gap this closes: a Google Places-sourced candidate (a real,
+        # existing building) carries no construction-status language at all
+        # (Places doesn't track that), so it starts at UNKNOWN lifecycle and
+        # STAYS there forever unless something specifically goes looking for
+        # this fact. Every OTHER field check below (developer/rera/
+        # possession/carpet/price) already existed, but none of them are a
+        # substitute for a query actually aimed at "is this under
+        # construction / newly launched / near possession" — confirmed live:
+        # a real search returned 20 Places-contributed candidates and
+        # rejected every single one as unresolved-lifecycle, because nothing
+        # in the targeted-research loop was ever asked to go find that fact
+        # specifically. UNKNOWN and READY_TO_MOVE both still need this —
+        # READY_TO_MOVE is itself only a possession-year FALLBACK guess
+        # (classify_lifecycle_status's own comment) and deserves a real
+        # chance to resolve to something more specific too.
+        if (prop.get("lifecycle_status") or "UNKNOWN") in ("UNKNOWN", "READY_TO_MOVE"):
+            missing.append("lifecycle")
+
         if not _field_present(prop, "developer"):
             missing.append("developer")
         elif _field_is_weak(prop, "developer"):

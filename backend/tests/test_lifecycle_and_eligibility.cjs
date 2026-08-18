@@ -9,6 +9,7 @@
 const assert = require('assert')
 const scoring = require('../scoring.cjs')
 const externalSearch = require('../external-search.cjs')
+const { namesLooselyMatch } = require('../external-connectors.cjs')
 
 let failures = 0
 function check(label, condition) {
@@ -103,10 +104,47 @@ check('far-future possession year fallback -> UNDER_CONSTRUCTION',
 check('category-page title still rejected by isAggregatorTitle', scoring.isAggregatorTitle('14+ Flats for Sale in Liberty Garden'))
 check('a real project name is not flagged as an aggregator title', !scoring.isAggregatorTitle('Arkade Nucleus'))
 
+// Regression: live-caught on "2BHK in Borivali East" — real 99acres.com
+// titles, verbatim. isAggregatorTitle()'s "Projects in X" check was still
+// ANCHORED at the start of the title (only caught "New Projects in X"
+// opening the string); a LIFECYCLE-STATUS phrase prefix ("New Launch"/
+// "Under Construction") defeated it, exactly like a "Page 3 -" prefix once
+// defeated the equivalent Python-side check before PROJECTS_IN_PLACE_RE was
+// added there (unanchored, already correct — this side had never received
+// that fix). Both scored PRIMARY/SECONDARY as real listings before this fix.
+check('"New Launch Projects in Borivali East, Mumbai" -> category page (lifecycle-phrase-prefixed "Projects in")',
+  scoring.isAggregatorTitle('New Launch Projects in Borivali East, Mumbai'))
+check('"Under Construction Projects in Borivali East, Mumbai" -> category page (lifecycle-phrase-prefixed "Projects in")',
+  scoring.isAggregatorTitle('Under Construction Projects in Borivali East, Mumbai'))
+check('the whole lifecycle-phrase family is covered generically, not just these two exact titles',
+  ['Ready to Move Projects in Borivali East, Mumbai', 'Upcoming Projects in Borivali East, Mumbai', 'Ongoing Projects in Borivali East, Mumbai']
+    .every(t => scoring.isAggregatorTitle(t)))
+
 // ── deterministic scoring/ranking still works ────────────────────────────
 const s1 = scoring.scoreExternalProject({ name: 'X', location: 'Malad West' }, { locations: ['Malad West'] })
 const s2 = scoring.scoreExternalProject({ name: 'Y', location: 'Pune' }, { locations: ['Malad West'] })
 check('exact locality scores higher than a location miss', s1.confidence > s2.confidence)
+
+// Regression: live-caught on "2BHK in Borivali East" — two 3 BHK listings
+// (own match reasons literally say "3 BHK does not match your 2 BHK
+// request") still scored 58% confidence and were labeled PRIMARY/SECONDARY,
+// because (a) scoreExternalProject never capped a configuration mismatch
+// the way it already caps a location mismatch, and (b) this pipeline never
+// set a real match_tier at all, so ProjectSelection.jsx's PropertyCard fell
+// back to pure ARRAY-POSITION labeling (first result = "PRIMARY", second =
+// "SECONDARY") regardless of score — the actual mechanism behind two
+// identically-scored results getting different tier badges.
+const configFilters = { locations: ['Borivali East'], configuration: '2 BHK', bedrooms: 2 }
+const wrongConfigItem1 = { name: 'New Launch Projects in Borivali East, Mumbai', location: 'Borivali East', city: 'Mumbai', configuration: '3 BHK', bedrooms: 3, budgetMax: 30700000, sourceQuality: 'medium' }
+const wrongConfigItem2 = { name: 'Under Construction Projects in Borivali East, Mumbai', location: 'Borivali East', city: 'Mumbai', configuration: '3 BHK', bedrooms: 3, budgetMax: 19500000, sourceQuality: 'medium' }
+const r1 = scoring.scoreExternalProject(wrongConfigItem1, configFilters)
+const r2 = scoring.scoreExternalProject(wrongConfigItem2, configFilters)
+check('explicit 3BHK-vs-2BHK mismatch caps confidence at 55 (TERTIARY-max, matching the location-mismatch cap)', r1.confidence <= 55 && r2.confidence <= 55)
+check('...and both get a real, score-derived TERTIARY tier, never PRIMARY/SECONDARY', r1.tier === 'TERTIARY' && r2.tier === 'TERTIARY')
+check('a genuine 2BHK exact match is NOT capped by this rule', scoring.scoreExternalProject({ name: 'Arkade Nucleus Borivali East', location: 'Borivali East', city: 'Mumbai', configuration: '2 BHK', bedrooms: 2, budgetMax: 15000000, sourceQuality: 'high', lastSeenAt: new Date().toISOString() }, configFilters).confidence > 55)
+check('a REAL (non-category-page) project with a confirmed wrong configuration is ALSO capped — this is a scoring fix independent of the category-page fix above',
+  scoring.scoreExternalProject({ name: 'Sheth Beaumonde Borivali East', location: 'Borivali East', city: 'Mumbai', configuration: '3 BHK', bedrooms: 3, budgetMax: 30700000, sourceQuality: 'high', lastSeenAt: new Date().toISOString() }, configFilters).tier === 'TERTIARY')
+check('match_tier is a real, score-derived field on every Node-fallback result now — never left unset', typeof r1.tier === 'string' && r1.tier.length > 0)
 
 // ── buildCanonicalCandidateId: deterministic, and portal-noise-tolerant ──
 const idA = externalSearch.buildCanonicalCandidateId({ name: 'Arkade Eden Malad West: Price, Photos & Floor Plans', location: 'Malad West' })
@@ -157,6 +195,40 @@ check('sub-listing source_url points back to the real page it came from', jadeit
 
 const noReraCategoryPage = { name: 'Flats for Sale in Malad West', description: 'Many builders offer great flats here with modern amenities and good connectivity.' }
 check('a category page with NO real RERA-anchored project mention extracts nothing (never guessed)', externalSearch.extractSubListings(noReraCategoryPage).length === 0)
+
+// ── Places-augmented pipeline (Part 1/2/38) ──────────────────────────────
+// looksLikeInvalidName() — real live examples from this investigation, not
+// synthetic ones. "Security Alert" is the real candidate name live-observed
+// for query "2bhk in borivali east" (traced to a 99acres page that most
+// plausibly served a bot-detection/interstitial page instead of its real
+// listing content).
+check("live 'Security Alert' garbage extraction -> looks invalid", scoring.looksLikeInvalidName('Security Alert'))
+check("real project 'Rivali Park' -> does NOT look invalid", !scoring.looksLikeInvalidName('Rivali Park'))
+check("real project 'Pastonji Bliss Tower' -> does NOT look invalid", !scoring.looksLikeInvalidName('Pastonji Bliss Tower'))
+check("generic UI chrome 'Click Here' -> looks invalid", scoring.looksLikeInvalidName('Click Here'))
+check("generic UI chrome 'View Details' -> looks invalid", scoring.looksLikeInvalidName('View Details'))
+check('empty name -> looks invalid', scoring.looksLikeInvalidName(''))
+
+// namesLooselyMatch() — regression for a REAL false-positive live-caught
+// during this same pass: an earlier token-overlap version of this function
+// matched "Security Alert" against an unrelated security-guard COMPANY
+// ("Alert Securitas | Security Guard Services in Mumbai") purely because
+// both share the tokens "security" and "alert" as separate words — a live
+// Places Text Search actually returned exactly this business for the query
+// "Security Alert, Borivali East, Mumbai". Tightened to contiguous
+// substring containment, which correctly rejects this case.
+check("'Security Alert' vs the real unrelated security-guard company Places returned -> does NOT match",
+  !namesLooselyMatch('Security Alert', 'Alert Securitas | Security Guard Services in Mumbai'))
+check("'Rivali Park' vs Places' own 'RIVALI PARK' -> matches", namesLooselyMatch('Rivali Park', 'RIVALI PARK'))
+check("'CCI Rivali Park Skyleap' vs a shorter Places entry 'Rivali Park' -> matches (containment either direction)",
+  namesLooselyMatch('CCI Rivali Park Skyleap', 'Rivali Park'))
+check("two unrelated short names -> does NOT match", !namesLooselyMatch('Blue Ridge', 'Green Valley'))
+
+// scoreExternalProject's places_verified bonus and the config-mismatch cap
+// (Part 32, prior pass) must coexist correctly — a Places-verified match
+// still gets its existing scoring, unaffected by this pass's additions.
+check('scoreExternalProject accepts a placesVerified item without throwing (additive field, no scoring dependency yet on this path)',
+  typeof scoring.scoreExternalProject({ name: 'Rivali Park', location: 'Borivali East', placesVerified: true }, { locations: ['Borivali East'] }).confidence === 'number')
 
 console.log()
 if (failures) {

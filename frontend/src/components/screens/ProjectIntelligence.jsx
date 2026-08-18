@@ -56,7 +56,7 @@ function loadLeaflet() {
 // the cost of no longer pinpointing the exact tower. `approx` distinguishes
 // the two so the UI never presents a locality-level pin as if it were the
 // precise building location.
-function NearbyMap({ projectQuery, fallbackQuery, onPlaces, onGeo, mapsUrl, displayName }) {
+function NearbyMap({ projectQuery, fallbackQuery, onPlaces, onGeo, mapsUrl, displayName, knownGeo }) {
   const ref = useRef(null)
   const mapRef = useRef(null)
   const [status, setStatus] = useState('loading') // loading | ok | approx | empty | error
@@ -76,21 +76,32 @@ function NearbyMap({ projectQuery, fallbackQuery, onPlaces, onGeo, mapsUrl, disp
         // concurrently with the geocode + nearby-places chain instead.
         const leafletPromise = loadLeaflet()
 
-        const geocode = (q) => q
-          ? fetch(`${API}/api/location-search?q=${encodeURIComponent(q)}`)
-              .then(r => r.json()).then(d => (d.results || [])[0]).catch(() => null)
-          : Promise.resolve(null)
+        let lat, lon, approx = false
+        // Real, Google Places-resolved coordinates (Part 1/2/38) — when
+        // this candidate already carries its own verified location (either
+        // discovered directly by places_search, or confirmed by a later
+        // places_verify lookup), skip the Nominatim geocode round-trip
+        // entirely and use Google's own coordinate directly. Precise, not
+        // an approximation — `approx` stays false.
+        if (knownGeo && Number.isFinite(knownGeo.lat) && Number.isFinite(knownGeo.lon)) {
+          lat = knownGeo.lat; lon = knownGeo.lon
+          setResolvedLabel(projectQuery)
+        } else {
+          const geocode = (q) => q
+            ? fetch(`${API}/api/location-search?q=${encodeURIComponent(q)}`)
+                .then(r => r.json()).then(d => (d.results || [])[0]).catch(() => null)
+            : Promise.resolve(null)
 
-        let geo = await geocode(projectQuery)
-        let approx = false
-        if (!geo && fallbackQuery && fallbackQuery.trim() !== projectQuery.trim()) {
-          geo = await geocode(fallbackQuery)
-          approx = !!geo
+          let geo = await geocode(projectQuery)
+          if (!geo && fallbackQuery && fallbackQuery.trim() !== projectQuery.trim()) {
+            geo = await geocode(fallbackQuery)
+            approx = !!geo
+          }
+          if (cancelled) return
+          if (!geo) { setStatus('empty'); onPlaces?.([]); onGeo?.(null); return }
+          lat = parseFloat(geo.lat); lon = parseFloat(geo.lon)
+          setResolvedLabel(approx ? fallbackQuery : projectQuery)
         }
-        if (cancelled) return
-        if (!geo) { setStatus('empty'); onPlaces?.([]); onGeo?.(null); return }
-        const lat = parseFloat(geo.lat), lon = parseFloat(geo.lon)
-        setResolvedLabel(approx ? fallbackQuery : projectQuery)
         // Real, geocoded project coordinates — the same lat/lon this map
         // itself plots, handed back up so Competitor Analysis can reuse it
         // instead of re-geocoding independently.
@@ -117,8 +128,19 @@ function NearbyMap({ projectQuery, fallbackQuery, onPlaces, onGeo, mapsUrl, disp
         const map = L.map(ref.current, { scrollWheelZoom: false, zoomControl: false }).setView([lat, lon], approx ? 13 : 15)
         L.control.zoom({ position: 'bottomright' }).addTo(map)
         mapRef.current = map
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+          // Part 6's own comment already claimed "Google Maps mobile-app
+          // conventions" (pin shape, zoom control position, bottom sheet)
+          // but never actually swapped the TILE LAYER itself — this was
+          // still standard light OpenStreetMap raster tiles underneath all
+          // that restyled chrome. CARTO's "Dark Matter" basemap: free, no
+          // API key/billing (same hosting model as the OSM tiles it
+          // replaces), dark navy/muted palette with teal water — the same
+          // visual category as Google Maps' own Night style, though not
+          // pixel-identical (different label font/POI icon set). True
+          // pixel-parity would require the real Google Maps JS SDK, a
+          // billed client-side key this app has deliberately avoided.
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
           maxZoom: 19,
         }).addTo(map)
 
@@ -1720,7 +1742,8 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
                   {mapQuery.length > 3 ? (
                     <div style={{ marginBottom:14 }}>
                       <NearbyMap projectQuery={mapQuery} fallbackQuery={fallbackQuery} onPlaces={setRealNearbyPlaces} onGeo={setProjectGeo}
-                        mapsUrl={externalMapsUrl} displayName={current?.name} />
+                        mapsUrl={externalMapsUrl} displayName={current?.name}
+                        knownGeo={Number.isFinite(current?.placesLat) && Number.isFinite(current?.placesLon) ? { lat: current.placesLat, lon: current.placesLon } : null} />
                     </div>
                   ) : (
                     <div style={{ color:'#75737F', fontSize:13, padding:'30px 0', textAlign:'center', fontStyle:'italic', background:'#F9F8F6', borderRadius:10, marginBottom:14 }}>

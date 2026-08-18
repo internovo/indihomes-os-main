@@ -1057,6 +1057,12 @@ function toAnalysableProject(p, i) {
     evidence: p.evidence || [], field_evidence: p.field_evidence || {},
     configuration_evidence: p.configuration_evidence || {}, featureEvidence: p.featureEvidence || [],
     sourceType: p.sourceType || (p.code ? 'indihomes' : 'external'),
+    // Google Places-derived fields (Part 1/2/38) — real coordinates/place
+    // ID Google itself resolved, carried through so Project Intelligence's
+    // Location Map can use them directly instead of falling back to
+    // Nominatim/Google Geocoding string-matching for this candidate.
+    placesVerified: p.placesVerified ?? null, placesLat: p.placesLat ?? null, placesLon: p.placesLon ?? null,
+    placesPlaceId: p.placesPlaceId ?? null, placesAddress: p.placesAddress ?? null,
     _autoResearch: true,
   }
   // Priority order (Part P1.4): (1) this exact candidate object — always,
@@ -1165,7 +1171,7 @@ const RANK_BY_POSITION = [
   { label: 'TERTIARY', color: '#8B8BD6' },
 ]
 const rankOf = (i) => RANK_BY_POSITION[i] || { label: `${i + 1}TH MATCH`, color: '#8B8BD6' }
-const TIER_COLOR = { PRIMARY: '#2E9E4F', SECONDARY: '#F7941D', TERTIARY: '#8B8BD6' }
+const TIER_COLOR = { PRIMARY: '#2E9E4F', SECONDARY: '#F7941D', TERTIARY: '#8B8BD6', LOW_MATCH: '#9B99A6' }
 
 // One key-fact chip — icon + value, or nothing at all when the value isn't
 // available (never a fabricated placeholder; Part 19's "must work when
@@ -1197,12 +1203,11 @@ function FactChip({ icon: Icon, value, title }) {
 // One researched property — richer than a bare search-result snippet
 // (Part 6/12): a primary identity row (rank, thumbnail, name, tier, source,
 // match %), a key-facts row (config/area/price/location — the four things
-// a salesperson scans first), a secondary-facts row that only renders the
-// facts this particular listing actually has (developer/RERA/possession/
-// floors/connectivity/property type — never a placeholder for a missing
-// one), an amenities strip, and the real match-reasoning line
-// (p.matchReason/why, from scoring.cjs — never invented client-side).
-// `key_match`/`limitations`/`sources` still carry through to Project
+// a salesperson scans first, including a real BHK configuration chip when
+// known), a secondary-facts row that only renders the facts this particular
+// listing actually has (developer/RERA/possession/floors/connectivity/
+// property type — never a placeholder for a missing one), and an amenities
+// strip. `key_match`/`limitations`/`sources` still carry through to Project
 // Intelligence via toAnalysableProject below.
 function PropertyCard({ p, i, onAnalyse }) {
   const tierLabel = p.match_tier || rankOf(i).label
@@ -1210,7 +1215,6 @@ function PropertyCard({ p, i, onAnalyse }) {
   const imgUrl = projectImageUrl({ builder: p.developer, name: p.name, id: p.id })
   const amenities = Array.isArray(p.amenities) ? p.amenities : []
   const shownAmenities = amenities.slice(0, 5)
-  const matchReason = p.matchReason || p.why || null
 
   return (
     <div style={{ background: '#fff', border: '1px solid #E9E7E0', borderLeft: `4px solid ${color}`, borderRadius: 12, padding: '16px 20px', display: 'flex', alignItems: 'flex-start', gap: 16 }}>
@@ -1272,7 +1276,7 @@ function PropertyCard({ p, i, onAnalyse }) {
         {/* Key facts — configuration / area / price / location, the four
             things scanned first. Falls back to nothing rendered for a
             missing one rather than an empty chip. */}
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: shownAmenities.length || matchReason ? 6 : 8 }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: shownAmenities.length ? 6 : 8 }}>
           <FactChip icon={Bed} value={p.config} title="Configuration" />
           <FactChip icon={ClipboardList} value={p.carpetArea ? `${p.carpetArea} carpet` : p.builtUpArea ? `${p.builtUpArea} built-up` : null} title="Area" />
           <FactChip icon={IndianRupee} value={p.price ? `₹${String(p.price).replace(/^₹/, '')}` : null} title="Price" />
@@ -1281,7 +1285,7 @@ function PropertyCard({ p, i, onAnalyse }) {
 
         {/* Secondary facts — only the ones this listing actually has. */}
         {(p.developer || p.possession || p.totalFloors || p.connectivity || p.propertyType) && (
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: shownAmenities.length || matchReason ? 6 : 8 }}>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: shownAmenities.length ? 6 : 8 }}>
             <FactChip icon={Hammer} value={p.developer} title="Developer" />
             <FactChip icon={Calendar} value={p.possession} title="Possession" />
             <FactChip value={p.totalFloors} title="Floors / towers" />
@@ -1292,21 +1296,13 @@ function PropertyCard({ p, i, onAnalyse }) {
 
         {/* Amenities strip */}
         {shownAmenities.length > 0 && (
-          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: matchReason ? 6 : 8 }}>
+          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 8 }}>
             {shownAmenities.map((a, ai) => (
               <span key={ai} style={{ fontSize: 11, color: '#4A4A63', background: '#F1EDFB', borderRadius: 12, padding: '2px 9px' }}>{a}</span>
             ))}
             {amenities.length > shownAmenities.length && (
               <span style={{ fontSize: 11, color: '#8A8896' }}>+{amenities.length - shownAmenities.length} more</span>
             )}
-          </div>
-        )}
-
-        {/* Real match reasoning (scoring.cjs's reasons[]) — "why" this
-            result scored the way it did, not a restated match %. */}
-        {matchReason && (
-          <div style={{ fontSize: 11.5, color: '#75737F', marginBottom: 8 }}>
-            <span style={{ fontWeight: 700, color: '#8A8896' }}>Matches: </span>{matchReason}
           </div>
         )}
 
@@ -1352,11 +1348,6 @@ function RankedResults({ result, onAnalyse }) {
   }
   return (
     <div style={{ marginBottom: 20 }}>
-      {result.summary && (
-        <div style={{ fontSize: 13, color: '#4A4A63', lineHeight: 1.6, marginBottom: 14, padding: '10px 14px', background: '#F9F8F6', borderRadius: 8, border: '1px solid #EEEBE3' }}>
-          <span style={{ fontWeight: 700, color: '#0E0E52' }}>Research summary: </span>{result.summary}
-        </div>
-      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {props.map((p, i) => <PropertyCard key={p.id || i} p={p} i={i} onAnalyse={onAnalyse} />)}
       </div>
@@ -1395,10 +1386,6 @@ function AnalystReport({ result, onAnalyse, onResultChange }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#EEF0FF', border: '1px solid #C8CCF0', borderRadius: 8, padding: '9px 14px', marginBottom: 14, fontSize: 12, color: '#0E0E52', fontWeight: 600 }}>
-        <SlidersHorizontal size={14} style={{ flexShrink: 0 }} />
-        <span>AI Search — external market listings ({result.market === 'dubai' ? 'Dubai / UAE' : 'India'}). Not IndiHomes' own inventory — see Property Search for official IndiHomes projects.</span>
-      </div>
       <FilterChips filters={result.filters || {}} />
       {result.warning && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#FEF3E4', border: '1px solid #F7941D40', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 12.5, color: '#9A5B00' }}>
@@ -1464,12 +1451,6 @@ const RESEARCH_STAGES = [
   'Comparing available properties',
   'Verifying property details',
   'Ranking matching properties',
-]
-
-const AI_EXAMPLES = [
-  'I need a 2 BHK in Goregaon or Malad under 1.75 Cr with possession before 2027',
-  '3 BHK by Lodha or Godrej in Thane, ready to move, good amenities',
-  'Budget 1 Cr, near a metro station in Mumbai, family-friendly',
 ]
 
 function timeAgo(ts) {
@@ -2030,17 +2011,6 @@ export default function ProjectSelection({ onAnalyse }) {
             <LocationCombobox options={[]} selected={aiLocations} onChange={setAiLocations} projects={projects}
               minWidth="100%" maxWidth="100%" onSubmit={(text) => runAiSearch(text)} disabled={aiLoading} loading={aiLoading} />
           </div>
-          {!aiResult && !aiLoading && (
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 12, color: '#8A8896', alignSelf: 'center' }}>Try:</span>
-              {AI_EXAMPLES.map((ex, i) => (
-                <button key={i} onClick={() => runAiSearch(ex)}
-                  style={{ background: '#F6F5F1', border: '1px solid #E9E7E0', borderRadius: 20, padding: '6px 14px', fontSize: 12, color: '#4A4A63', cursor: 'pointer' }}>
-                  {ex}
-                </button>
-              ))}
-            </div>
-          )}
           {aiLoading && (
             <div style={{ textAlign: 'center', padding: '40px 0', color: '#75737F' }}>
               <Loader2 size={28} style={{ marginBottom: 10, color: '#0E0E52', animation: 'spin 0.8s linear infinite' }} />
