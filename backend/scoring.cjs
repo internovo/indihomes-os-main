@@ -434,7 +434,15 @@ function isAggregatorTitle(name) {
     // "Flats for Rent/Sale in X", "Resale Flats in X", "New Projects in X",
     // "Property/Properties in X" — these are locality landing pages, not a
     // named building. A real project's own title doesn't open this way.
-    /^\s*(\d+\+?\s*)?(bhk\s+)?(flats?|apartments?|propert(y|ies)|resale(\s+flats?)?|new\s+projects?)\b.{0,50}\b(in|for\s+sale|for\s+rent|near)\b/i.test(n) ||
+    // Live-caught gap (2026-08-19): "372+ 1 BHK Flats in Kandivali West,
+    // Mumbai" wasn't matching — the old `(bhk\s+)?` only ever expected the
+    // bare word "bhk" right after an optional leading COUNT, never a
+    // CONFIGURATION (its own number, e.g. "1 BHK"/"2 & 3 BHK") appearing
+    // between the count and the real-estate noun, which is exactly how a
+    // portal's own "<count>+ <config> Flats/Apartments in <Place>" SEO
+    // title is actually phrased. Mirrors agent/agent/normalize.py's
+    // PORTAL_CATEGORY_TITLE_RE fix exactly.
+    /^\s*(\d+\+?\s*)?(\d+(?:\s*[&,]\s*\d+)*\s*(?:bhk|bed(?:room)?s?)\s*)?(flats?|apartments?|propert(y|ies)|resale(\s+flats?)?|new\s+projects?)\b.{0,50}\b(in|for\s+sale|for\s+rent|near)\b/i.test(n) ||
     // Trailing "N+ Properties/Flats/Apartments" count — with or without a
     // following preposition (e.g. "...Borivali East – 16+ Properties").
     /\d+\+?\s*(propert(y|ies)|flats?|apartments?)\s*$/i.test(n) ||
@@ -625,8 +633,12 @@ const UNDER_CONSTRUCTION_RE = /\bunder[\s-]?construction\b|\bwork\s+in\s+progres
 // nearby": a genuine developer-marketing Instagram caption ("New Project by
 // Pastonji Bliss Tower located near kandarpada metro station...") never
 // says "launch"/"pre-launch"/etc. explicitly. Deliberately excludes a bare
-// "new project" (too generic).
-const NEW_LAUNCH_RE = /\bnew\s*launch\b|\bnewly\s+launched\b|\bpre[\s-]?launch\b|\bjust\s+launched\b|\bupcoming\s+project\b|\bnew\s+project\s+by\b/i
+// "new project" (too generic). "pre-launch" moved OUT of this pattern into
+// its own PRE_LAUNCH_RE below (mirrors normalize.py's split exactly) — a
+// project still taking registrations of interest is meaningfully earlier
+// than one that has actually launched.
+const NEW_LAUNCH_RE = /\bnew\s*launch\b|\bnewly\s+launched\b|\bjust\s+launched\b|\bupcoming\s+project\b|\bnew\s+project\s+by\b/i
+const PRE_LAUNCH_RE = /\bpre[\s-]?launch\b|\bcoming\s+soon\b|\bregister\s+your\s+interest\b|\blaunching\s+soon\b/i
 const NEAR_POSSESSION_RE = /\bnear\s+possession\b|\bpossession\s+(soon|shortly|imminent)\b|\bready\s+(for|by)\s+possession\b/i
 const READY_TO_MOVE_RE = /\bready[\s-]?to[\s-]?move\b|\bready\s+possession\b|\bimmediate\s+possession\b|\bpossession\s+available\b|\bfully\s+occupied\b|\boccupancy\s+certificate\b/i
 
@@ -635,8 +647,31 @@ function possessionYearFromText(text) {
   return m ? parseInt(m[0], 10) : null
 }
 
+const MONTH_NUM = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 }
+// Mirrors agent/agent/normalize.py's _parse_possession_month_year exactly —
+// when the possession text carries MONTH precision, the NEAR_POSSESSION
+// fallback below can use a genuine ~6-month window instead of only ever
+// comparing whole years. Returns null (never a guess) when unparseable.
+function parsePossessionMonthYear(text) {
+  const m = String(text || '').trim().match(/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s*(\d{4})/i)
+  if (!m) return null
+  const month = MONTH_NUM[m[1].toLowerCase().slice(0, 3)]
+  if (!month) return null
+  return new Date(Date.UTC(parseInt(m[2], 10), month - 1, 1))
+}
+
 // Returns { status, evidence }. status is one of UNDER_CONSTRUCTION |
-// NEAR_POSSESSION | NEW_LAUNCH | READY_TO_MOVE | RESALE | RENTAL | UNKNOWN.
+// NEAR_POSSESSION | NEW_LAUNCH | PRE_LAUNCH | READY_TO_MOVE | RESALE |
+// RENTAL | UNKNOWN.
+//
+// Precedence mirrors agent/agent/normalize.py's classify_lifecycle_status
+// exactly: RESALE/RENTAL always win outright, then READY_TO_MOVE is
+// checked BEFORE NEW_LAUNCH/PRE_LAUNCH/UNDER_CONSTRUCTION/NEAR_POSSESSION —
+// an explicit "Ready to Move"/"Immediate Possession" claim is the
+// strongest, most specific completion signal a listing can make, and must
+// win outright over a weaker/generic "under construction" mention found
+// elsewhere on the same page (e.g. a multi-phase project's page that also
+// mentions an earlier phase still under construction).
 function classifyLifecycleStatus(item = {}) {
   const text = `${item.name || ''} ${item.description || ''}`.trim()
   if (!text) return { status: 'UNKNOWN', evidence: null }
@@ -646,19 +681,30 @@ function classifyLifecycleStatus(item = {}) {
   if (m) return { status: 'RESALE', evidence: snippet(m) }
   m = RENTAL_RE.exec(text)
   if (m) return { status: 'RENTAL', evidence: snippet(m) }
+  m = READY_TO_MOVE_RE.exec(text)
+  if (m) return { status: 'READY_TO_MOVE', evidence: snippet(m) }
   m = NEW_LAUNCH_RE.exec(text)
   if (m) return { status: 'NEW_LAUNCH', evidence: snippet(m) }
+  m = PRE_LAUNCH_RE.exec(text)
+  if (m) return { status: 'PRE_LAUNCH', evidence: snippet(m) }
   m = UNDER_CONSTRUCTION_RE.exec(text)
   if (m) return { status: 'UNDER_CONSTRUCTION', evidence: snippet(m) }
   m = NEAR_POSSESSION_RE.exec(text)
   if (m) return { status: 'NEAR_POSSESSION', evidence: snippet(m) }
-  m = READY_TO_MOVE_RE.exec(text)
-  if (m) return { status: 'READY_TO_MOVE', evidence: snippet(m) }
 
-  // No phrase-level marker — fall back to a real extracted possession year,
-  // same three-way bucketing as the Python side (far future = still
-  // building, this/next year = near possession, past/current = ready).
+  // No phrase-level marker — fall back to a real extracted possession date.
   const possessionText = item.handoverDate || item.possessionDate || item.possession || ''
+  const parsedMonth = parsePossessionMonthYear(possessionText)
+  if (parsedMonth) {
+    const now = new Date()
+    const monthsOut = (parsedMonth.getUTCFullYear() - now.getFullYear()) * 12 + (parsedMonth.getUTCMonth() - now.getMonth())
+    if (monthsOut < 0) return { status: 'READY_TO_MOVE', evidence: `Possession date ${possessionText} extracted from listing (already past)` }
+    if (monthsOut <= 6) return { status: 'NEAR_POSSESSION', evidence: `Possession date ${possessionText} extracted from listing (within 6 months)` }
+    return { status: 'UNDER_CONSTRUCTION', evidence: `Possession date ${possessionText} extracted from listing` }
+  }
+  // Year-only bucketing (far future = still building, this/next year =
+  // near possession, past/current = ready) — same three-way split as the
+  // Python side.
   const py = possessionYearFromText(possessionText)
   if (py != null) {
     const thisYear = new Date().getFullYear()
@@ -671,6 +717,9 @@ function classifyLifecycleStatus(item = {}) {
 
 // Default AI Property Search policy — only these are eligible new-project
 // inventory. Same set as agent/agent/normalize.py's ALLOWED_LIFECYCLE_STATUSES.
-const ALLOWED_LIFECYCLE_STATUSES = new Set(['UNDER_CONSTRUCTION', 'NEAR_POSSESSION', 'NEW_LAUNCH'])
+// PRE_LAUNCH is included — a project still taking registrations of
+// interest before formal launch is new-project inventory, not a
+// disqualifying stage.
+const ALLOWED_LIFECYCLE_STATUSES = new Set(['UNDER_CONSTRUCTION', 'NEAR_POSSESSION', 'NEW_LAUNCH', 'PRE_LAUNCH'])
 
 module.exports = { scoreIndiHomesProject, scoreExternalProject, filtersFromBuckets, filtersFromParams, labelFor, isAggregatorTitle, classifyLifecycleStatus, ALLOWED_LIFECYCLE_STATUSES, looksLikeUnrelatedCommerce, looksLikeInvalidName }

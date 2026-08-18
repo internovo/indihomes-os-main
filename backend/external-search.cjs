@@ -545,42 +545,44 @@ async function queryExternal(query, filters = {}, market = 'india', { skip = 0, 
       doc._lifecycleStatus = status // stashed for the .map() below, avoids re-classifying
       doc._lifecycleEvidence = evidence
       if (!scoring.ALLOWED_LIFECYCLE_STATUSES.has(status)) {
-        // Places-verified escape hatch — mirrors agent/agent/graph.py's
-        // identical fix exactly. A candidate discovered directly by
-        // placesConnector (doc.lat/doc.lon already set at this point in
-        // the pipeline — see external-connectors.cjs) is a REAL, EXISTING
-        // building Google itself confirmed; Places has no concept of
-        // construction lifecycle at all, so a Places-sourced candidate is
-        // STRUCTURALLY unable to ever satisfy this gate the normal way.
-        // Confirmed live: real Places-verified buildings near a searched
-        // locality were being discarded here purely for lacking
-        // construction-status language no Places listing ever has. Kept
-        // (not rejected) but flagged _unverifiedLifecycle so the .map()
-        // below can cap its score/tier and add an honest reason — same
-        // standard Competitor Analysis already uses for real buildings
-        // with no lifecycle claim attached. Only covers candidates
-        // ALREADY Places-verified at this pipeline stage (i.e. discovered
-        // BY placesConnector) — a candidate that would only be verified by
-        // the separate placesVerify pass LATER in this function isn't
-        // known-real yet here, so it's correctly still rejected at this
-        // point, same as before.
-        if (doc.lat != null && doc.lon != null && (status === 'UNKNOWN' || status === 'READY_TO_MOVE')) {
-          doc._unverifiedLifecycle = true
-          return true
+        if (status === 'RESALE') {
+          retrievalCounts.resale++
+          if (isDebugTraceEnabled()) rejectedForDebug.push({ name: doc.name, reason: 'Resale listing — not new-project inventory' })
+          return false
         }
-        if (status === 'RESALE') retrievalCounts.resale++
-        else if (status === 'RENTAL') retrievalCounts.rental++
-        else retrievalCounts.unknown++ // READY_TO_MOVE + UNKNOWN — neither is an eligible new-project stage
-        if (isDebugTraceEnabled()) {
-          const reason = {
-            RESALE: 'Resale listing — not new-project inventory',
-            RENTAL: 'Rental listing — not for sale',
-            READY_TO_MOVE: 'Ready-to-move / completed inventory — outside the active new-project search policy',
-            UNKNOWN: 'Lifecycle stage could not be confidently determined',
-          }[status] || `Lifecycle status '${status}' not eligible for Project Search`
-          rejectedForDebug.push({ name: doc.name, reason })
+        if (status === 'RENTAL') {
+          retrievalCounts.rental++
+          if (isDebugTraceEnabled()) rejectedForDebug.push({ name: doc.name, reason: 'Rental listing — not for sale' })
+          return false
         }
-        return false
+        if (status === 'READY_TO_MOVE') {
+          // A CONFIRMED stage outside this search's active policy (this
+          // search targets pre-completion inventory) — this is positive
+          // evidence of an ineligible stage, not an absence of evidence,
+          // so it's rejected outright regardless of source. Distinct from
+          // UNKNOWN below.
+          retrievalCounts.unknown++
+          if (isDebugTraceEnabled()) rejectedForDebug.push({ name: doc.name, reason: 'Ready-to-move / completed inventory — outside the active new-project search policy' })
+          return false
+        }
+        // UNKNOWN — deferred, not rejected outright (broadened escape
+        // hatch, mirrors agent/agent/graph.py's identical fix). Previously
+        // this only spared a candidate ALREADY Places-verified at THIS
+        // pipeline stage (doc.lat/doc.lon set — see external-connectors.cjs)
+        // — every other UNKNOWN candidate was rejected purely for LACKING
+        // lifecycle language, which treats an ABSENCE of evidence as if it
+        // were POSITIVE evidence of ineligibility. Every UNKNOWN candidate
+        // that survived the aggregator/unrelated-commerce checks above now
+        // gets a real verification attempt via the placesVerify pass below
+        // (bounded to PLACES_VERIFY_MAX, same as before) regardless of
+        // whether it was itself discovered by placesConnector; only a
+        // genuinely invalid-looking name (looksLikeInvalidName — the same
+        // independent identity check already applied elsewhere in this
+        // pipeline) is POSITIVE disqualifying evidence, applied in the
+        // unified filter step right after the placesVerify pass below —
+        // its absence alone is never itself disqualifying.
+        doc._unverifiedLifecycle = true
+        return true
       }
       return true
     })
@@ -660,6 +662,10 @@ async function queryExternal(query, filters = {}, market = 'india', { skip = 0, 
           placesVerified: true, placesLat: doc.lat, placesLon: doc.lon,
           placesPlaceId: doc.placeId, placesAddress: doc.formattedAddress,
         } : {}),
+        // Carried forward so the unified invalid-name gate after the
+        // placesVerify pass (below) knows this candidate's lifecycle was
+        // never confirmed — same discipline the escape hatch above uses.
+        ...(doc._unverifiedLifecycle ? { _unverifiedLifecycle: true } : {}),
         confidence: finalConfidence, freshnessLabel,
         match_score: finalConfidence,
         // Real, score-derived tier (Part 32) — previously unset on this
@@ -724,7 +730,6 @@ async function queryExternal(query, filters = {}, market = 'india', { skip = 0, 
     // redundant second Places call for the same candidate.
     const toVerify = properties.filter(p => p.placesVerified !== true).slice(0, PLACES_VERIFY_MAX)
     const verifyResults = await Promise.allSettled(toVerify.map(p => placesVerify(p.name, p.location, p.city)))
-    const rejectedIds = new Set()
     verifyResults.forEach((r, i) => {
       const p = toVerify[i]
       const match = r.status === 'fulfilled' ? r.value : null
@@ -733,15 +738,27 @@ async function queryExternal(query, filters = {}, market = 'india', { skip = 0, 
         p.placesLat = match.lat; p.placesLon = match.lon; p.placesPlaceId = match.placeId; p.placesAddress = match.address
       } else {
         p.placesVerified = false
-        if (scoring.looksLikeInvalidName(p.name)) {
-          rejectedIds.add(p.id)
-          retrievalCounts.invalidName++
-          if (isDebugTraceEnabled()) rejectedForDebug.push({ name: p.name, reason: 'Could not verify this is a real project name' })
-        }
       }
     })
-    if (rejectedIds.size) properties = properties.filter(p => !rejectedIds.has(p.id))
   }
+  // Unified identity gate — runs regardless of whether placesConnector is
+  // even configured (a name-shape check never depended on Places to be
+  // meaningful) and regardless of a candidate's lifecycle status: ANY
+  // candidate whose Places verification didn't resolve (placesVerified is
+  // `false`, or was never attempted at all — e.g. Places not configured, or
+  // this candidate fell outside PLACES_VERIFY_MAX) is only rejected here if
+  // its NAME independently looks invalid. This is the ONE place lifecycle-
+  // UNKNOWN candidates deferred above (Part 1d's broadened escape hatch)
+  // can still be rejected — on POSITIVE evidence (an invalid-looking name),
+  // never on a plain absence of lifecycle evidence.
+  properties = properties.filter(p => {
+    if (p.placesVerified !== true && scoring.looksLikeInvalidName(p.name)) {
+      retrievalCounts.invalidName++
+      if (isDebugTraceEnabled()) rejectedForDebug.push({ name: p.name, reason: 'Could not verify this is a real project name' })
+      return false
+    }
+    return true
+  })
 
   // Never silently swallow a connector failure — when every connector that
   // ran this query failed, say exactly why (and what to configure instead)
@@ -775,7 +792,35 @@ async function queryExternal(query, filters = {}, market = 'india', { skip = 0, 
       : ''
     message = `No verified new residential projects found. ${retrievalCounts.total} candidate${retrievalCounts.total !== 1 ? 's' : ''} were reviewed. ${breakdown}.${placesNote}`
   }
-  const response = { configured: true, enabled: true, market, properties, total: result.total, facets: result.facets, connectorErrors, message }
+  // Part 1e — always present (not debug-gated), unlike the richer
+  // per-candidate breakdown in debug_trace below. Aggregate COUNTS ONLY (no
+  // candidate names/URLs), safe for the frontend to read directly — this is
+  // what lets ProjectSelection.jsx distinguish "no candidates found at all"
+  // vs. "candidates found but explicitly disqualified" vs. "candidates
+  // found and plausible, but couldn't be verified" instead of collapsing
+  // all three into one generic empty state.
+  const retrievalMetrics = {
+    total_candidates: retrievalCounts.total,
+    individual_project_candidates: retrievalCounts.total - retrievalCounts.aggregator,
+    aggregator_pages: retrievalCounts.aggregator,
+    resale_candidates: retrievalCounts.resale,
+    rental_candidates: retrievalCounts.rental,
+    unknown_candidates: retrievalCounts.unknown,
+    invalid_name_candidates: retrievalCounts.invalidName,
+    eligible_candidates: properties.length,
+    // Summed from the always-tracked counts above, NOT rejectedForDebug —
+    // that array is only ever populated when AI_SEARCH_DEBUG_TRACE=true
+    // (see its push sites), so it would silently read 0 here on every
+    // production request otherwise.
+    rejected_candidates: retrievalCounts.aggregator + retrievalCounts.resale + retrievalCounts.rental + retrievalCounts.unknown + retrievalCounts.invalidName,
+    // Places-augmented pipeline (Part 1/38) — how many raw candidates
+    // came specifically from the new Google Places connector, real
+    // regardless of whether Places is even configured (0 either way
+    // when it isn't) — never inferred, always a genuine count.
+    places_configured: placesConnector.isConfigured(),
+    places_contributed_candidates: placesContributedCount,
+  }
+  const response = { configured: true, enabled: true, market, properties, total: result.total, facets: result.facets, connectorErrors, message, retrieval_metrics: retrievalMetrics }
   // Dev-only debug trace (Part 27) — same server-side-only gate as the
   // Python agent's curator.py. OFF by default; never sent to a production
   // user unless AI_SEARCH_DEBUG_TRACE=true is set on the server itself.
@@ -786,23 +831,7 @@ async function queryExternal(query, filters = {}, market = 'india', { skip = 0, 
       candidates_rejected: rejectedForDebug,
       candidates_qualified: properties.length,
       final_order: properties.map(p => p.id),
-      retrieval_metrics: {
-        total_candidates: retrievalCounts.total,
-        individual_project_candidates: retrievalCounts.total - retrievalCounts.aggregator,
-        aggregator_pages: retrievalCounts.aggregator,
-        resale_candidates: retrievalCounts.resale,
-        rental_candidates: retrievalCounts.rental,
-        unknown_candidates: retrievalCounts.unknown,
-        invalid_name_candidates: retrievalCounts.invalidName,
-        eligible_candidates: properties.length,
-        rejected_candidates: rejectedForDebug.length,
-        // Places-augmented pipeline (Part 1/38) — how many raw candidates
-        // came specifically from the new Google Places connector, real
-        // regardless of whether Places is even configured (0 either way
-        // when it isn't) — never inferred, always a genuine count.
-        places_configured: placesConnector.isConfigured(),
-        places_contributed_candidates: placesContributedCount,
-      },
+      retrieval_metrics: retrievalMetrics,
     }
   }
   return response

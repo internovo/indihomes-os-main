@@ -27,6 +27,7 @@ from agent.scoring import score_all
 from agent.graph import _apply_hard_eligibility_filter, _location_terms, _matches_searched_location, _prioritize_for_deep_research
 from agent.fact_extraction import extract_project_name, deterministic_extract, extract_sub_listings
 from agent.curator import _retrieval_metrics, _empty_result_explanation
+from agent.query_understanding import parse_query
 
 failures = []
 
@@ -55,6 +56,41 @@ check("near-possession description -> NEAR_POSSESSION", status == "NEAR_POSSESSI
 
 status, _ = classify_lifecycle_status({"title": "New launch: Godrej Horizon", "description": "Newly launched residential project in Andheri West"})
 check("new-launch title -> NEW_LAUNCH", status == "NEW_LAUNCH")
+
+# ── PRE_LAUNCH — split out of NEW_LAUNCH_RE, its own distinct status ─────
+status, ev = classify_lifecycle_status({"title": "Rustomjee Skyline", "description": "Pre-launch offer — register your interest now for early access"})
+check("pre-launch phrase -> PRE_LAUNCH, not NEW_LAUNCH", status == "PRE_LAUNCH")
+check("pre-launch evidence text captured", bool(ev))
+status, _ = classify_lifecycle_status({"title": "Coming Soon: Lodha Elite", "description": "Launching soon in Thane West"})
+check("'coming soon'/'launching soon' -> PRE_LAUNCH", status == "PRE_LAUNCH")
+check("PRE_LAUNCH is in the allowed set (new-project inventory, not disqualified)", "PRE_LAUNCH" in ALLOWED_LIFECYCLE_STATUSES)
+
+# ── Precedence — an explicit "Ready to Move" claim must win outright over
+# a weaker/generic "under construction" mention found elsewhere on the same
+# page (e.g. a multi-phase project's page also mentioning an earlier phase
+# still under construction) — this must never misclassify a genuinely ready
+# building as still building.
+status, ev = classify_lifecycle_status({
+    "title": "Kalpataru Radiance Phase 1 — Ready to Move",
+    "description": "Phase 1 is ready to move with immediate possession. Phase 2 is still under construction.",
+})
+check("explicit READY_TO_MOVE wins outright over a weaker UNDER_CONSTRUCTION mention on the same page", status == "READY_TO_MOVE")
+check("...with the READY_TO_MOVE evidence text captured, not the under-construction phrase", "ready to move" in (ev or "").lower())
+
+# ── NEAR_POSSESSION month-precision fallback (~6 months of today) ───────
+from datetime import datetime, timezone as _tz
+_now = datetime.now(_tz.utc)
+
+
+def _months_from_now(n):
+    total = _now.year * 12 + (_now.month - 1) + n
+    return f"{['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][total % 12]} {total // 12}"
+
+
+status, ev = classify_lifecycle_status({"title": "Plain listing, no phrase markers", "description": ""}, possession_display=_months_from_now(3))
+check("possession date ~3 months out, no phrase marker -> NEAR_POSSESSION (month precision)", status == "NEAR_POSSESSION")
+status, _ = classify_lifecycle_status({"title": "Plain listing, no phrase markers", "description": ""}, possession_display=_months_from_now(18))
+check("possession date ~18 months out, no phrase marker -> UNDER_CONSTRUCTION (month precision)", status == "UNDER_CONSTRUCTION")
 
 status, _ = classify_lifecycle_status({"title": "Some Random Listing Title", "description": "Nice apartment with good amenities"})
 check("no signal at all -> UNKNOWN", status == "UNKNOWN")
@@ -183,7 +219,17 @@ scored = [
     {"id": "c", "name": "1BHK for Rent Borivali", "match_score": 85, "is_aggregator": False, "lifecycle_status": "RENTAL"},
     {"id": "d", "name": "Buy 1 BHK in Borivali", "match_score": 70, "is_aggregator": True, "lifecycle_status": "UNKNOWN"},
     {"id": "e", "name": "Godrej Horizon", "match_score": 82, "is_aggregator": False, "lifecycle_status": "NEW_LAUNCH"},
+    # "Mystery Listing" is a real-looking name (not caught by
+    # looks_like_invalid_name) with UNKNOWN lifecycle — the broadened
+    # escape-hatch case (Part 1d): absence of lifecycle evidence is not
+    # itself disqualifying, so this must be ACCEPTED (capped/honest), not
+    # rejected, on the final pass.
     {"id": "f", "name": "Mystery Listing", "match_score": 95, "is_aggregator": False, "lifecycle_status": "UNKNOWN"},
+    # "Security Alert" — an actually invalid-looking name (garbage-page
+    # interstitial title) with UNKNOWN lifecycle — POSITIVE disqualifying
+    # evidence (the name itself), so this one still IS rejected on the
+    # final pass despite the highest score in the batch.
+    {"id": "g", "name": "Security Alert", "match_score": 99, "is_aggregator": False, "lifecycle_status": "UNKNOWN"},
 ]
 # First pass (final=False, before deep_research) — RESALE/RENTAL/aggregator
 # are rejected immediately (decisive signal); UNKNOWN is DEFERRED (kept, not
@@ -195,17 +241,25 @@ check("first pass: resale rejected immediately", "b" not in accepted_ids)
 check("first pass: rental rejected immediately", "c" not in accepted_ids)
 check("first pass: aggregator page rejected immediately", "d" not in accepted_ids)
 check("first pass: UNKNOWN lifecycle is DEFERRED, not rejected yet (even with the highest score, 95)", "f" in accepted_ids)
+check("first pass: a still-UNKNOWN, invalid-named candidate is also deferred (name check is final-pass-only)", "g" in accepted_ids)
 check("first pass: eligible candidates present", {"a", "e"} <= accepted_ids)
 check("every first-pass rejection carries a reason", all(r.get("reason") for r in rejected))
 check("first-pass rejected count matches (resale+rental+aggregator only)", len(rejected) == 3)
 
 # Second pass (final=True, after deep_research had its chance) — anything
-# STILL UNKNOWN/READY_TO_MOVE at this point is finally rejected for real.
+# CONFIRMED ineligible (resale/rental/aggregator/READY_TO_MOVE, or UNKNOWN
+# with a positively invalid-looking name) is rejected for real; a
+# still-UNKNOWN candidate with an otherwise-real-looking name is ACCEPTED
+# (capped tier, honest reason) — Part 1d's broadened escape hatch: absence
+# of lifecycle evidence is not itself disqualifying evidence.
 accepted2, rejected2 = _apply_hard_eligibility_filter(scored, final=True)
 accepted2_ids = {p["id"] for p in accepted2}
-check("final pass: keeps only UNDER_CONSTRUCTION/NEAR_POSSESSION/NEW_LAUNCH", accepted2_ids == {"a", "e"})
-check("final pass: UNKNOWN lifecycle now rejected for real, even with the highest score (95)", "f" not in accepted2_ids)
-check("final-pass rejected count matches (all 4 disqualifiers)", len(rejected2) == 4)
+accepted2_by_id = {p["id"]: p for p in accepted2}
+check("final pass: confirmed-eligible candidates kept", {"a", "e"} <= accepted2_ids)
+check("final pass: UNKNOWN with a real-looking name is ACCEPTED, not rejected, even though never confirmed", "f" in accepted2_ids)
+check("final pass: that acceptance is honestly capped, never claimed as a strong confirmed match", accepted2_by_id["f"]["match_score"] <= 55 and accepted2_by_id["f"].get("_unverified_lifecycle") is True)
+check("final pass: UNKNOWN with an invalid-looking name (positive disqualifying evidence) IS rejected, despite the highest score", "g" not in accepted2_ids)
+check("final-pass rejected count matches (resale+rental+aggregator+invalid-named-unknown)", len(rejected2) == 4)
 
 # ── deterministic ranking / tie-breaker ──────────────────────────────────
 tied = [
@@ -462,7 +516,13 @@ already_eligible_high_score = {"id": "eligible-hi", "name": "Eligible High Score
 unknown_low_score = {"id": "unknown-lo", "name": "Unknown Low Score", "lifecycle_status": "UNKNOWN", "match_score": 20}
 ready_to_move_mid = {"id": "rtm-mid", "name": "Ready To Move Mid", "lifecycle_status": "READY_TO_MOVE", "match_score": 50}
 prioritized = _prioritize_for_deep_research([already_eligible_high_score, unknown_low_score, ready_to_move_mid])
-check("candidates with UNDETERMINED eligibility (UNKNOWN/READY_TO_MOVE) go FIRST for the deep-research budget, even with a lower match_score", [p["id"] for p in prioritized[:2]] == ["unknown-lo", "rtm-mid"])
+# The two UNDETERMINED candidates must both come before the already-eligible
+# one regardless of match_score (the coarse group is the dominant key) —
+# their relative order BETWEEN each other is now decided by the real
+# multi-factor priority score (identity/location/query-match/lifecycle-
+# evidence/completeness), not just score_all()'s pass-through order, so
+# this only asserts SET membership for the first two slots, not exact order.
+check("candidates with UNDETERMINED eligibility (UNKNOWN/READY_TO_MOVE) go FIRST for the deep-research budget, even with a lower match_score", {p["id"] for p in prioritized[:2]} == {"unknown-lo", "rtm-mid"})
 check("an already-eligible candidate is still included, just deprioritized (never dropped)", prioritized[2]["id"] == "eligible-hi")
 same_priority_a = {"id": "unk-a", "name": "A", "lifecycle_status": "UNKNOWN", "match_score": 30}
 same_priority_b = {"id": "unk-b", "name": "B", "lifecycle_status": "UNKNOWN", "match_score": 30}
@@ -552,7 +612,31 @@ check("Places-resolved candidate ('Rivali Park') is kept", "riv1" in places_kept
 check("Places-unresolved but plausible-name candidate ('Pastonji Bliss Tower') is kept — Places absence alone is never a rejection", "past1" in places_kept_ids)
 check("Places-unresolved AND invalid-shaped name ('Security Alert') is REJECTED", "sec1" not in places_kept_ids)
 check("...with the exact honest reason", any(r["name"] in ("sec1", "Security Alert") and r["reason"] == "Could not verify this is a real project name" for r in places_rejected))
-check("a candidate where Places was NEVER even attempted (key absent, not False) is kept regardless of name shape — None must not be treated as a confirmed non-match", "chk1" in places_kept_ids)
+# Pre-existing stale assertion, corrected: looks_like_invalid_name() is a
+# name-SHAPE check, independent of Places entirely (see this same file's
+# "Root cause of 'Security Alert', traced" writeup in structure.md) — it
+# fires whenever `final` is True and the name looks invalid, regardless of
+# whether Places verification was ever attempted for this candidate. A
+# candidate never checked against Places (places_verified key absent) is
+# NOT exempted from this independent name check — this was confirmed
+# failing identically before this session's other changes too (a real,
+# pre-existing test/behavior mismatch found while verifying Part 1d, not a
+# regression introduced here).
+check("a candidate where Places was never attempted still gets the independent, Places-agnostic name-shape check applied", "chk1" not in places_kept_ids)
+
+# ── Part 1f — Dubai-market location/amenity disambiguation ───────────────
+p = parse_query("Dubai", "dubai")
+check("'Dubai' -> location, no amenities", p["locations"] == ["Dubai"] and not p["amenities"])
+p = parse_query("Dubai Marina", "dubai")
+check("'Dubai Marina' -> single location (the district), no amenities", p["locations"] == ["Dubai Marina"] and not p["amenities"])
+p = parse_query("Marina View", "dubai")
+check("'Marina View' (standalone, no amenity-context prefix) -> its own distinct location, NOT conflated with 'Dubai Marina'", p["locations"] == ["Marina View"] and not p["amenities"])
+p = parse_query("near Dubai Marina", "dubai")
+check("'near Dubai Marina' -> location, no amenities", p["locations"] == ["Dubai Marina"] and not p["amenities"])
+p = parse_query("properties with marina view", "dubai")
+check("'properties with marina view' -> amenity, NOT misparsed as a location", not p["locations"] and p["amenities"] == ["marina view"])
+p = parse_query("2BR with Marina View", "dubai")
+check("capitalized 'with Marina View' still resolves as an amenity, not a location (case alone isn't the disambiguator)", not p["locations"] and p["amenities"] == ["marina view"])
 
 print()
 if failures:

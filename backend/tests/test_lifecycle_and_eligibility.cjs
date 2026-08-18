@@ -10,6 +10,7 @@ const assert = require('assert')
 const scoring = require('../scoring.cjs')
 const externalSearch = require('../external-search.cjs')
 const { namesLooselyMatch } = require('../external-connectors.cjs')
+const queryParser = require('../query-parser.cjs')
 
 let failures = 0
 function check(label, condition) {
@@ -32,6 +33,34 @@ check('near-possession description -> NEAR_POSSESSION',
 
 check('new-launch title -> NEW_LAUNCH',
   scoring.classifyLifecycleStatus({ name: 'New launch: Godrej Horizon', description: 'Newly launched residential project' }).status === 'NEW_LAUNCH')
+
+// ── PRE_LAUNCH — split out of NEW_LAUNCH_RE, its own distinct status ────
+check('pre-launch phrase -> PRE_LAUNCH, not NEW_LAUNCH',
+  scoring.classifyLifecycleStatus({ name: 'Rustomjee Skyline', description: 'Pre-launch offer — register your interest now for early access' }).status === 'PRE_LAUNCH')
+check("'coming soon'/'launching soon' -> PRE_LAUNCH",
+  scoring.classifyLifecycleStatus({ name: 'Coming Soon: Lodha Elite', description: 'Launching soon in Thane West' }).status === 'PRE_LAUNCH')
+check('PRE_LAUNCH is in the allowed set (new-project inventory, not disqualified)',
+  scoring.ALLOWED_LIFECYCLE_STATUSES.has('PRE_LAUNCH'))
+
+// ── Precedence — an explicit "Ready to Move" claim must win outright over
+// a weaker/generic "under construction" mention found elsewhere on the
+// same page.
+check('explicit READY_TO_MOVE wins outright over a weaker UNDER_CONSTRUCTION mention on the same page',
+  scoring.classifyLifecycleStatus({
+    name: 'Kalpataru Radiance Phase 1 — Ready to Move',
+    description: 'Phase 1 is ready to move with immediate possession. Phase 2 is still under construction.',
+  }).status === 'READY_TO_MOVE')
+
+// ── NEAR_POSSESSION month-precision fallback (~6 months of today) ───────
+function monthsFromNow(n) {
+  const d = new Date(); d.setUTCMonth(d.getUTCMonth() + n)
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  return `${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`
+}
+check('possession date ~3 months out, no phrase marker -> NEAR_POSSESSION (month precision)',
+  scoring.classifyLifecycleStatus({ name: 'Plain listing, no phrase markers', description: '', possession: monthsFromNow(3) }).status === 'NEAR_POSSESSION')
+check('possession date ~18 months out, no phrase marker -> UNDER_CONSTRUCTION (month precision)',
+  scoring.classifyLifecycleStatus({ name: 'Plain listing, no phrase markers', description: '', possession: monthsFromNow(18) }).status === 'UNDER_CONSTRUCTION')
 
 check('no signal at all -> UNKNOWN',
   scoring.classifyLifecycleStatus({ name: 'Some Random Listing', description: 'Nice apartment with good amenities' }).status === 'UNKNOWN')
@@ -229,6 +258,20 @@ check("two unrelated short names -> does NOT match", !namesLooselyMatch('Blue Ri
 // still gets its existing scoring, unaffected by this pass's additions.
 check('scoreExternalProject accepts a placesVerified item without throwing (additive field, no scoring dependency yet on this path)',
   typeof scoring.scoreExternalProject({ name: 'Rivali Park', location: 'Borivali East', placesVerified: true }, { locations: ['Borivali East'] }).confidence === 'number')
+
+// ── Part 1f — Dubai-market location/amenity disambiguation ──────────────
+let p = queryParser.parseExternalQuery('Dubai', 'dubai')
+check("'Dubai' -> location, no amenities", JSON.stringify(p.locations) === JSON.stringify(['Dubai']) && !p.amenities.length)
+p = queryParser.parseExternalQuery('Dubai Marina', 'dubai')
+check("'Dubai Marina' -> single location (the district), no amenities", JSON.stringify(p.locations) === JSON.stringify(['Dubai Marina']) && !p.amenities.length)
+p = queryParser.parseExternalQuery('Marina View', 'dubai')
+check("'Marina View' (standalone, no amenity-context prefix) -> its own distinct location, NOT conflated with 'Dubai Marina'", JSON.stringify(p.locations) === JSON.stringify(['Marina View']) && !p.amenities.length)
+p = queryParser.parseExternalQuery('near Dubai Marina', 'dubai')
+check("'near Dubai Marina' -> location, no amenities", JSON.stringify(p.locations) === JSON.stringify(['Dubai Marina']) && !p.amenities.length)
+p = queryParser.parseExternalQuery('properties with marina view', 'dubai')
+check("'properties with marina view' -> amenity, NOT misparsed as a location", !p.locations.length && JSON.stringify(p.amenities) === JSON.stringify(['marina view']))
+p = queryParser.parseExternalQuery('2BR with Marina View', 'dubai')
+check("capitalized 'with Marina View' still resolves as an amenity, not a location (case alone isn't the disambiguator)", !p.locations.length && JSON.stringify(p.amenities) === JSON.stringify(['marina view']))
 
 console.log()
 if (failures) {

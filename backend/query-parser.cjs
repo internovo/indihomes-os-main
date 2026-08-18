@@ -96,6 +96,10 @@ const AMENITY_TERMS = [
   'tennis court', 'badminton court', 'indoor games', 'party hall',
   'banquet hall', 'senior citizen', 'jacuzzi', 'sauna', 'spa', 'library',
   'co-working',
+  // "<landmark> view" amenity phrases (Part 1f, Dubai-market
+  // disambiguation) — mirrors agent/agent/query_understanding.py exactly.
+  'marina view', 'sea view', 'pool view', 'garden view', 'city view',
+  'park view', 'golf view', 'lake view', 'canal view', 'skyline view',
 ]
 function extractAmenities(text) {
   const t = String(text || '').toLowerCase()
@@ -104,6 +108,23 @@ function extractAmenities(text) {
   // ("pool" inside "swimming pool") — both would otherwise match the same
   // mention and inflate the requested-amenity count scoring divides by.
   return found.filter(a => !found.some(b => b !== a && b.includes(a) && b.length > a.length))
+}
+
+// Part 1f — Dubai-market disambiguation: "marina view"/"sea view"/etc. as
+// an AMENITY phrase ("properties with marina view") must never be misread
+// as a LOCATION ("Marina View" — a real building/area name). Mirrors
+// agent/agent/query_understanding.py's VIEW_AMENITY_RE exactly — see its
+// comment for the full reasoning.
+const VIEW_AMENITY_RE = /\b(?:with|having|offering|featuring|boasts?|overlooking)\s+(?:a\s+|an\s+)?(sea|marina|pool|garden|city|park|golf|lake|canal|skyline)\s+view\b/gi
+function extractViewAmenities(text) {
+  const out = []
+  let m
+  const re = new RegExp(VIEW_AMENITY_RE.source, 'gi')
+  while ((m = re.exec(text))) out.push(`${m[1].toLowerCase()} view`)
+  return out
+}
+function maskViewAmenityPhrases(text) {
+  return String(text || '').replace(new RegExp(VIEW_AMENITY_RE.source, 'gi'), ' ')
 }
 
 function extractPossession(text) {
@@ -235,16 +256,31 @@ function maskLocations(text, locations) {
   return masked
 }
 
+// Part 1f — mask out amenity-shaped "with/having/offering... <X> view"
+// phrases BEFORE location extraction runs (see VIEW_AMENITY_RE above), then
+// merge the real view-amenities found back into the amenities list. A bare
+// "Marina View"/"near Dubai Marina" (no such amenity-context prefix) is
+// untouched and still resolves as a location exactly as before.
+function locationTextFor(text) {
+  const viewAmenities = extractViewAmenities(text)
+  return { source: viewAmenities.length ? maskViewAmenityPhrases(text) : text, viewAmenities }
+}
+function mergeViewAmenities(amenities, viewAmenities) {
+  const lower = new Set(amenities.map(a => a.toLowerCase()))
+  return [...amenities, ...viewAmenities.filter(a => !lower.has(a))]
+}
+
 function parseNLQuery(query) {
   const text = String(query || '')
-  const location = extractLocations(text)
+  const { source, viewAmenities } = locationTextFor(text)
+  const location = extractLocations(source)
   return {
     location,
     budget: '',
     budget_max_cr: extractBudgetMaxCr(text),
     configuration: extractConfiguration(text),
     possession: extractPossession(text),
-    amenities: extractAmenities(maskLocations(text, location)),
+    amenities: mergeViewAmenities(extractAmenities(maskLocations(text, location)), viewAmenities),
     builder: '',
     requirements: '',
   }
@@ -254,7 +290,8 @@ function parseNLQuery(query) {
 function parseExternalQuery(query, market = 'india') {
   const text = String(query || '')
   const currency = market === 'dubai' ? 'AED' : 'INR'
-  const locations = extractLocations(text)
+  const { source, viewAmenities } = locationTextFor(text)
+  const locations = extractLocations(source)
   return {
     locations,
     configuration: extractConfiguration(text),
@@ -262,7 +299,7 @@ function parseExternalQuery(query, market = 'india') {
     budgetMax: extractBudgetMax(text, currency),
     currency,
     possession: extractPossession(text),
-    amenities: extractAmenities(maskLocations(text, locations)),
+    amenities: mergeViewAmenities(extractAmenities(maskLocations(text, locations)), viewAmenities),
   }
 }
 

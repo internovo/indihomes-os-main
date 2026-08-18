@@ -2084,6 +2084,11 @@ app.post('/api/ai-search', async (req, res) => {
         properties, sources: [], warning: null,
         summary: agentResult.summary, citations: agentResult.citations,
         research_metadata: agentResult.research_metadata,
+        // Part 1e — always present, aggregate counts only (no candidate
+        // names/URLs) — lets the frontend distinguish "no candidates found"
+        // vs. "candidates found but disqualified" vs. "candidates found and
+        // plausible, but unverified" instead of one generic empty state.
+        retrieval_metrics: agentResult.retrieval_metrics,
         // Dev-only debug trace (Part 27) — present only when the AGENT
         // process itself has AI_SEARCH_DEBUG_TRACE=true set (curator.py's
         // own gate); undefined/omitted here otherwise, so a production
@@ -2125,6 +2130,8 @@ app.post('/api/ai-search', async (req, res) => {
       properties: result.properties,
       sources: [],
       warning: result.message || null,
+      // Part 1e — see the agent-path branch above for the full rationale.
+      retrieval_metrics: result.retrieval_metrics,
       // Per-connector pass/fail detail (which source failed, its raw error)
       // stays server-log-only (console.warn in external-search.cjs) — never
       // forwarded to the client. `warning` above is already sanitized to a
@@ -3275,6 +3282,13 @@ app.get('/api/competing-projects', async (req, res) => {
         address: p.address,
         distanceKm: Math.round(haversineKm(lat, lon, p.lat, p.lon) * 10) / 10,
         mapsUrl: p.mapsUrl,
+        // Real Places-resolved coordinates — previously computed (for
+        // distanceKm above) but never forwarded to the frontend, so
+        // Project Intelligence's map had no way to plot competing projects
+        // as their own markers at all. Section 5's map/list sync needs
+        // these; never fabricated (undefined stays undefined if Places
+        // itself didn't return a coordinate for this result).
+        lat: p.lat, lon: p.lon,
       }))
       .filter(c => c.distanceKm <= radiusKm)
       .sort((a, b) => a.distanceKm - b.distanceKm || a.name.localeCompare(b.name))

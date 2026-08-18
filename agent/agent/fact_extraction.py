@@ -109,6 +109,37 @@ def _clean(s: str) -> str:
     return re.sub(r"\s+", " ", s or "").strip()
 
 
+# Cross-candidate fact bleeding on a MULTI-PROJECT page (Part 2's fix,
+# generalized) — confirmed live: fetching a category page
+# (".../under-construction-projects-in-borivali-west-mumbai...") as one of
+# "Amann Solitaire"'s source URLs let `_RERA_RE.search(text)` grab
+# "THE ZONE"'s RERA number instead, because .search() just takes the FIRST
+# match anywhere on the page with zero regard for which project's section
+# it's actually in. extract_sub_listings() already solved this exact
+# problem for ITS OWN separate code path (_sentences_mentioning_name) but
+# that fix never covered this, the main extraction path every fetched page
+# actually goes through. Same principle here, applied more generally: when
+# a pattern has multiple matches AND the candidate's own name appears
+# literally in the text, prefer whichever match sits CLOSEST (by character
+# distance) to a mention of the candidate's own name — not just the first
+# one on the page. Falls back to the plain first-match behavior (unchanged)
+# when there's only one match (no ambiguity to resolve) or the candidate
+# name doesn't literally appear in the text at all (nothing to anchor to) —
+# never a regression for the common single-project-page case.
+def _nearest_match(text: str, candidate: str, pattern: re.Pattern) -> Optional[re.Match]:
+    matches = list(pattern.finditer(text))
+    if not matches:
+        return None
+    if len(matches) == 1 or not candidate:
+        return matches[0]
+    name_positions = [m.start() for m in re.finditer(re.escape(candidate), text, re.IGNORECASE)]
+    if not name_positions:
+        return matches[0]
+    def _dist(m: re.Match) -> int:
+        return min(abs(m.start() - p) for p in name_positions)
+    return min(matches, key=_dist)
+
+
 def _extract_area_facts(text: str) -> tuple[Optional[str], Optional[str]]:
     """Same "scan every '<N> sq ft' mention, bucket by nearby carpet/built-up
     keyword on EITHER side" approach as external-search.cjs's
@@ -129,11 +160,11 @@ def _extract_area_facts(text: str) -> tuple[Optional[str], Optional[str]]:
     return carpet, built_up
 
 
-def _extract_price(text: str) -> tuple[Optional[float], Optional[str]]:
-    cr = _CR_RE.search(text)
+def _extract_price(text: str, candidate: Optional[str] = None) -> tuple[Optional[float], Optional[str]]:
+    cr = _nearest_match(text, candidate, _CR_RE) if candidate else _CR_RE.search(text)
     if cr:
         return float(cr.group(1)), f"₹{cr.group(1)} Cr"
-    lakh = _LAKH_RE.search(text)
+    lakh = _nearest_match(text, candidate, _LAKH_RE) if candidate else _LAKH_RE.search(text)
     if lakh:
         return float(lakh.group(1)) / 100, f"₹{lakh.group(1)}L"
     return None, None
@@ -185,13 +216,17 @@ def _extract_possession_and_status(text: str) -> tuple[Optional[str], Optional[s
     return None, None, None
 
 
-def _extract_developer(text: str) -> Optional[str]:
-    m = re.search(r"\bby\s+([A-Z][A-Za-z&.\-]+(?:\s+[A-Z][A-Za-z&.\-]+){0,3})", text)
+_DEVELOPER_BY_RE = re.compile(r"\bby\s+([A-Z][A-Za-z&.\-]+(?:\s+[A-Z][A-Za-z&.\-]+){0,3})")
+_DEVELOPER_LABEL_RE = re.compile(r"\bDeveloper[:\-]\s*([A-Za-z0-9&.\-\s]{3,50})", re.IGNORECASE)
+
+
+def _extract_developer(text: str, candidate: Optional[str] = None) -> Optional[str]:
+    m = _nearest_match(text, candidate, _DEVELOPER_BY_RE) if candidate else _DEVELOPER_BY_RE.search(text)
     if m:
         name = _clean(m.group(1))
         if name.split(" ")[0].lower() not in _NOT_A_DEVELOPER and len(name) <= 60:
             return name
-    m = re.search(r"\bDeveloper[:\-]\s*([A-Za-z0-9&.\-\s]{3,50})", text, re.IGNORECASE)
+    m = _nearest_match(text, candidate, _DEVELOPER_LABEL_RE) if candidate else _DEVELOPER_LABEL_RE.search(text)
     if m:
         return _clean(m.group(1))
     return None
@@ -420,6 +455,15 @@ def deterministic_extract(candidate: str, page: FetchedPage) -> tuple[list[Extra
     resolved_name = extract_project_name(page)
     emit("project_name", resolved_name, confidence="high" if _name_from_structured_data(page.get("structured_data") or []) else "medium")
 
+    # Anchor name for cross-candidate bleed protection below — the
+    # RESOLVED page-title name when this page has one (most precise, it's
+    # literally this page's own claimed identity), falling back to the
+    # caller-provided `candidate` string (the name this fetch was made
+    # FOR) when the page's own title didn't yield a usable name. Either way
+    # gives _nearest_match something concrete to anchor RERA/price to on a
+    # page that turns out to describe more than one project.
+    anchor_name = resolved_name or candidate
+
     # Follow-up spec (Part 3/5/7) — the REAL fix for "UNKNOWN before
     # verification vs. UNKNOWN after verification". normalize.py's
     # reclassify_lifecycle_from_enriched_evidence() (called later, once
@@ -447,14 +491,14 @@ def deterministic_extract(candidate: str, page: FetchedPage) -> tuple[list[Extra
     if page_lifecycle_status != "UNKNOWN":
         emit("lifecycle_status_from_page", page_lifecycle_status, confidence="high", evidence_text=page_lifecycle_evidence)
 
-    rera = _RERA_RE.search(text)
+    rera = _nearest_match(text, anchor_name, _RERA_RE)
     emit("rera_number", rera.group(1).upper() if rera else None, confidence="high")
 
     carpet, built_up = _extract_area_facts(text)
     emit("carpet_area", carpet)
     emit("built_up_area", built_up)
 
-    price_cr, price_display = _extract_price(text)
+    price_cr, price_display = _extract_price(text, anchor_name)
     emit("price", price_display)
     ppsf = _PRICE_PER_SQFT_RE.search(text)
     emit("price_per_sqft", f"₹{ppsf.group(1)}/sq ft" if ppsf else None)
@@ -470,7 +514,7 @@ def deterministic_extract(candidate: str, page: FetchedPage) -> tuple[list[Extra
     emit("possession", possession, evidence_text=possession_evidence)
     emit("project_status", status)
 
-    emit("developer", _extract_developer(text))
+    emit("developer", _extract_developer(text, anchor_name))
     emit("property_type", _extract_property_type(text))
 
     total_floors, tower_count = _extract_floors_towers(text)

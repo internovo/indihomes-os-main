@@ -383,27 +383,58 @@ def _apply_hard_eligibility_filter(scored: list, final: bool = False, location_t
             # all) — not a relaxation of what "confirmed new-launch" means
             # for every OTHER candidate, which keeps the existing strict
             # rule unchanged.
-            if p.get("places_verified") is True:
+            def _accept_unverified(p: dict, honest_reason: str) -> dict:
                 p = dict(p)
                 p["_unverified_lifecycle"] = True
                 # Cap here, not in scoring.py — score_all() already ran
                 # before this filter (node_final_scoring's own order), so
-                # this is the first point that KNOWS the candidate is
-                # Places-verified-but-lifecycle-unconfirmed. Never claim
-                # PRIMARY/SECONDARY ("strongly matches") for a building
-                # whose construction status is honestly unknown — same 55
-                # ceiling this codebase already uses for a wrong-location or
-                # aggregator-page result, for the same reason: real, but not
-                # a strong confirmed match.
+                # this is the first point that KNOWS the candidate's
+                # lifecycle is unconfirmed. Never claim PRIMARY/SECONDARY
+                # ("strongly matches") for a building whose construction
+                # status is honestly unknown — same 55 ceiling this codebase
+                # already uses for a wrong-location or aggregator-page
+                # result, for the same reason: real, but not a strong
+                # confirmed match.
                 p["match_score"] = min(p.get("match_score", 0), 55)
                 p["match_tier"] = "TERTIARY" if p["match_score"] >= 40 else "LOW_MATCH"
-                p["match_reasons"] = list(p.get("match_reasons") or []) + [
-                    "Real building confirmed via Google Places near your search — new-launch/construction status could not be independently verified"
-                ]
-                accepted.append(p)
+                p["match_reasons"] = list(p.get("match_reasons") or []) + [honest_reason]
+                return p
+
+            if p.get("places_verified") is True:
+                accepted.append(_accept_unverified(
+                    p, "Real building confirmed via Google Places near your search — new-launch/construction status could not be independently verified"
+                ))
+                continue
+            # Broadened escape hatch (AI Property Search spec, "UNKNOWN must
+            # not auto-reject") — this used to be Places-verification-only.
+            # The rule this codebase otherwise applies everywhere (dedup,
+            # geography gating, name extraction — "upgrade, never guess, and
+            # a candidate gets every chance research affords before being
+            # thrown away") was being violated specifically for a candidate
+            # whose lifecycle simply never resolved: a plain ABSENCE of
+            # lifecycle evidence was treated as if it were POSITIVE evidence
+            # of ineligibility, for every candidate except the (comparatively
+            # rare) Places-sourced ones. status == "UNKNOWN" here (never
+            # READY_TO_MOVE, which is deliberately excluded further down —
+            # that status is a CONFIRMED stage outside this search's policy,
+            # not an absence of evidence) has, by construction, already
+            # cleared every other hard gate above (not an aggregator page,
+            # not resale/rental, not unrelated commerce) by this point in
+            # the loop — 1b's deep-research/targeted-research prioritization
+            # already gave it real priority for a genuine verification
+            # attempt (see _prioritize_for_deep_research above) ahead of
+            # already-eligible candidates. Only a genuinely invalid-looking
+            # name (looks_like_invalid_name — the same independent identity
+            # check applied to every other candidate a few lines below) is
+            # POSITIVE disqualifying evidence here; its absence is not.
+            if status == "UNKNOWN" and not normalize_mod.looks_like_invalid_name(p.get("name") or ""):
+                accepted.append(_accept_unverified(
+                    p, "Individual project found near your search, but its launch/construction status could not be confirmed even after research — verify directly before presenting to a buyer."
+                ))
                 continue
             reason = (
                 "Ready-to-move / completed inventory — outside the active new-project search policy" if status == "READY_TO_MOVE"
+                else "Could not verify this is a real project name" if status == "UNKNOWN"
                 else "Lifecycle stage could not be confidently determined even after deep research"
             )
             rejected.append({"name": p.get("name") or p.get("id"), "reason": reason, "evidence": p.get("lifecycle_evidence_text")})
@@ -517,31 +548,113 @@ async def node_candidate_scorer(state: ResearchState) -> dict:
 # ── Deep page research (Part 4/6/8-16) ──────────────────────────────────────
 
 # Verification-priority ordering for the FIXED deep-research budget
-# (Part 4/19 of the follow-up spec) — deep_research always spends its
-# budget on candidates[:max_candidates] IN WHATEVER ORDER IT'S GIVEN, so
-# that order is the actual lever controlling which candidates get a real
-# chance to resolve their eligibility. Previously that was just
-# score_all()'s display-ranking order — a candidate with an undetermined
-# (UNKNOWN/READY_TO_MOVE) lifecycle competed for the same fixed slots as
-# one that's ALREADY confidently eligible, on pure match_score, with no
-# regard for which kind of candidate actually NEEDS the research spend to
-# determine eligibility at all. Confirmed as the real mechanism behind a
-# live false-negative (a genuine "Dem Icon Charkop" under-construction
-# project reached zero results in one run because it didn't make an
-# unprioritized top-3 cut, then correctly resolved once given the chance).
-# Fix: candidates whose eligibility is still UNDETERMINED go first — they
-# are strictly the higher-value target for a bounded research budget, since
-# spending it there can change an accept/reject decision, while spending it
-# on an already-eligible candidate mostly just enriches display fields.
-# Stable sort — WITHIN each priority group, score_all()'s own relevance
-# ordering (location/configuration/etc, Part 19's "prioritize using
-# location relevance, configuration relevance..." requirement) is
-# preserved untouched, never re-decided here.
+# (Part 4/19 of the follow-up spec, extended by the "pre-deep-research
+# candidate ranking" pass) — deep_research always spends its budget on
+# candidates[:max_candidates] IN WHATEVER ORDER IT'S GIVEN, so that order is
+# the actual lever controlling which candidates get a real chance to
+# resolve their eligibility. node_targeted_research's own TARGETED_RESEARCH_
+# TOP_N-bounded budget uses this SAME function (see node_targeted_research
+# below) — one priority function feeds both budgets, not two independently
+# invented ones.
+#
+# Two-level sort:
+#   1. COARSE group — candidates whose eligibility is still UNDETERMINED
+#      (lifecycle status outside ALLOWED_LIFECYCLE_STATUSES) go first. This
+#      is the dominant signal: spending the research budget there can
+#      change an accept/reject decision, while spending it on an
+#      already-eligible candidate mostly just enriches display fields.
+#      Confirmed as the real mechanism behind a live false-negative (a
+#      genuine "Dem Icon Charkop" under-construction project reached zero
+#      results in one run because it didn't make an unprioritized top-3
+#      cut, then correctly resolved once given the chance) — this grouping
+#      is NOT renegotiated by the finer-grained score below; it stays the
+#      primary key so that fix can't regress.
+#   2. WITHIN each group — a real multi-factor priority score (not just
+#      score_all()'s pass-through relevance order), combining:
+#        - identity quality (inverse of looks_like_invalid_name() risk — a
+#          garbage-looking name shouldn't consume scarce research budget
+#          ahead of a clean, specific one)
+#        - location match strength (does the candidate's OWN location field
+#          actually match the query's parsed locations — exact/parent/
+#          nearby/none — not just "was found during a location-scoped
+#          search")
+#        - query match (score_all()'s own match_score — already blends
+#          configuration/budget/possession/amenity alignment)
+#        - lifecycle evidence presence (a candidate with SOME lifecycle
+#          signal, even a weak possession-year fallback, ranks above one
+#          with none at all — more promising to resolve with one more push)
+#        - data completeness (how many of developer/rera/possession/
+#          carpet_area/price are already known)
+#      multiplied by a near-duplicate PENALTY (ranked down, never hard-
+#      excluded) when another candidate in the SAME batch fuzzy-matches it
+#      (dedupe.py's own multi-signal fuzzy tier — name-token overlap AND
+#      same developer/locality) — spending research budget on two probable
+#      near-duplicates of the same real project is lower-value than
+#      spreading it across genuinely distinct candidates.
+def _identity_quality(p: dict) -> float:
+    if normalize_mod.looks_like_invalid_name(p.get("name") or ""):
+        return 0.2
+    if len((p.get("name") or "").split()) <= 1:
+        return 0.6  # a single bare word is thin, though not flagged invalid
+    return 1.0
+
+
+def _location_match_strength(p: dict) -> float:
+    matched = p.get("matched_requirements") or []
+    if "location" in matched:
+        return 1.0  # Tier 1 — exact_micro_locality (scoring.py's _score_location)
+    reasons = " ".join(p.get("match_reasons") or [])
+    if "not independently verified" in reasons:
+        return 0.6  # Tier 2 — parent_locality credit
+    if "Nearby locality" in reasons:
+        return 0.3  # Tier 3 — nearby/sibling locality
+    if any("does not match" in (m or "").lower() for m in (p.get("mismatches") or [])):
+        return 0.0  # Tier 4 — confirmed no match
+    return 0.5  # no location requested, or no signal either way — neutral
+
+
+def _lifecycle_evidence_presence(p: dict) -> float:
+    if p.get("lifecycle_evidence_text"):
+        return 1.0
+    if (p.get("lifecycle_status") or "UNKNOWN") == "READY_TO_MOVE":
+        return 0.5  # a possession-year fallback guess — weak, but SOME signal
+    return 0.0
+
+
+def _data_completeness(p: dict) -> float:
+    fields = ("developer", "rera", "possession_display", "carpet_area_sqft", "price_display")
+    return sum(1 for f in fields if p.get(f)) / len(fields)
+
+
+def _near_duplicate_penalty(p: dict, batch: list) -> float:
+    for other in batch:
+        if other is p:
+            continue
+        if dedupe_mod._fuzzy_match(other, p):
+            return 0.5
+    return 1.0
+
+
+def _candidate_priority_score(p: dict, batch: list) -> float:
+    base = (
+        0.30 * _identity_quality(p)
+        + 0.20 * _location_match_strength(p)
+        + 0.20 * max(0.0, min(1.0, (p.get("match_score") or 0) / 100))
+        + 0.15 * _lifecycle_evidence_presence(p)
+        + 0.15 * _data_completeness(p)
+    )
+    return base * _near_duplicate_penalty(p, batch)
+
+
 def _prioritize_for_deep_research(candidates: list) -> list:
-    def priority(p) -> int:
+    def undetermined_first(p) -> int:
         status = p.get("lifecycle_status") or "UNKNOWN"
         return 0 if status not in normalize_mod.ALLOWED_LIFECYCLE_STATUSES else 1
-    return sorted(candidates, key=priority)
+    # Deterministic: ties broken on original (already score_all()-ordered)
+    # index, never on dict/insertion-order accidents.
+    indexed = list(enumerate(candidates))
+    indexed.sort(key=lambda t: (undetermined_first(t[1]), -_candidate_priority_score(t[1], candidates), t[0]))
+    return [p for _, p in indexed]
 
 
 async def node_deep_research(state: ResearchState) -> dict:

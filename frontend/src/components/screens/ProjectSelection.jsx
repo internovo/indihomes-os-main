@@ -1336,12 +1336,35 @@ function RankedResults({ result, onAnalyse }) {
   // swallowed curator.py's own "No verified properties matched..." message
   // along with it.
   if (!props.length) {
+    // Part 1e — three distinct empty-result cases, not one generic
+    // message: (1) nothing relevant was ever discovered, (2) candidates
+    // were found but explicitly disqualified (resale/rental/category page/
+    // invalid name — a real, confident rejection reason), (3) candidates
+    // were found and plausible but their status/fields couldn't be
+    // confirmed even after research — an honest "we found some contenders,
+    // could not confirm they qualify" state, distinct from both of the
+    // above. Collapsing (3) into (1)'s wording risks a false "no ready/
+    // near-possession properties exist" claim when verification simply
+    // hadn't resolved anything, not because nothing was there.
+    const m = result.retrieval_metrics
+    let headline = 'No eligible new residential projects found.'
+    let detail = result.summary || 'Every result the search retrieved for this query was resale, a rental listing, a portal category page, or had an undetermined project stage — none of these are shown as new-project alternatives.'
+    if (m) {
+      if (!m.total_candidates) {
+        headline = 'No relevant candidates found.'
+        detail = result.summary || 'The sources searched returned nothing for this query — try a nearby locality, a different configuration, or a wider budget.'
+      } else if (m.unknown_candidates > 0) {
+        headline = `Found ${m.total_candidates} possible match${m.total_candidates !== 1 ? 'es' : ''} — none could be confirmed as eligible.`
+        detail = result.summary || `${m.unknown_candidates} candidate${m.unknown_candidates !== 1 ? 's' : ''} looked plausible but couldn't be confirmed as new-launch/under-construction/near-possession inventory even after research. This does not mean no such properties exist — verification simply couldn't resolve their status from what's publicly available.`
+      } else {
+        headline = `${m.total_candidates} candidate${m.total_candidates !== 1 ? 's' : ''} reviewed — none matched your criteria.`
+        detail = result.summary || 'Every candidate found was explicitly disqualified (resale, rental, or a portal category page) rather than an eligible new project.'
+      }
+    }
     return (
       <div style={{ marginBottom: 20, textAlign: 'center', padding: '28px 20px', background: '#F9F8F6', border: '1px solid #EEEBE3', borderRadius: 10 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: '#1B1B3A', marginBottom: 6 }}>No eligible new residential projects found.</div>
-        <div style={{ fontSize: 12.5, color: '#75737F', lineHeight: 1.6 }}>
-          {result.summary || 'Every result the search retrieved for this query was resale, a rental listing, a portal category page, or had an undetermined project stage — none of these are shown as new-project alternatives.'}
-        </div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: '#1B1B3A', marginBottom: 6 }}>{headline}</div>
+        <div style={{ fontSize: 12.5, color: '#75737F', lineHeight: 1.6 }}>{detail}</div>
         <div style={{ fontSize: 12, color: '#8A8896', marginTop: 10 }}>Try a nearby locality, a different configuration, or a wider budget.</div>
       </div>
     )

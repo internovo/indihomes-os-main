@@ -415,6 +415,16 @@ async def curate(state: ResearchState) -> dict:
     final_response = {
         "query": state.get("original_query"),
         "summary": summary,
+        # Part 1e — always present (not debug-gated), unlike the richer
+        # per-candidate breakdown in debug_trace below. These are aggregate
+        # COUNTS ONLY (no candidate names/URLs), safe for the frontend to
+        # read directly — this is what lets ProjectSelection.jsx distinguish
+        # "no candidates found at all" vs. "candidates found but explicitly
+        # disqualified" vs. "candidates found and plausible, but couldn't be
+        # verified" instead of collapsing all three into one generic empty
+        # state (a false "no ready/near-possession properties exist" claim
+        # when verification simply hadn't resolved anything yet).
+        "retrieval_metrics": _retrieval_metrics(state, state.get("debug_rejected_candidates", [])),
         "properties": [
             {
                 # ── Existing fields — untouched (Part 35 backward compatibility) ──
@@ -503,12 +513,11 @@ async def curate(state: ResearchState) -> dict:
             "candidates_rejected": rejected,
             "candidates_qualified": len(selected),
             "final_order": [p["id"] for p in selected],
-            # Part 4 — the structured breakdown that answers "WHY zero (or
-            # few) results": genuinely no eligible projects vs. sources
-            # returned only category pages vs. resale/rental vs. lifecycle
-            # unverified vs. an upstream source/API failure (cross-reference
-            # research_metadata.metrics.failed_searches for that last case).
-            "retrieval_metrics": _retrieval_metrics(state, rejected),
+            # Same counts already computed onto final_response.retrieval_
+            # metrics above (Part 1e) — referenced here, not recomputed, so
+            # debug_trace's own copy can't silently drift from what's always
+            # shown. Kept as its own key for this block's existing shape.
+            "retrieval_metrics": final_response["retrieval_metrics"],
         }
 
     return {

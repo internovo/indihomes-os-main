@@ -97,6 +97,14 @@ AMENITY_TERMS = [
     "tennis court", "badminton court", "indoor games", "party hall",
     "banquet hall", "senior citizen", "jacuzzi", "sauna", "spa", "library",
     "co-working",
+    # "<landmark> view" amenity phrases (Part 1f, Dubai-market
+    # disambiguation) — "marina view"/"sea view" etc. are a genuine,
+    # requestable amenity ("properties with marina view"), distinct from
+    # "Marina View"/"Dubai Marina" as LOCATION names. Listed here so a
+    # location-masked query still catches these even without the
+    # with/having-prefixed phrasing VIEW_AMENITY_RE below targets.
+    "marina view", "sea view", "pool view", "garden view", "city view",
+    "park view", "golf view", "lake view", "canal view", "skyline view",
 ]
 
 
@@ -106,6 +114,32 @@ def extract_amenities(text: str) -> list[str]:
     # Drop a shorter term wholly contained in a longer matched term
     # ("pool" inside "swimming pool", "deck" inside "private deck").
     return [a for a in found if not any(b != a and a in b and len(b) > len(a) for b in found)]
+
+
+# Part 1f — Dubai-market disambiguation: "marina view"/"sea view"/etc. as an
+# AMENITY phrase ("properties with marina view", "apartment offering sea
+# view") must never be misread as a LOCATION ("Marina View" — a real
+# building/area name). extract_locations() below has no way to tell these
+# apart from case alone (a user typing "with Marina View" capitalized is
+# still describing the amenity, not naming a building) — this positively
+# identifies the AMENITY-shaped usage (a view-word preceded by a verb/
+# preposition that only makes sense describing a feature, never a place)
+# so its matched span can be masked out BEFORE location extraction ever
+# runs, leaving a bare "Marina View"/"Dubai Marina" (no such prefix) to
+# resolve as a location exactly as before.
+VIEW_AMENITY_RE = re.compile(
+    r"\b(?:with|having|offering|featuring|boasts?|overlooking)\s+(?:a\s+|an\s+)?"
+    r"(sea|marina|pool|garden|city|park|golf|lake|canal|skyline)\s+view\b",
+    re.IGNORECASE,
+)
+
+
+def _extract_view_amenities(text: str) -> list[str]:
+    return [f"{m.group(1).lower()} view" for m in VIEW_AMENITY_RE.finditer(text)]
+
+
+def _mask_view_amenity_phrases(text: str) -> str:
+    return VIEW_AMENITY_RE.sub(" ", text)
 
 
 from functools import lru_cache
@@ -232,14 +266,25 @@ def parse_query(text: str, market: str = "india") -> ParsedRequirements:
     cr = extract_budget_max_cr(text)
     possession_text = extract_possession(text)
     year_match = re.search(r"20\d\d", possession_text)
-    locations = extract_locations(text)
+    # Part 1f — mask out amenity-shaped "with/having/offering... <X> view"
+    # phrases BEFORE location extraction runs, so e.g. "with Marina View"
+    # never gets read as the location "Marina View" — a bare "Marina View"/
+    # "near Dubai Marina" (no such amenity-context prefix) is untouched and
+    # still resolves as a location exactly as before.
+    view_amenities = _extract_view_amenities(text)
+    location_source_text = _mask_view_amenity_phrases(text) if view_amenities else text
+    locations = extract_locations(location_source_text)
+    amenities = extract_amenities(_mask_locations(text, locations))
+    for va in view_amenities:
+        if va not in [a.lower() for a in amenities]:
+            amenities.append(va)
     return ParsedRequirements(
         locations=locations,
         configurations=[extract_configuration(text)] if extract_configuration(text) else [],
         budget_max_cr=cr,
         possession_text=possession_text or None,
         possession_year_max=int(year_match.group(0)) if year_match and "ready" not in possession_text.lower() else None,
-        amenities=extract_amenities(_mask_locations(text, locations)),
+        amenities=amenities,
         keywords=[],
         market=market,
     )

@@ -153,7 +153,15 @@ AGGREGATOR_MARKER_RE = re.compile(r"\bmap\b|property rates|photos\s*&?\s*video|v
 # Daulat Nagar/Borivali East search) showed this Python side missing every
 # one of these common real-world shapes.
 PORTAL_CATEGORY_TITLE_RE = re.compile(
-    r"^\s*(\d+\+?\s*)?(bhk\s*)?([/\s]*(flats?|apartments?|propert(y|ies)|resale(\s+flats?)?|new\s+projects?|projects?|houses?|rooms?|bedroom))+\b.{0,50}\b(in|for\s+sale|for\s+rent|near)\b",
+    # Live-caught gap (2026-08-19): "372+ 1 BHK Flats in Kandivali West,
+    # Mumbai" wasn't matching — the old `(bhk\s*)?` only ever expected the
+    # bare word "bhk" right after an optional leading COUNT, never a
+    # CONFIGURATION (its own number, e.g. "1 BHK"/"2 & 3 BHK") appearing
+    # between the count and the real-estate noun, which is exactly how a
+    # portal's own "<count>+ <config> Flats/Apartments in <Place>" SEO
+    # title is actually phrased. Second group now accepts that full
+    # configuration phrase, not just a bare "bhk".
+    r"^\s*(\d+\+?\s*)?(\d+(?:\s*[&,]\s*\d+)*\s*(?:bhk|bed(?:room)?s?)\s*)?([/\s]*(flats?|apartments?|propert(y|ies)|resale(\s+flats?)?|new\s+projects?|projects?|houses?|rooms?|bedroom))+\b.{0,50}\b(in|for\s+sale|for\s+rent|near)\b",
     re.IGNORECASE,
 )
 # Trailing "N+ Properties/Flats/Apartments" count, with or without a
@@ -444,7 +452,17 @@ UNDER_CONSTRUCTION_RE = re.compile(r"\bunder[\s-]?construction\b|\bwork\s+in\s+p
 # "new project" (which stays deliberately unmatched — too generic, and
 # already excluded from ever reaching this classifier on a category page by
 # PROJECTS_IN_PLACE_RE at the aggregator-gate stage).
-NEW_LAUNCH_RE = re.compile(r"\bnew\s*launch\b|\bnewly\s+launched\b|\bpre[\s-]?launch\b|\bjust\s+launched\b|\bupcoming\s+project\b|\bnew\s+project\s+by\b", re.IGNORECASE)
+# "pre-launch" itself moved OUT of this pattern (see PRE_LAUNCH_RE below) —
+# a project still in its pre-launch/register-interest stage is meaningfully
+# earlier than one that has actually launched, and the AI Property Search
+# spec asks for these as two distinct, separately-evidenced statuses.
+NEW_LAUNCH_RE = re.compile(r"\bnew\s*launch\b|\bnewly\s+launched\b|\bjust\s+launched\b|\bupcoming\s+project\b|\bnew\s+project\s+by\b", re.IGNORECASE)
+# Split out of NEW_LAUNCH_RE (see its comment above) — a project still being
+# marketed for registrations of interest, before any unit/tower has
+# actually launched. Deliberately its own status (not folded into
+# NEW_LAUNCH) so the UI can tell a buyer "this hasn't launched yet" instead
+# of implying it already has.
+PRE_LAUNCH_RE = re.compile(r"\bpre[\s-]?launch\b|\bcoming\s+soon\b|\bregister\s+your\s+interest\b|\blaunching\s+soon\b", re.IGNORECASE)
 NEAR_POSSESSION_RE = re.compile(r"\bnear\s+possession\b|\bpossession\s+(soon|shortly|imminent)\b|\bready\s+(for|by)\s+possession\b", re.IGNORECASE)
 READY_TO_MOVE_RE = re.compile(r"\bready[\s-]?to[\s-]?move\b|\bready\s+possession\b|\bimmediate\s+possession\b|\bpossession\s+available\b|\bfully\s+occupied\b|\boccupancy\s+certificate\b", re.IGNORECASE)
 
@@ -454,14 +472,46 @@ READY_TO_MOVE_RE = re.compile(r"\bready[\s-]?to[\s-]?move\b|\bready\s+possession
 # deterministically from the SAME evidence. Reused here rather than
 # re-parsing possession text a second time.
 CURRENT_YEAR = datetime.now(timezone.utc).year
+_MONTH_NUM = {"jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6, "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12}
 
 
-def classify_lifecycle_status(evidence: EvidenceItem, possession_year: int | None = None) -> tuple[str, str | None]:
+def _parse_possession_month_year(display: str | None) -> datetime | None:
+    """A possession_display string sometimes carries MONTH precision (e.g.
+    "Dec 2027", extracted by query_understanding.extract_possession's
+    month-year tier) — when it does, the NEAR_POSSESSION fallback below can
+    use a genuine ~6-month window instead of only ever comparing whole
+    years. Returns None (never a guess) when no month is parseable, so the
+    caller falls back to the existing year-only bucketing.
+    """
+    if not display:
+        return None
+    m = re.match(r"(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s*(\d{4})", display.strip(), re.IGNORECASE)
+    if not m:
+        return None
+    month = _MONTH_NUM.get(m.group(1).lower()[:3])
+    if not month:
+        return None
+    return datetime(int(m.group(2)), month, 1, tzinfo=timezone.utc)
+
+
+def classify_lifecycle_status(evidence: EvidenceItem, possession_year: int | None = None, possession_display: str | None = None) -> tuple[str, str | None]:
     """Returns (lifecycle_status, evidence_text). lifecycle_status is one of
-    UNDER_CONSTRUCTION / NEAR_POSSESSION / NEW_LAUNCH / READY_TO_MOVE /
-    RESALE / RENTAL / UNKNOWN. evidence_text is the actual matched snippet
-    (never fabricated) — None only for UNKNOWN, where there's nothing to
-    quote.
+    UNDER_CONSTRUCTION / NEAR_POSSESSION / NEW_LAUNCH / PRE_LAUNCH /
+    READY_TO_MOVE / RESALE / RENTAL / UNKNOWN. evidence_text is the actual
+    matched snippet (never fabricated) — None only for UNKNOWN, where
+    there's nothing to quote.
+
+    Precedence, checked in this order: RESALE/RENTAL always win outright
+    (disqualifying regardless of what stage the underlying building is at).
+    READY_TO_MOVE is checked NEXT, before NEW_LAUNCH/PRE_LAUNCH/
+    UNDER_CONSTRUCTION/NEAR_POSSESSION — an explicit "Ready to Move"/
+    "Immediate Possession" claim is the strongest, most specific completion
+    signal a listing can make, and must win outright over a weaker/generic
+    "under construction" mention found elsewhere on the same page (e.g. a
+    multi-phase project's page that also mentions an earlier phase still
+    under construction) — checking it earlier means it's the FIRST match
+    found, so a genuinely ready building is never misclassified as still
+    building just because both phrases happen to appear on the same page.
     """
     title = (evidence.get("title") or "")
     description = (evidence.get("description") or "")
@@ -480,21 +530,40 @@ def classify_lifecycle_status(evidence: EvidenceItem, possession_year: int | Non
     m = RENTAL_RE.search(text)
     if m:
         return "RENTAL", _snippet(m)
+    m = READY_TO_MOVE_RE.search(text)
+    if m:
+        return "READY_TO_MOVE", _snippet(m)
     m = NEW_LAUNCH_RE.search(text)
     if m:
         return "NEW_LAUNCH", _snippet(m)
+    m = PRE_LAUNCH_RE.search(text)
+    if m:
+        return "PRE_LAUNCH", _snippet(m)
     m = UNDER_CONSTRUCTION_RE.search(text)
     if m:
         return "UNDER_CONSTRUCTION", _snippet(m)
     m = NEAR_POSSESSION_RE.search(text)
     if m:
         return "NEAR_POSSESSION", _snippet(m)
-    m = READY_TO_MOVE_RE.search(text)
-    if m:
-        return "READY_TO_MOVE", _snippet(m)
 
-    # No phrase-level marker at all — fall back to the possession YEAR
+    # No phrase-level marker at all — fall back to the possession date
     # already extracted for this evidence (real, extractive, not a guess).
+    # When MONTH precision is available (possession_display, e.g. "Dec
+    # 2027"), use a genuine ~6-month window for NEAR_POSSESSION instead of
+    # only ever comparing whole years — a possession date less than half a
+    # year out reads as meaningfully closer to done than "sometime next
+    # year." Falls back to the coarser year-only bucketing when only a bare
+    # year is known (possession_display has no parseable month).
+    parsed_month = _parse_possession_month_year(possession_display)
+    if parsed_month is not None:
+        now = datetime.now(timezone.utc)
+        months_out = (parsed_month.year - now.year) * 12 + (parsed_month.month - now.month)
+        if months_out < 0:
+            return "READY_TO_MOVE", f"Possession date {possession_display} extracted from listing (already past)"
+        if months_out <= 6:
+            return "NEAR_POSSESSION", f"Possession date {possession_display} extracted from listing (within 6 months)"
+        return "UNDER_CONSTRUCTION", f"Possession date {possession_display} extracted from listing"
+
     # A possession date more than ~1 year out reads as still-building; a
     # possession date due this year or next reads as near-possession; a
     # possession year already in the past with no other signal is most
@@ -548,7 +617,7 @@ def reclassify_lifecycle_from_enriched_evidence(prop: NormalizedProperty) -> Nor
         "title": prop.get("name") or "",
         "description": " ".join(p for p in description_parts if p),
     }
-    new_status, new_evidence_text = classify_lifecycle_status(synthetic_evidence, prop.get("possession_year"))
+    new_status, new_evidence_text = classify_lifecycle_status(synthetic_evidence, prop.get("possession_year"), prop.get("possession_display"))
     if new_status == current_status:
         return prop
     out = dict(prop)
@@ -560,8 +629,12 @@ def reclassify_lifecycle_from_enriched_evidence(prop: NormalizedProperty) -> Nor
 # Default AI Property Search policy (Part 2) — only these lifecycle stages
 # are eligible new-project inventory. READY_TO_MOVE/RESALE/RENTAL/UNKNOWN
 # are all rejected outright by graph.py's hard eligibility filter, the same
-# gate is_aggregator already uses — never merely down-ranked.
-ALLOWED_LIFECYCLE_STATUSES = {"UNDER_CONSTRUCTION", "NEAR_POSSESSION", "NEW_LAUNCH"}
+# gate is_aggregator already uses — never merely down-ranked. PRE_LAUNCH is
+# included — a project still taking registrations of interest before formal
+# launch is exactly the kind of new-project inventory this search targets
+# (arguably more relevant than READY_TO_MOVE, which is deliberately
+# excluded), not a disqualifying stage.
+ALLOWED_LIFECYCLE_STATUSES = {"UNDER_CONSTRUCTION", "NEAR_POSSESSION", "NEW_LAUNCH", "PRE_LAUNCH"}
 
 
 # Part 2 of the Places-augmented pipeline — a candidate's name-VALIDITY
@@ -631,7 +704,7 @@ def normalize_evidence_item(evidence: EvidenceItem) -> NormalizedProperty:
     possession_year, possession_display = normalize_possession_year(evidence)
     name = normalize_project_name(evidence.get("property_name") or evidence.get("title") or "")
     location = normalize_location(evidence)
-    lifecycle_status, lifecycle_evidence_text = classify_lifecycle_status(evidence, possession_year)
+    lifecycle_status, lifecycle_evidence_text = classify_lifecycle_status(evidence, possession_year, possession_display)
     prop = NormalizedProperty(
         id="",  # assigned by the deduplicator once merge keys are known
         name=name,

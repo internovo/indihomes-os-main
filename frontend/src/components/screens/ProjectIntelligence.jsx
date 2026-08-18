@@ -56,9 +56,14 @@ function loadLeaflet() {
 // the cost of no longer pinpointing the exact tower. `approx` distinguishes
 // the two so the UI never presents a locality-level pin as if it were the
 // precise building location.
-function NearbyMap({ projectQuery, fallbackQuery, onPlaces, onGeo, mapsUrl, displayName, knownGeo }) {
+function NearbyMap({ projectQuery, fallbackQuery, onPlaces, onGeo, mapsUrl, displayName, knownGeo, competitors, selectedCompetitorId, onSelectCompetitor }) {
   const ref = useRef(null)
   const mapRef = useRef(null)
+  // Part 5 — competitor markers keyed by their index in `competitors`, so a
+  // click on a marker (or a matching list-item click driven by the parent's
+  // `selectedCompetitorId`) can pan to / highlight the same competitor in
+  // both places at once, without either side owning the other's state.
+  const competitorMarkersRef = useRef({})
   const [status, setStatus] = useState('loading') // loading | ok | approx | empty | error
   const [resolvedLabel, setResolvedLabel] = useState('')
 
@@ -166,6 +171,7 @@ function NearbyMap({ projectQuery, fallbackQuery, onPlaces, onGeo, mapsUrl, disp
             .bindPopup(`<b>${p.name}</b><br/><span style="color:#75737F">${p.type} · ${p.distKm} km</span>`)
           bounds.extend([p.lat, p.lon])
         }
+
         if (places.length) map.fitBounds(bounds, { padding: [40, 40] })
         setStatus(approx ? 'approx' : 'ok')
       } catch (e) {
@@ -178,6 +184,61 @@ function NearbyMap({ projectQuery, fallbackQuery, onPlaces, onGeo, mapsUrl, disp
       if (mapRef.current) { mapRef.current.remove(); mapRef.current = null }
     }
   }, [projectQuery, fallbackQuery])
+
+  // Part 5 — nearby COMPARABLE PROJECTS (Competitor Analysis's own real
+  // Google Places data, never invented) as their own distinct marker
+  // style — a small purple diamond, visually distinct from both the
+  // primary project's teardrop pin and the generic OSM infrastructure
+  // dots. Deliberately its OWN effect, keyed on `competitors`/`status`
+  // (not folded into the geocode/places effect above, which only ever
+  // re-runs on `[projectQuery, fallbackQuery]`) — Competitor Analysis's
+  // own fetch resolves asynchronously, independently of and usually AFTER
+  // the map's own geocode; folding this into the other effect would have
+  // captured `competitors` in a stale closure at whatever (often still
+  // empty) value it held when that effect last ran, silently never
+  // drawing a single competitor marker once the real data arrived. Only
+  // plots entries that actually carry real coordinates (older/legacy-
+  // shape competitor entries without lat/lon simply aren't shown on the
+  // map — they still appear in the Competitor Analysis list, just without
+  // a marker).
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !window.L || (status !== 'ok' && status !== 'approx')) return
+    const L = window.L
+    Object.values(competitorMarkersRef.current).forEach(m => map.removeLayer(m))
+    competitorMarkersRef.current = {}
+    const competitorIcon = L.divIcon({
+      className: '', iconAnchor: [9, 9], popupAnchor: [0, -9],
+      html: `<div style="width:18px;height:18px;border-radius:4px;transform:rotate(45deg);background:#6B4FBB;border:2px solid #fff;box-shadow:0 2px 6px rgba(16,24,40,0.35)"></div>`,
+      iconSize: [18, 18],
+    })
+    const bounds = L.latLngBounds([map.getCenter()])
+    let plotted = 0
+    ;(competitors || []).forEach((c, i) => {
+      if (c.lat == null || c.lon == null) return
+      const marker = L.marker([c.lat, c.lon], { icon: competitorIcon }).addTo(map)
+        .bindPopup(`<b>${c.name}</b>${c.distanceKm != null ? `<br/><span style="color:#75737F">${c.distanceKm} km away</span>` : ''}`)
+      marker.on('click', () => onSelectCompetitor?.(i))
+      competitorMarkersRef.current[i] = marker
+      bounds.extend([c.lat, c.lon])
+      plotted++
+    })
+    if (plotted) map.fitBounds(bounds, { padding: [40, 40] })
+  }, [competitors, status])
+
+  // Part 5 — the other half of the map/list sync: a click on a Competitor
+  // Analysis LIST item (outside this component) sets `selectedCompetitorId`
+  // on the parent; this pans the map to and opens that marker's popup in
+  // response. The marker-click direction is wired inline above (calls
+  // onSelectCompetitor). Guarded on the map/marker actually existing yet
+  // (map fitBounds/load is async).
+  useEffect(() => {
+    if (selectedCompetitorId == null || !mapRef.current) return
+    const marker = competitorMarkersRef.current[selectedCompetitorId]
+    if (!marker) return
+    mapRef.current.panTo(marker.getLatLng())
+    marker.openPopup()
+  }, [selectedCompetitorId])
 
   // Part 6 — Google Maps mobile-app conventions, CSS/layout only (the
   // underlying OpenStreetMap/Leaflet data layer is unchanged, still no
@@ -926,6 +987,11 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
   // state convention as everything else on this screen.
   const [projectGeo, setProjectGeo] = useState(null)
   const [realCompetitors, setRealCompetitors] = useState({ configured: null, competitors: [], error: null, radiusKm: 3 })
+  // Part 5 — synced map/list selection: clicking a nearby-project list item
+  // (Competitor Analysis) highlights/pans to its marker on the Location Map
+  // and vice versa. Lifted to this shared parent since the map and the list
+  // are two separate SectionCards, neither owning the other's state.
+  const [selectedCompetitorId, setSelectedCompetitorId] = useState(null)
   // Nearby Infrastructure category filter — single active category
   // (Schools/Hospitals/Shopping/Parks/Transit/Banking/Entertainment/Other),
   // null by default. Nothing shown until one is picked — only the category
@@ -1038,6 +1104,7 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
     setRealNearbyPlaces([])
     setProjectGeo(null)
     setRealCompetitors({ configured: null, competitors: [], error: null, radiusKm: 3 })
+    setSelectedCompetitorId(null)
     setActiveInfraCategory(null)
     // AI Search candidate evidence (Part P1.4's priority order) — ALWAYS
     // populated for anything that came from AI Search (toAnalysableProject
@@ -1711,7 +1778,202 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
             </SectionCard>
           </div>
 
-          {/* ── Row 3: Location Analysis + Nearby Infrastructure ────────────── */}
+          {/* ── Row 3: RERA + Competitor Analysis ───────────────────────────── */}
+          {/* Section-order fix — Competitor Analysis now directly follows
+              Target Audience (header/quick facts → overview → description →
+              key insights → USP → target audience → competitor analysis →
+              nearby/map), instead of sitting after the map. RERA stays
+              paired with it (unchanged pairing, just moved as a unit).
+              alignItems intentionally NOT 'start' here — CSS Grid's default
+              (stretch) is what keeps a paired row's two cards bottom-
+              aligned even when one has noticeably more content than the
+              other (SectionCard fills that stretched height itself; see
+              its own comment). */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16 }}>
+
+            {/* RERA Details (PI-FR-04) — every value here is either a real scraped fact or
+                explicitly marked "Not found". No fallback/placeholder RERA numbers, ever. */}
+            {(() => {
+              const isDubai = current?.market === 'dubai'
+              const regLabel = isDubai ? 'DLD' : 'RERA'
+              return (
+            <SectionCard accent={reraCode ? '#2E9E4F' : '#8A8896'} title={`${regLabel} Details`} debugId="PI-FR-04"
+              badge={official?.reraCode ? <SourceTag source="indihomes-db" compact /> : <FieldBadge kind={reraCode ? 'verified' : 'unverified'} />}>
+                {!isDubai && (
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 0', borderBottom:'1px solid #E9E7E0', fontSize:13 }}>
+                    <span style={{ color:'#75737F' }}>Trust score</span>
+                    <span style={{ fontWeight:700, color:reraTrust.color, background:reraTrust.bg, padding:'3px 10px', borderRadius:4, fontSize:11.5 }} title={reraTrust.desc}>
+                      {reraTrust.tier}
+                    </span>
+                  </div>
+                )}
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 0', borderBottom:'1px solid #E9E7E0', fontSize:13 }}>
+                  <span style={{ color:'#75737F' }}>{regLabel} Registration No.</span>
+                  <span style={{ fontWeight:600, color: reraCode ? '#1B1B3A' : undefined, fontFamily:"'IBM Plex Mono',monospace", fontSize:12 }}>
+                    {reraCode || <EmptyValue>{`Not found${isDubai ? '' : ' on listing'}`}</EmptyValue>}
+                  </span>
+                </div>
+                {live?.reraAll?.length > 1 && (
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 0', borderBottom:'1px solid #E9E7E0', fontSize:13 }}>
+                    <span style={{ color:'#75737F' }}>Other tower registrations</span>
+                    <span style={{ fontWeight:600, color:'#1B1B3A', fontSize:12 }}>+{live.reraAll.length - 1} more</span>
+                  </div>
+                )}
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 0', borderBottom:'1px solid #E9E7E0', fontSize:13 }}>
+                  <span style={{ color:'#75737F' }}>Source</span>
+                  <span style={{ fontWeight:600, color: reraCode ? '#1B1B3A' : undefined, fontSize:13 }}>
+                    {official?.reraCode ? 'IndiHomes Website' : reraCode ? (live?._sources?.primary || (isDubai ? 'Web research' : '99acres listing')) : <EmptyValue />}
+                  </span>
+                </div>
+                {isDubai ? (
+                  <div style={{ marginTop:10, fontSize:11, color:'#8A8896', lineHeight:1.6, fontStyle:'italic' }}>
+                    {reraCode
+                      ? 'Dubai Land Department (DLD) reference found via web research. No automated DLD verification is integrated yet — confirm directly with the Dubai Land Department or the developer.'
+                      : 'No DLD registration reference was found for this project. Verify directly with the developer or the Dubai Land Department.'}
+                  </div>
+                ) : (
+                  <div style={{ marginTop:10, fontSize:11, color:'#8A8896', lineHeight:1.6, fontStyle:'italic' }}>
+                    {reraCheck?.verified
+                      ? `Government-verified via RERA registry${reraCheck.project_name ? ` — official record: "${reraCheck.project_name}"` : ''}.`
+                      : reraCheck && !reraCheck.error
+                      ? 'Checked against the RERA registry — no matching verified record found for this number.'
+                      : reraCheck?.error
+                      ? `Verification attempt failed: ${reraCheck.error}`
+                      : official?.reraCode
+                      ? 'Sourced directly from the IndiHomes Website. Click "Verify on MahaRERA" to additionally check it against the government registry.'
+                      : reraCode
+                      ? 'Advertiser-submitted detail, sourced from 99acres. Click "Verify on MahaRERA" to check it against the government registry.'
+                      : 'No RERA number was found for this project. Verify directly with the builder or the state RERA portal.'}
+                  </div>
+                )}
+                {!isDubai && (
+                <div style={{ marginTop:14, display:'flex', gap:8 }}>
+                  <button
+                    disabled={!reraCode || reraChecking || !reraEnabled}
+                    onClick={runReraVerify}
+                    title={!reraEnabled ? 'Set SUREPASS_API_TOKEN on the server to enable' : reraCode ? 'Verify this registration number against the government RERA registry' : 'No RERA number found to verify'}
+                    style={{ flex:1, padding:'8px', background: reraCode && reraEnabled ? '#E8F7EE' : '#F6F5F1', color: reraCode && reraEnabled ? '#2E9E4F' : '#B8B6C0', border:`1px solid ${reraCode && reraEnabled ? '#2E9E4F40' : '#E9E7E0'}`, borderRadius:8, fontSize:12, fontWeight:700, cursor: reraCode && reraEnabled && !reraChecking ? 'pointer' : 'not-allowed', fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
+                    {reraChecking ? '⟳ Verifying…' : reraCheck?.verified ? '✓ Verified' : reraCheck && !reraCheck.error ? '⚠ Not Verified — Retry' : '↗ Verify on MahaRERA'}
+                  </button>
+                  {(() => {
+                    const certUrl = reraCheck?.certificate_url || live?.reraQrUrl
+                    const label = reraCheck?.certificate_url ? '📄 View RERA Certificate' : live?.reraQrUrl ? '▣ View RERA QR' : '▣ No certificate found'
+                    return (
+                      <button
+                        disabled={!certUrl}
+                        onClick={() => certUrl && window.open(certUrl, '_blank', 'noopener,noreferrer')}
+                        title={reraCheck?.certificate_url ? 'Opens the official government RERA certificate PDF' : live?.reraQrUrl ? 'Opens the RERA image from the listing' : 'Run "Verify on MahaRERA" first to fetch the official certificate'}
+                        style={{ flex:1, padding:'8px', background:'#F6F5F1', color: certUrl ? '#0E0E52' : '#B8B6C0', border:'1px solid #E9E7E0', borderRadius:8, fontSize:12, fontWeight:700, cursor: certUrl ? 'pointer' : 'not-allowed', fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
+                        {label}
+                      </button>
+                    )
+                  })()}
+                </div>
+                )}
+            </SectionCard>
+              )
+            })()}
+
+            {/* Competitor Analysis (PI-FR-07) — real Google Places nearby-
+                search around this project's own resolved coordinates, same
+                "real source, no fabrication" standard as Nearby
+                Infrastructure's OpenStreetMap data. Part 4 redesign: a
+                compact comparison list (not a large generic table) — each
+                row shows THIS project's own real config/price against the
+                competitor's, but ONLY when the competitor actually carries
+                that field (Google Places entries never do; a legacy/
+                research-sourced entry sometimes does) — never invented for
+                a competitor that simply doesn't have it. Part 5: clicking a
+                row with real coordinates selects/pans to its marker on the
+                Location Map below (and vice versa, via selectedCompetitorId
+                lifted to this component). */}
+            <SectionCard title="Competitor Analysis" debugId="PI-FR-07"
+              badge={realCompetitors.competitors.length ? <FieldBadge kind="places" />
+                : live?.competitors?.length ? <SourceTag source={live._sources?.competitors || live._sources?.primary} compact />
+                : research?.competitors?.length ? <FieldBadge kind="ai" /> : <FieldBadge kind="unverified" />}>
+              {displayCompetitors.length > 0 ? (
+                <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                  {displayCompetitors.map((comp,i) => {
+                    const hasMarker = comp.lat != null && comp.lon != null
+                    const selected = selectedCompetitorId === i
+                    // Genuine overlap fields — never fabricated. Only rendered
+                    // when THIS competitor's own object carries a real value.
+                    const compConfig = comp.config || comp.configuration || null
+                    const compPossession = comp.possession || comp.possessionDate || null
+                    const hasOverlapRow = compConfig || comp.price || compPossession
+                    return (
+                      <div key={i}
+                        onClick={() => hasMarker && setSelectedCompetitorId(i)}
+                        style={{
+                          background: selected ? '#F1EDFB' : '#F9F8F6', borderRadius:10, padding:'10px 12px',
+                          border: selected ? '1px solid #6B4FBB' : '1px solid transparent',
+                          cursor: hasMarker ? 'pointer' : 'default', transition:'background .15s, border-color .15s',
+                        }}>
+                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:8 }}>
+                          <div style={{ minWidth:0 }}>
+                            <div style={{ fontSize:12.5, fontWeight:700, color:'#1B1B3A', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{comp.name}</div>
+                            {(comp.address || comp.builder) && (
+                              <div style={{ fontSize:10.5, color:'#8A8896', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{comp.address || comp.builder}</div>
+                            )}
+                          </div>
+                          {comp.distanceKm != null ? (
+                            <span style={{ fontSize:11, fontWeight:700, color:'#2E9E4F', fontFamily:"'IBM Plex Mono',monospace", flexShrink:0 }}>{comp.distanceKm} km</span>
+                          ) : comp.status ? (
+                            <span style={{ fontSize:10, background: comp.status==='Active'?'#E8F7EE':'#FEF3E4', color: comp.status==='Active'?'#2E9E4F':'#F7941D', padding:'2px 7px', borderRadius:4, fontWeight:600, flexShrink:0 }}>{comp.status}</span>
+                          ) : null}
+                        </div>
+                        {hasOverlapRow && (
+                          <div style={{ display:'flex', flexWrap:'wrap', gap:'2px 12px', fontSize:11, marginTop:6, paddingTop:6, borderTop:'1px solid #E9E7E0' }}>
+                            {compConfig && (
+                              <span>
+                                <span style={{ color:'#8A8896' }}>Config: </span>
+                                <span style={{ fontWeight:600, color: current?.config ? (current.config === compConfig ? '#2E9E4F' : '#D64545') : '#1B1B3A' }}>{compConfig}</span>
+                                {current?.config && <span style={{ color:'#8A8896' }}> · yours: {current.config}</span>}
+                              </span>
+                            )}
+                            {comp.price && (
+                              <span><span style={{ color:'#8A8896' }}>Price: </span><span style={{ fontWeight:600 }}>{comp.price}</span>{current?.budgetLabel && <span style={{ color:'#8A8896' }}> · yours: {current.budgetLabel}</span>}</span>
+                            )}
+                            {compPossession && (
+                              <span><span style={{ color:'#8A8896' }}>Possession: </span><span style={{ fontWeight:600 }}>{compPossession}</span></span>
+                            )}
+                          </div>
+                        )}
+                        {comp.mapsUrl && (
+                          <a href={comp.mapsUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
+                            style={{ fontSize:10.5, color:'#0E0E52', textDecoration:'underline', fontWeight:600, marginTop:6, display:'inline-block' }}>
+                            ↗ Maps
+                          </a>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : realCompetitors.configured === false ? (
+                <EmptyState reason="Not connected — Google Places API key not set on the server."
+                  detail="Set GOOGLE_PLACES_API_KEY (see requirements.md) to enable a real nearby-search for competing residential projects. No fallback data source is used in its place." />
+              ) : realCompetitors.error ? (
+                // Part 16 — a genuine search failure (Places API error,
+                // network failure, disabled API) is a DIFFERENT state from
+                // "the search ran and confirmed zero results" and must
+                // never be worded the same way.
+                <EmptyState reason="Competitor data unavailable"
+                  detail={`The nearby-project search didn't complete (${realCompetitors.error}). This is different from "no competitors found" — try again shortly.`} />
+              ) : projectGeo?.lat ? (
+                <EmptyState reason={`No competing residential projects found within ${realCompetitors.radiusKm || 3} km${current?.city ? ` of this location in ${current.city}` : ''}.`} />
+              ) : (
+                <EmptyState reason="Not connected — waiting for the Location Map below to resolve real coordinates for this project." />
+              )}
+              <div style={{ marginTop:12, fontSize:12, color:'#8A8896' }}>
+                Within {realCompetitors.radiusKm || 3} km of this project's real coordinates
+                {projectGeo?.approx && ' (locality-level location — not the exact project coordinates)'}
+                {realCompetitors.competitors.length > 0 && ' · Source: Google Places'}
+                {!realCompetitors.competitors.length && displayCompetitors.length > 0 && ' · Source: Drishti AI live research'}
+              </div>
+            </SectionCard>
+          </div>
+
+          {/* ── Row 4: Location Map + Nearby Infrastructure ─────────────────── */}
           {/* alignItems intentionally NOT 'start' here — CSS Grid's default
               (stretch) is what keeps a paired row's two cards bottom-
               aligned even when one has noticeably more content than the
@@ -1720,9 +1982,11 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16 }}>
 
             {/* Location Map (PI-FR-05) — real, interactive OpenStreetMap (Leaflet,
-                no API key/billing) with the project AND every Nearby
-                Infrastructure item (stations, schools, malls, landmarks)
-                geocoded and pinned together, not just a single-point embed. */}
+                no API key/billing) with the project, every Nearby
+                Infrastructure item (stations, schools, malls, landmarks),
+                AND (Part 5) every Competitor Analysis project with real
+                coordinates — all geocoded and pinned together, not just a
+                single-point embed. */}
             {(() => {
               const locality = live?.location || current?.location
               const mapQuery = [current?.name, locality, current?.city].filter(Boolean).join(', ')
@@ -1743,7 +2007,8 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
                     <div style={{ marginBottom:14 }}>
                       <NearbyMap projectQuery={mapQuery} fallbackQuery={fallbackQuery} onPlaces={setRealNearbyPlaces} onGeo={setProjectGeo}
                         mapsUrl={externalMapsUrl} displayName={current?.name}
-                        knownGeo={Number.isFinite(current?.placesLat) && Number.isFinite(current?.placesLon) ? { lat: current.placesLat, lon: current.placesLon } : null} />
+                        knownGeo={Number.isFinite(current?.placesLat) && Number.isFinite(current?.placesLon) ? { lat: current.placesLat, lon: current.placesLon } : null}
+                        competitors={displayCompetitors} selectedCompetitorId={selectedCompetitorId} onSelectCompetitor={setSelectedCompetitorId} />
                     </div>
                   ) : (
                     <div style={{ color:'#75737F', fontSize:13, padding:'30px 0', textAlign:'center', fontStyle:'italic', background:'#F9F8F6', borderRadius:10, marginBottom:14 }}>
@@ -1848,166 +2113,6 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
                     ? "Either the Location Map above couldn't geocode this project precisely enough to search around it, or genuinely nothing in OpenStreetMap's data is nearby — check the map card for which."
                     : undefined} />
               )}
-            </SectionCard>
-          </div>
-
-          {/* ── Row 4: RERA + Competitor Analysis ───────────────────────────── */}
-          {/* alignItems intentionally NOT 'start' here — CSS Grid's default
-              (stretch) is what keeps a paired row's two cards bottom-
-              aligned even when one has noticeably more content than the
-              other (SectionCard fills that stretched height itself; see
-              its own comment). */}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16 }}>
-
-            {/* RERA Details (PI-FR-04) — every value here is either a real scraped fact or
-                explicitly marked "Not found". No fallback/placeholder RERA numbers, ever. */}
-            {(() => {
-              const isDubai = current?.market === 'dubai'
-              const regLabel = isDubai ? 'DLD' : 'RERA'
-              return (
-            <SectionCard accent={reraCode ? '#2E9E4F' : '#8A8896'} title={`${regLabel} Details`} debugId="PI-FR-04"
-              badge={official?.reraCode ? <SourceTag source="indihomes-db" compact /> : <FieldBadge kind={reraCode ? 'verified' : 'unverified'} />}>
-                {!isDubai && (
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 0', borderBottom:'1px solid #E9E7E0', fontSize:13 }}>
-                    <span style={{ color:'#75737F' }}>Trust score</span>
-                    <span style={{ fontWeight:700, color:reraTrust.color, background:reraTrust.bg, padding:'3px 10px', borderRadius:4, fontSize:11.5 }} title={reraTrust.desc}>
-                      {reraTrust.tier}
-                    </span>
-                  </div>
-                )}
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 0', borderBottom:'1px solid #E9E7E0', fontSize:13 }}>
-                  <span style={{ color:'#75737F' }}>{regLabel} Registration No.</span>
-                  <span style={{ fontWeight:600, color: reraCode ? '#1B1B3A' : undefined, fontFamily:"'IBM Plex Mono',monospace", fontSize:12 }}>
-                    {reraCode || <EmptyValue>{`Not found${isDubai ? '' : ' on listing'}`}</EmptyValue>}
-                  </span>
-                </div>
-                {live?.reraAll?.length > 1 && (
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 0', borderBottom:'1px solid #E9E7E0', fontSize:13 }}>
-                    <span style={{ color:'#75737F' }}>Other tower registrations</span>
-                    <span style={{ fontWeight:600, color:'#1B1B3A', fontSize:12 }}>+{live.reraAll.length - 1} more</span>
-                  </div>
-                )}
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 0', borderBottom:'1px solid #E9E7E0', fontSize:13 }}>
-                  <span style={{ color:'#75737F' }}>Source</span>
-                  <span style={{ fontWeight:600, color: reraCode ? '#1B1B3A' : undefined, fontSize:13 }}>
-                    {official?.reraCode ? 'IndiHomes Website' : reraCode ? (live?._sources?.primary || (isDubai ? 'Web research' : '99acres listing')) : <EmptyValue />}
-                  </span>
-                </div>
-                {isDubai ? (
-                  <div style={{ marginTop:10, fontSize:11, color:'#8A8896', lineHeight:1.6, fontStyle:'italic' }}>
-                    {reraCode
-                      ? 'Dubai Land Department (DLD) reference found via web research. No automated DLD verification is integrated yet — confirm directly with the Dubai Land Department or the developer.'
-                      : 'No DLD registration reference was found for this project. Verify directly with the developer or the Dubai Land Department.'}
-                  </div>
-                ) : (
-                  <div style={{ marginTop:10, fontSize:11, color:'#8A8896', lineHeight:1.6, fontStyle:'italic' }}>
-                    {reraCheck?.verified
-                      ? `Government-verified via RERA registry${reraCheck.project_name ? ` — official record: "${reraCheck.project_name}"` : ''}.`
-                      : reraCheck && !reraCheck.error
-                      ? 'Checked against the RERA registry — no matching verified record found for this number.'
-                      : reraCheck?.error
-                      ? `Verification attempt failed: ${reraCheck.error}`
-                      : official?.reraCode
-                      ? 'Sourced directly from the IndiHomes Website. Click "Verify on MahaRERA" to additionally check it against the government registry.'
-                      : reraCode
-                      ? 'Advertiser-submitted detail, sourced from 99acres. Click "Verify on MahaRERA" to check it against the government registry.'
-                      : 'No RERA number was found for this project. Verify directly with the builder or the state RERA portal.'}
-                  </div>
-                )}
-                {!isDubai && (
-                <div style={{ marginTop:14, display:'flex', gap:8 }}>
-                  <button
-                    disabled={!reraCode || reraChecking || !reraEnabled}
-                    onClick={runReraVerify}
-                    title={!reraEnabled ? 'Set SUREPASS_API_TOKEN on the server to enable' : reraCode ? 'Verify this registration number against the government RERA registry' : 'No RERA number found to verify'}
-                    style={{ flex:1, padding:'8px', background: reraCode && reraEnabled ? '#E8F7EE' : '#F6F5F1', color: reraCode && reraEnabled ? '#2E9E4F' : '#B8B6C0', border:`1px solid ${reraCode && reraEnabled ? '#2E9E4F40' : '#E9E7E0'}`, borderRadius:8, fontSize:12, fontWeight:700, cursor: reraCode && reraEnabled && !reraChecking ? 'pointer' : 'not-allowed', fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
-                    {reraChecking ? '⟳ Verifying…' : reraCheck?.verified ? '✓ Verified' : reraCheck && !reraCheck.error ? '⚠ Not Verified — Retry' : '↗ Verify on MahaRERA'}
-                  </button>
-                  {(() => {
-                    const certUrl = reraCheck?.certificate_url || live?.reraQrUrl
-                    const label = reraCheck?.certificate_url ? '📄 View RERA Certificate' : live?.reraQrUrl ? '▣ View RERA QR' : '▣ No certificate found'
-                    return (
-                      <button
-                        disabled={!certUrl}
-                        onClick={() => certUrl && window.open(certUrl, '_blank', 'noopener,noreferrer')}
-                        title={reraCheck?.certificate_url ? 'Opens the official government RERA certificate PDF' : live?.reraQrUrl ? 'Opens the RERA image from the listing' : 'Run "Verify on MahaRERA" first to fetch the official certificate'}
-                        style={{ flex:1, padding:'8px', background:'#F6F5F1', color: certUrl ? '#0E0E52' : '#B8B6C0', border:'1px solid #E9E7E0', borderRadius:8, fontSize:12, fontWeight:700, cursor: certUrl ? 'pointer' : 'not-allowed', fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
-                        {label}
-                      </button>
-                    )
-                  })()}
-                </div>
-                )}
-            </SectionCard>
-              )
-            })()}
-
-            {/* Competitor Analysis (PI-FR-07) — real Google Places nearby-
-                search around this project's own resolved coordinates, same
-                "real source, no fabrication" standard as Nearby
-                Infrastructure's OpenStreetMap data. */}
-            <SectionCard title="Competitor Analysis" debugId="PI-FR-07"
-              badge={realCompetitors.competitors.length ? <FieldBadge kind="places" />
-                : live?.competitors?.length ? <SourceTag source={live._sources?.competitors || live._sources?.primary} compact />
-                : research?.competitors?.length ? <FieldBadge kind="ai" /> : <FieldBadge kind="unverified" />}>
-              {displayCompetitors.length > 0 ? (
-                <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-                  {displayCompetitors.map((comp,i) => (
-                    <div key={i} style={{ background:'#F9F8F6', borderRadius:10, padding:'12px 14px' }}>
-                      {comp.distanceKm != null ? (
-                        // Real Google Places result
-                        <>
-                          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:4 }}>
-                            <div style={{ fontSize:13, fontWeight:700, color:'#1B1B3A' }}>{comp.name}</div>
-                            <span style={{ fontSize:12, fontWeight:700, color:'#2E9E4F', fontFamily:"'IBM Plex Mono',monospace", flexShrink:0 }}>{comp.distanceKm} km</span>
-                          </div>
-                          {comp.address && <div style={{ fontSize:11.5, color:'#75737F', marginBottom:6 }}>{comp.address}</div>}
-                          <a href={comp.mapsUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize:11, color:'#0E0E52', textDecoration:'underline', fontWeight:600 }}>
-                            ↗ View on Google Maps
-                          </a>
-                        </>
-                      ) : (
-                        // Legacy Claude-research shape (kept as a fallback path;
-                        // not sourced in this deployment today — see banner above)
-                        <>
-                          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:6 }}>
-                            <div>
-                              <div style={{ fontSize:13, fontWeight:700, color:'#1B1B3A' }}>{comp.name}</div>
-                              <div style={{ fontSize:11, color:'#75737F', marginTop:1 }}>{comp.builder || ''}</div>
-                            </div>
-                            <span style={{ fontSize:11, background: comp.status==='Active'?'#E8F7EE':'#FEF3E4', color: comp.status==='Active'?'#2E9E4F':'#F7941D', padding:'3px 8px', borderRadius:4, fontWeight:600 }}>{comp.status||'Active'}</span>
-                          </div>
-                          <div style={{ display:'flex', gap:16, fontSize:12 }}>
-                            <span><span style={{ color:'#8A8896' }}>Price: </span><span style={{ fontWeight:600 }}>{comp.price || <EmptyValue />}</span></span>
-                            {comp.sold != null && <span><span style={{ color:'#8A8896' }}>Sold: </span><span style={{ fontWeight:600, color: comp.sold>60?'#D64545':'#2E9E4F' }}>{comp.sold}%</span></span>}
-                            {comp.delta && <span style={{ marginLeft:'auto', color:'#75737F', fontStyle:'italic', fontSize:11 }}>{comp.delta}</span>}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : realCompetitors.configured === false ? (
-                <EmptyState reason="Not connected — Google Places API key not set on the server."
-                  detail="Set GOOGLE_PLACES_API_KEY (see requirements.md) to enable a real nearby-search for competing residential projects. No fallback data source is used in its place." />
-              ) : realCompetitors.error ? (
-                // Part 16 — a genuine search failure (Places API error,
-                // network failure, disabled API) is a DIFFERENT state from
-                // "the search ran and confirmed zero results" and must
-                // never be worded the same way.
-                <EmptyState reason="Competitor data unavailable"
-                  detail={`The nearby-project search didn't complete (${realCompetitors.error}). This is different from "no competitors found" — try again shortly.`} />
-              ) : projectGeo?.lat ? (
-                <EmptyState reason={`No competing residential projects found within ${realCompetitors.radiusKm || 3} km${current?.city ? ` of this location in ${current.city}` : ''}.`} />
-              ) : (
-                <EmptyState reason="Not connected — waiting for the Location Map above to resolve real coordinates for this project." />
-              )}
-              <div style={{ marginTop:12, fontSize:12, color:'#8A8896' }}>
-                Within {realCompetitors.radiusKm || 3} km of this project's real coordinates
-                {projectGeo?.approx && ' (locality-level location — not the exact project coordinates)'}
-                {realCompetitors.competitors.length > 0 && ' · Source: Google Places'}
-                {!realCompetitors.competitors.length && displayCompetitors.length > 0 && ' · Source: Drishti AI live research'}
-              </div>
             </SectionCard>
           </div>
 

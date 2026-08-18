@@ -1186,3 +1186,352 @@ recorded into every response's `research_metadata.metrics`.
   paraphrase). Both suites re-run clean after every change, including the
   cost-optimization fix made after live-testing surfaced the redundant-call
   observation above.
+
+  ## AI Property Search + Project Intelligence — priority-ranking,
+  ## lifecycle-status precedence, Dubai disambiguation, honest empty
+  ## states, and a Competitor Analysis / map redesign
+
+  A follow-up pass covering five numbered areas of a much broader spec.
+  Every item was checked against the LIVE current code first (not assumed
+  from this document's own history) — several described-as-gaps turned out
+  to already be built; those are marked accordingly rather than rebuilt.
+  Both the Python agent and the Node fallback pipeline were kept in sync
+  everywhere a mirrored fix applies; both test suites were re-run after
+  every change (not just at the end) and both backend services were
+  restarted and re-probed live, not just unit-tested. Full live
+  verification: a real agent process was restarted with this pass's code,
+  a real `/agent/ai-search` call ("1BHK in Charkop Kandivali west") ran the
+  full discovery → deep-research → gap-check → targeted-research → final-
+  scoring → curate pipeline end-to-end against real Tavily/Google/Groq/
+  Places calls, and the Project Intelligence screen was driven with a real
+  headless-Chromium session (Playwright) to screenshot the actual rendered
+  layout, not just reason about the JSX.
+
+  ### 1. AI Property Search
+
+  **1a — category pages as final results: already working, confirmed live.**
+  Re-tested the exact two titles the spec named: `is_aggregator_title()`
+  (Python) and `isAggregatorTitle()` (Node) both already correctly reject
+  "2 BHK Flats in Dadar West" and "Properties for Sale in Dubai Marina" —
+  no code change needed for these two. Live testing surfaced a THIRD,
+  related shape that did slip through on both sides: "372+ 1 BHK Flats in
+  Kandivali West, Mumbai" (a real 99acres.com category-page title returned
+  by a live search during this pass) scored as an individual candidate
+  because `PORTAL_CATEGORY_TITLE_RE`'s (Python) / the equivalent inline
+  regex's (Node) leading-count group only ever expected a bare `bhk` word
+  right after an optional leading count ("372+ BHK Flats"), never a full
+  CONFIGURATION with its own number appearing between the count and the
+  noun ("372+ **1 BHK** Flats") — the exact way this SEO title shape is
+  actually phrased. Fixed in both `agent/agent/normalize.py`'s
+  `PORTAL_CATEGORY_TITLE_RE` and `backend/scoring.cjs`'s inline pattern
+  (both regex changes only, per the task's own "extend the existing
+  regex/heuristic rather than building a second detection path" — same
+  file, same function, one more group). Verified the fix doesn't regress
+  either exact spec test case, a real project name ("Shreeji Sai Divine"),
+  or a multi-config count ("50+ 2 & 3 BHK Apartments in Thane").
+
+  **1b — pre-deep-research candidate ranking: genuinely new, built.**
+  `graph.py`'s `_prioritize_for_deep_research()` previously only did a
+  binary sort (undetermined-lifecycle candidates first, stable-sort
+  preserving `score_all()`'s order within each group) — confirmed exactly
+  as the spec described. Replaced the within-group ordering with a real
+  weighted multi-factor score (`_candidate_priority_score()`): identity
+  quality (`looks_like_invalid_name()` risk), location match strength
+  (reads `scoring.py`'s own tier language out of `matched_requirements`/
+  `match_reasons` — exact/parent/nearby/none), query match (reuses
+  `score_all()`'s own `match_score`, never re-derived), lifecycle evidence
+  presence (a weak possession-year-fallback signal outranks no signal at
+  all), and data completeness (developer/rera/possession/carpet_area/price
+  known-field count) — weighted 30/20/20/15/15, multiplied by a
+  near-duplicate PENALTY (never a hard exclusion) using dedupe.py's own
+  `_fuzzy_match()` against the rest of the SAME batch. The coarse
+  undetermined-first GROUPING stays the dominant, first sort key
+  (unchanged) — the live false-negative that fix addressed (a genuine
+  under-construction project losing an unprioritized top-3 cut) must not
+  regress under a fancier secondary score. `node_targeted_research`'s
+  budget already called this exact same function, so it inherited the
+  richer ranking for free — no second implementation. No Node-side mirror:
+  the Node fallback pipeline has no deep-research/page-fetch capability at
+  all to prioritize a budget for (same pre-existing architectural
+  asymmetry documented earlier in this file).
+
+  **1c — lifecycle status set and precedence: partially already correct,
+  two real gaps fixed.** `NEAR_POSSESSION` already existed as its own
+  distinct status (the task's premise that it didn't was wrong — confirmed
+  by reading the live code, not assumed) — no work needed there.
+  `PRE_LAUNCH` genuinely did not exist as its own status; "pre-launch" was
+  folded into `NEW_LAUNCH_RE`. Split out into its own `PRE_LAUNCH_RE`
+  (`agent/agent/normalize.py` and `backend/scoring.cjs`, mirrored exactly)
+  matching the spec's exact phrase list ("pre-launch", "coming soon",
+  "register your interest", "launching soon"), added to
+  `ALLOWED_LIFECYCLE_STATUSES` on both sides (a pre-launch project is new-
+  project inventory, not a disqualifying stage — arguably more relevant to
+  this search than `READY_TO_MOVE`, which stays excluded). Separately, a
+  REAL precedence bug: `classify_lifecycle_status()`/`classifyLifecycleStatus()`
+  checked `NEW_LAUNCH`/`UNDER_CONSTRUCTION` BEFORE `READY_TO_MOVE`, so a
+  page mentioning both an explicit "Ready to Move"/"Immediate Possession"
+  claim AND a weaker/generic "under construction" phrase elsewhere (a
+  realistic multi-phase-project page) would classify as still-building —
+  the exact failure mode the spec called out ("a Ready to Move property is
+  never shown as Under Construction"). Fixed by moving the `READY_TO_MOVE`
+  check to immediately after the RESALE/RENTAL disqualifiers (both
+  pipelines) — an explicit completion claim now always wins, regardless of
+  what else is on the page. Also added genuine ~6-month MONTH-precision to
+  the `NEAR_POSSESSION` possession-date fallback (`_parse_possession_month_year()`
+  / `parsePossessionMonthYear()`, both sides) — previously this fallback
+  only ever compared whole YEARS; when a month is parseable from
+  `possession_display` ("Dec 2027"), a date <0 months out reads as already
+  past (`READY_TO_MOVE`), ≤6 months out reads `NEAR_POSSESSION`, further out
+  reads `UNDER_CONSTRUCTION` — falls back to the coarser year-only
+  bucketing when only a bare year is known. New tests added to both suites
+  (6 checks each) covering PRE_LAUNCH classification, the precedence fix
+  (using a realistic "Phase 1 ready to move / Phase 2 under construction"
+  fixture), and both month-precision fallback directions.
+
+  **1d — UNKNOWN must not auto-reject: broadened as the spec explicitly
+  asked, beyond the existing Places-only escape hatch.** Confirmed live and
+  in code: the existing Places-verified escape hatch
+  (`_apply_hard_eligibility_filter`, `external-search.cjs`'s equivalent
+  filter) was real and working, but ONLY covered candidates ALREADY
+  Places-verified — every other UNKNOWN candidate was still hard-rejected
+  on the final pass purely for LACKING lifecycle evidence, which is exactly
+  the "absence of evidence treated as disqualifying evidence" anti-pattern
+  the spec calls out. Broadened on both sides: an UNKNOWN candidate (never
+  `READY_TO_MOVE`, which is a CONFIRMED stage outside this search's policy,
+  not an absence of evidence, and stays rejected) is now accepted with the
+  same honest cap/reason treatment as the Places-verified path UNLESS its
+  name independently `looks_like_invalid_name()` — the one remaining
+  POSITIVE disqualifying signal, applied regardless of source. On the Node
+  side this required restructuring the eligibility filter to DEFER (not
+  reject) every UNKNOWN candidate into the existing `placesVerify` pass
+  (previously only candidates already Places-sourced got that reprieve),
+  and unifying the invalid-name rejection into one pass that runs
+  regardless of whether Places is even configured (previously that check
+  only ran inside the Places-configured branch, so an invalid-shaped name
+  slipped through entirely with Places unconfigured). 1b's priority
+  ranking is what gives these candidates a genuine research shot before
+  this gate is ever reached, exactly as the spec asked. Live-verified
+  against a real "1BHK in Charkop Kandivali west" run: the pre-existing
+  Places-verified escape hatch fired correctly for 6 real buildings (capped
+  TERTIARY 55, honest "status could not be independently verified"
+  reason); the broadened non-Places branch is directly covered by two new
+  unit-test fixtures (a real-looking UNKNOWN name accepted-and-capped, an
+  invalid-looking UNKNOWN name still rejected despite the highest score in
+  the batch) since a single live run's top-N selection happened to be
+  dominated by the higher-scoring Places-verified candidates. One
+  pre-existing, unrelated stale test assertion was found and corrected
+  while verifying this (documented inline in the test file) — it asserted
+  behavior contradicting this file's own already-documented "Security
+  Alert" root-cause fix, and was already failing before this pass touched
+  anything (confirmed via `git stash`).
+
+  **1e — zero-result messaging, three distinct cases: a genuine gap,
+  fixed.** `retrieval_metrics` (the structured aggregator/resale/rental/
+  unknown/eligible counts curator.py's `_retrieval_metrics()` already
+  computed) existed ONLY inside the dev-only `debug_trace` block on both
+  the Python (`curator.py`) and Node (`external-search.cjs`) sides — never
+  forwarded to the frontend in a production response, so
+  `ProjectSelection.jsx` had no structured signal to distinguish "no
+  candidates found" from "candidates found but explicitly disqualified"
+  from "candidates found and plausible but unverified," and fell back to
+  one generic message for all three. Fixed: `retrieval_metrics` (aggregate
+  COUNTS ONLY — no candidate names/URLs, safe to always expose, distinct
+  from the debug-gated per-candidate breakdown which stays debug-only) is
+  now a top-level field on both `final_response` (curator.py) and the Node
+  `queryExternal()` result, forwarded through `server.cjs`'s `/api/ai-search`
+  on both the agent and Node-fallback branches. `ProjectSelection.jsx`'s
+  `RankedResults` empty state now reads it to render one of three distinct
+  headlines/details: `total_candidates === 0` → "No relevant candidates
+  found"; `unknown_candidates > 0` → "Found N possible matches — none could
+  be confirmed as eligible" (the honest, previously-missing "we found
+  contenders, verification just didn't resolve" case — explicitly NOT
+  worded as "no such properties exist"); otherwise → "N candidates
+  reviewed — none matched your criteria" (explicit resale/rental/category-
+  page disqualifications). Falls back to the existing generic message
+  when `retrieval_metrics` is absent (an older cached response, or a
+  connector-failure short-circuit that never reached the counting logic) —
+  never a hard dependency that could blank the whole empty-state block.
+  Live-verified: a real `/agent/ai-search` response now carries
+  `retrieval_metrics` at the top level (confirmed via a direct capture of
+  the real JSON, not just code review).
+
+  **1f — Dubai Marina location/amenity disambiguation: a genuine gap,
+  fixed.** The shared gazetteer (`mmr-gazetteer.json`) is Mumbai-region-
+  only — Dubai locations were already falling through to the generic
+  Title-Case/directional-suffix tiers in `extract_locations()`/
+  `extractLocations()`, which (confirmed by direct testing, not assumed)
+  already correctly told "Dubai" / "Dubai Marina" / "Marina View" / "near
+  Dubai Marina" apart as distinct location strings — no conflation existed
+  there. The real gap: `AMENITY_TERMS` had zero "view"-type entries at all,
+  so "properties with marina view" extracted NEITHER a location (correctly
+  — the existing stopword filtering already prevented that) NOR an
+  amenity (the actual bug — the amenity was simply lost). Fixed with a new
+  `VIEW_AMENITY_RE` (`with/having/offering/featuring/boasts/overlooking` +
+  an optional article + a landmark word + "view") mirrored exactly in
+  `agent/agent/query_understanding.py` and `backend/query-parser.cjs`: its
+  matches are extracted as amenities AND masked out of the text BEFORE
+  location extraction runs, so "with Marina View" (any casing) never gets
+  mis-captured as the location "Marina View" by the generic Title-Case
+  tier, while a bare "Marina View" (no such amenity-context prefix) is
+  untouched and still resolves as its own distinct location, never
+  conflated with "Dubai Marina." Also added plain "marina view"/"sea
+  view"/etc. terms to `AMENITY_TERMS` as a forward-compatible fallback for
+  phrasing without an amenity-context prefix. All 6 of the spec's named
+  test queries verified identically on both the Python and Node sides
+  (direct function calls, not just reasoning): "Dubai", "Dubai Marina",
+  "Marina View", "near Dubai Marina", "properties with marina view", and
+  "2BR with Marina View" (capitalized — proving the fix isn't case-based).
+  New tests added to both suites (6 checks each).
+
+  ### 2. Property Search → Project Intelligence data flow
+
+  **Already working, confirmed, left alone — no genuine gap found.**
+  `indihomes-client.cjs`'s `fetchProjectByName` remains the sole path
+  (confirmed by reading the file — no second integration exists).
+  `cleanDescription()` (already fixed in an earlier pass — preserves real
+  markdown line breaks instead of flattening them) and
+  `ProjectIntelligence.jsx`'s `displayDescription = official?.description
+  || live?.description || research?.summary || ''` resolution chain carry
+  the description through with no truncation anywhere in between —
+  verified by tracing every step, not just spot-checking output. Audited
+  the entire screen for "via Apify"/"via 99acres"-style connector-name
+  leakage as the spec asked: no literal internal-connector strings
+  (Apify/Tavily/LangGraph/LangSmith/Google CSE) appear anywhere in the
+  file. The one family of source-naming that DOES appear — `SourceTag`'s
+  colored "99acres"/"MagicBricks"/"Housing.com" badges and the RERA
+  Details card's plain-text "Source: 99acres listing" row — was weighed
+  against the spec's own carve-out for FieldBadge-style provenance and
+  judged to be the SAME category of intentional, already-designed honesty
+  signal (a consistent color-coded badge system used identically across
+  four different cards, not a raw debug string), and in the RERA card's
+  case directly load-bearing compliance context ("this number is
+  advertiser-submitted, not government-verified — verify before
+  marketing"). Left unchanged rather than removed, since removing it would
+  delete real provenance information a salesperson doing due diligence can
+  use, not "internal implementation detail no salesperson needs to see."
+
+  ### 3. Project Intelligence UI — blank space + hierarchy
+
+  **A real section-order gap, fixed; blank-space audit found nothing new
+  to fix.** A fresh live screenshot pass (real headless-Chromium session,
+  not code-only reasoning) found the actual rendered section order was:
+  header/KPI row → Description+Inventory → Sales Velocity → USP+Target
+  Audience → **Location Map+Nearby Infrastructure** → **RERA+Competitor
+  Analysis**. This does not match the required hierarchy — Competitor
+  Analysis must come directly after Target Audience, with the map/nearby
+  section LAST. Fixed by swapping the two grid rows in
+  `ProjectIntelligence.jsx` (RERA+Competitor Analysis now renders before
+  Location Map+Nearby Infrastructure) — a pure JSX reorder, no logic
+  change, no new state depended on paint order (`displayCompetitors` etc.
+  are plain component-scope values, unaffected by where in the JSX tree
+  they're read). Re-screenshotted after the fix and confirmed the new
+  order live. No disproportionate blank space was found in this fresh
+  pass — every card's `EmptyState`/`SectionCard` stretch-alignment from
+  earlier passes is still intact and rendering correctly for a project
+  with no live-scraped data (the default/unonboarded "Lodha Amara" mock
+  used for this pass's live check legitimately has no description/
+  inventory/USPs on file, and correctly shows honest empty states rather
+  than blank space, for each of those cards).
+
+  ### 4. Competitor Analysis — comparison depth
+
+  **Baseline confirmed working live; redesigned for compactness + genuine
+  field overlap, per spec.** `/api/competing-projects` (Google Places) is
+  live and returning real data (verified with a direct call — 8 real named
+  Thane-area buildings with distances and Maps links) despite the
+  server's own startup-log disclaimer still saying "NOT verified callable
+  ... last live probe returned 403" — that disclaimer is a stale,
+  never-rechecked boot-time string, not the live behavior; confirmed the
+  underlying "resolved as of this pass" claim from an earlier session is
+  still true today. Redesigned the card list from two divergent branches
+  (a large "real Places result" block vs. a differently-shaped "legacy
+  Claude-research" block) into one compact, unified row: name (ellipsis-
+  truncated, not wrapped) + address/builder on one sub-line, distance-or-
+  status badge on the right, and — genuinely new — a field-overlap row
+  that renders ONLY when the competitor's OWN object carries a real
+  `config`/`price`/`possession` value (checked against the selected
+  project's own `current.config`/`current.budgetLabel`), color-coding a
+  configuration match/mismatch in green/red. Google Places entries
+  (confirmed: `/api/competing-projects`'s response has no config/price/
+  possession fields at all — Places genuinely doesn't carry this) never
+  show that row, so nothing is fabricated for the common case; the row is
+  forward-compatible for the legacy research-sourced shape (`comp.price`/
+  `comp.status`) that already carries some of this. **Known, disclosed
+  limitation, not attempted this pass**: there is no live mechanism to
+  cross-reference an arbitrary Google-Places-found nearby building against
+  AI Search's own richer candidate pipeline (which DOES have real
+  config/price/possession/lifecycle) — `/api/competing-projects` is a bare
+  lat/lon geo endpoint with no query context to re-run that pipeline
+  against, and doing so per nearby building would mean a new, expensive,
+  unbounded search call per competitor. Building that cross-reference
+  would be a substantial new feature (a new endpoint, a new join strategy)
+  rather than a fix to something broken, so it was not attempted here —
+  the field-overlap UI is real and ready for that data whenever/if it
+  becomes available, it just isn't populated for a Places-only competitor
+  today.
+
+  ### 5. Map / Nearby Projects redesign
+
+  **Reused the existing Leaflet/CARTO map exactly as instructed; the
+  marker/list sync was genuinely new and had one real bug fixed along the
+  way.** Added `lat`/`lon` to `/api/competing-projects`'s response (were
+  computed server-side for the distance calculation already, just never
+  forwarded) so Competitor Analysis's real coordinates can reach the map at
+  all. `NearbyMap` now plots each competitor with real coordinates as a
+  distinct small purple-diamond marker (visually separate from the
+  project's own navy teardrop pin and the generic OSM infrastructure
+  dots), and `selectedCompetitorId` state (lifted to the shared parent
+  component) syncs a click on a Competitor Analysis list row to a
+  pan-and-open-popup on its marker, and a marker click back to highlighting
+  the same list row. **A real bug found and fixed during live
+  verification, not just written and assumed correct**: the first
+  implementation folded competitor-marker drawing into the SAME `useEffect`
+  that geocodes the project and draws OSM places — that effect's
+  dependency array is `[projectQuery, fallbackQuery]` only, so it captured
+  `competitors` in a stale closure at whatever (initially empty) value it
+  held when the effect last ran; since Competitor Analysis's own fetch
+  resolves asynchronously and independently, real competitor data arriving
+  later never triggered a redraw, and a live screenshot showed zero purple
+  markers despite 8 real competitors listed in the card next to it. Fixed
+  by moving marker drawing into its own `useEffect` keyed on
+  `[competitors, status]`, which correctly redraws whenever competitor data
+  changes after the map is already up. Live-verified end to end with a
+  real headless-Chromium session against the real running app: 8 purple
+  diamond markers now render at their real coordinates; clicking a list
+  row ("Kalpataru Immensa, Thane") highlights that row AND pans the map to
+  open exactly that marker's popup (captured the live popup's own text:
+  "Kalpataru Immensa, Thane · 0.3 km away" — confirming the sync resolves
+  to the correct marker, not just any marker). Distance-shown and
+  professional loading/error/empty states were already built and reused
+  unchanged, per the spec's own instruction not to duplicate them.
+
+  ### Final report — status of each of the 5 sections
+
+  1. **AI Property Search** — 1a/1c/1d/1e/1f each had at least one real,
+     live-confirmed gap, all fixed (see above for the specific root cause
+     and fix per sub-item); 1b was genuinely new and built as specified;
+     one pre-existing failing/stale test assertion (unrelated to this
+     pass's own changes) was found and corrected along the way.
+  2. **Property Search → Project Intelligence data flow** — already
+     working; audited and confirmed, nothing changed.
+  3. **Project Intelligence UI hierarchy** — one real section-order gap
+     (Competitor Analysis was after, not before, the map section), fixed;
+     no blank-space regressions found in a fresh live screenshot pass.
+  4. **Competitor Analysis depth** — baseline confirmed working live;
+     redesigned to a compact, unified card with genuine (never invented)
+     field-overlap comparison; cross-referencing a Places-only competitor
+     against AI Search's own richer pipeline is a disclosed, un-attempted
+     limitation (a new feature, not a fix).
+  5. **Map / Nearby Projects redesign** — synced map/list selection was
+     genuinely new and is now built and live-verified, including a real
+     stale-closure bug caught and fixed during that verification, not
+     shipped on the strength of the code reading correctly alone.
+
+  **Tests**: Python suite 117 → 134 checks; Node suite 58 → 70 checks. Both
+  suites re-run clean after every change in this pass. Both backend
+  services (the Python agent and the Node/Express server) and the frontend
+  dev server were restarted with this pass's code and driven live — a real
+  `/agent/ai-search` call end-to-end, a real `/api/competing-projects`
+  call, and a real Playwright-driven browser session against
+  `localhost:5174` — rather than trusting static code review alone for any
+  of the five sections.
