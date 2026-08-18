@@ -1,0 +1,19 @@
+langgraph==0.2.60
+pydantic==2.9.2
+httpx==0.27.2
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+openai==1.57.2
+python-dotenv==1.0.1
+# Gemini is accessed via Google's OpenAI-compatible endpoint
+# (generativelanguage.googleapis.com/v1beta/openai/) through the same
+# `openai` client used for xAI/OpenAI/local models — no separate
+# google-generativeai SDK dependency needed.
+langsmith==0.11.0
+# Observability only (Part 23) — @traceable decorators in tools.py/
+# fact_extraction.py, plus LangGraph's own built-in run-tree tracing (no
+# extra code needed for that half). Already a transitive dependency of
+# langgraph/langchain-core; pinned explicitly here since this codebase now
+# imports it directly. Fully inert with LANGSMITH_TRACING unset/false — no
+# behavior change, no network calls, same as every other optional provider
+# in this file.

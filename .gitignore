@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Real secrets — never commit. .env.example is the template that DOES get committed.
+.env
+.env.local
+.env.*.local
+
+# Real, live customer/lead data — this file has real leads' names, phones,
+# emails in it. Never belongs in git history (also grows every day, which
+# would bloat the repo regardless).
+backend/data.sqlite
+backend/data.sqlite.bak
+backend/*.sqlite
+backend/*.sqlite-journal
+backend/*.sqlite-wal
+backend/*.sqlite-shm
+
+# Build output
+frontend/dist/
+dist/
+
+# Python venv / bytecode (backend/scripts' scrapers)
+**/__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Editor/OS cruft
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*

@@ -1,0 +1,32 @@
+{
+  "name": "indihomes-platform",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --config frontend/vite.config.js --port 5174",
+    "build": "vite build --config frontend/vite.config.js",
+    "preview": "vite preview --config frontend/vite.config.js",
+    "free-port": "node backend/scripts/free-port.mjs",
+    "preserver": "node backend/scripts/free-port.mjs",
+    "server": "node backend/server.cjs",
+    "publish-seed": "node backend/scripts/publish-seed.mjs",
+    "start": "concurrently \"npm run dev\" \"npm run server\""
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^4.22.2",
+    "google-trends-api": "^4.9.2",
+    "ioredis": "^5.4.1",
+    "lucide-react": "^1.31.0",
+    "playwright": "^1.61.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.2.1",
+    "concurrently": "^8.2.2",
+    "vite": "^5.0.8"
+  }
+}
