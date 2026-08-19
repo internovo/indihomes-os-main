@@ -2783,37 +2783,33 @@ app.post('/api/leads/sync-meta-capi', async (req, res) => {
   }
 })
 
-// Section 8 fix — "Meta Ad Leads" sourced from IndiHomes' OWN CRM
-// (get-paginated-leads + meta-leads/get-lead-history — confirmed real per a
-// direct clarification; get-new-leads/get-lead-src were part of an earlier,
-// less certain spec and are no longer relied on here), not Facebook's Graph
+// Section 8 fix — CRM leads sourced from IndiHomes' OWN CRM
+// (get-paginated-leads + meta-leads/get-lead-history), not Facebook's Graph
 // API directly (meta-client.cjs, still used unchanged for the existing
 // webhook/hourly-poll intake pipeline — this is an ADDITIONAL read path,
-// not a replacement of that capture mechanism). Identifies a Meta-sourced
-// lead by the PRESENCE of Meta's own webhook-captured fields
-// (field_data/ad_id/form_id/leadgen_id — see indihomes-crm-leads-client.cjs's
-// isMetaSource for the full reasoning) rather than cross-referencing a
-// separate source-name directory, since only leads that actually came
-// through the Meta webhook -> Facebook Business SDK pipeline would ever
-// carry those fields at all.
+// not a replacement of that capture mechanism). Classification rule (per
+// indihomes-crm-leads-client.cjs's classifyLead, final spec from a diagram):
+// projectName present -> Housing.com lead, absent -> Meta lead. One paginated
+// fetch (getAllLeadsClassified) feeds both this route and /api/leads/housing-crm
+// below, each deduped by phone number within its own bucket.
 app.get('/api/leads/meta-crm', async (req, res) => {
   try {
-    // Confirmed live: POST /api/v1/meta-leads/sync doesn't exist (404
-    // "Cannot POST") — removed. get-paginated-leads + a client-side filter
-    // (isMetaSource: no project AND no configuration = Meta lead, per
-    // direct operator knowledge of how these records actually differ by
-    // source) is the only path now. Still blocked on a genuine, unresolved
-    // server-side error on get-paginated-leads itself (500 "Server error
-    // fetching leads") — this filter will apply automatically the moment
-    // that's fixed, no further code change needed here.
-    const page = parseInt(req.query.page, 10) || 1
-    const limit = parseInt(req.query.limit, 10) || 100
-    const leadsResp = await indihomesCrmLeads.getPaginatedLeads({ page, limit })
-    const leads = Array.isArray(leadsResp) ? leadsResp : (leadsResp?.data || leadsResp?.leads || [])
-    const metaLeads = leads.filter(lead => indihomesCrmLeads.isMetaSource(lead))
-    res.json({ leads: metaLeads, total: metaLeads.length, page, limit, totalUnfiltered: leads.length })
+    const { meta } = await indihomesCrmLeads.getAllLeadsClassified({})
+    res.json({ leads: meta, total: meta.length })
   } catch (e) {
     console.error('[meta-crm] error:', e.message)
+    res.status(502).json({ error: e.message, leads: [] })
+  }
+})
+
+// GET /api/leads/housing-crm — symmetric to meta-crm above, the Housing.com
+// bucket (projectName present) of the same classified/deduped CRM pull.
+app.get('/api/leads/housing-crm', async (req, res) => {
+  try {
+    const { housing } = await indihomesCrmLeads.getAllLeadsClassified({})
+    res.json({ leads: housing, total: housing.length })
+  } catch (e) {
+    console.error('[housing-crm] error:', e.message)
     res.status(502).json({ error: e.message, leads: [] })
   }
 })

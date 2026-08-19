@@ -19,7 +19,7 @@
 // own default) and builds each endpoint's exact path from that, rather than
 // assuming they all share one prefix.
 
-const RAW_BASE = (process.env.INDIHOMES_API_BASE_URL || 'https://api.indihomes.co.in/api/v1').replace(/\/$/, '')
+const RAW_BASE = (process.env.INDIHOMES_API_BASE_URL || '').replace(/\/$/, '')
 const ROOT_URL = RAW_BASE.replace(/\/api\/v1$/, '')
 const TIMEOUT_MS = parseInt(process.env.INDIHOMES_CRM_READ_TIMEOUT_MS, 10) || 15000
 
@@ -126,18 +126,55 @@ async function getLeadSources() {
   return getJson(`${ROOT_URL}/api/v1/get-lead-src`)
 }
 
-// isMetaSource — SIMPLIFIED per explicit instruction: a lead with a real
-// phone number but NO project name is identified as a Meta lead. (Earlier
-// version also required configuration to be absent; narrowed to project-
-// name-only per direct instruction.)
-function isMetaSource(lead) {
-  if (!lead) return false
-  const phone = lead.phone || lead.mobile || lead.contact_number || lead.number
-  if (!phone) return false
-  const project = lead.project || lead.project_name || lead.projectName
-  return !project
+// classifyLead — FINAL rule, from a diagram, single source of truth: a lead
+// is a Housing.com lead if projectName is present/non-empty, otherwise it's
+// a Meta lead. Nothing else (phone, configuration, webhook fields, a
+// separate source directory) enters into it — this replaces every earlier
+// attempt at this classification (get-lead-src cross-reference, Meta
+// webhook-field presence, project+configuration absence) wholesale.
+function classifyLead(lead) {
+  const project = pick(lead, ['projectName', 'project_name', 'project'])
+  return project ? 'housing' : 'meta'
+}
+
+// normalizePhone — strip everything but digits, keep the last 10. Collapses
+// +91-prefixed, 0-prefixed, and bare 10-digit forms of the same Indian
+// number to one dedup key.
+function normalizePhone(raw) {
+  const digits = String(raw || '').replace(/\D/g, '')
+  return digits.slice(-10)
+}
+
+function pick(obj, keys) {
+  for (const k of keys) if (obj?.[k] != null && obj[k] !== '') return obj[k]
+  return null
+}
+
+// getAllLeadsClassified — pages through get-paginated-leads until a page
+// comes back short of `pageSize` (i.e. it was the last page) or `maxPages`
+// is hit, classifies every lead via classifyLead, and dedupes each bucket
+// by normalizePhone (first occurrence wins — a later page's copy of the
+// same person never overwrites the earlier one).
+async function getAllLeadsClassified({ maxPages = 50, pageSize = 100 } = {}) {
+  const housing = new Map()
+  const meta = new Map()
+  for (let page = 1; page <= maxPages; page++) {
+    const resp = await getPaginatedLeads({ page, limit: pageSize })
+    const leads = Array.isArray(resp) ? resp : (resp?.data || resp?.leads || [])
+    for (const lead of leads) {
+      const phone = normalizePhone(lead.phone || lead.mobile || lead.contact_number || lead.number)
+      if (!phone) continue
+      const bucket = classifyLead(lead) === 'housing' ? housing : meta
+      if (!bucket.has(phone)) bucket.set(phone, lead)
+    }
+    if (leads.length < pageSize) break
+  }
+  return { housing: [...housing.values()], meta: [...meta.values()] }
 }
 
 function isConfigured() { return true } // same base URL as the rest of the IndiHomes integration — no separate flag
 
-module.exports = { isConfigured, getNewLeads, getLeadHistory, getPaginatedLeads, syncMetaLeads, getLeadSources, isMetaSource }
+module.exports = {
+  isConfigured, getNewLeads, getLeadHistory, getPaginatedLeads, syncMetaLeads, getLeadSources,
+  classifyLead, normalizePhone, getAllLeadsClassified,
+}

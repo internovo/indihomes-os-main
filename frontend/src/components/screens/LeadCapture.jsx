@@ -911,6 +911,68 @@ function MetaCrmLeadsSection() {
   )
 }
 
+// Housing.com CRM Leads — symmetric to MetaCrmLeadsSection above (same
+// backend pull, split by indihomes-crm-leads-client.cjs's classifyLead:
+// projectName present -> here, absent -> Meta section above). Same
+// read-only/no-edit framing: a CRM-sourced record here is not a row in this
+// app's local database either.
+function HousingCrmLeadsSection() {
+  const [open, setOpen] = useState(false)
+  const [leads, setLeads] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [err, setErr] = useState(null)
+
+  const load = () => {
+    setLoading(true); setErr(null)
+    fetch(`${API}/api/leads/housing-crm`).then(r => r.json())
+      .then(d => { if (d.error) throw new Error(d.error); setLeads(d.leads || []) })
+      .catch(e => setErr(e.message))
+      .finally(() => setLoading(false))
+  }
+  const toggle = () => { setOpen(o => !o); if (!open && leads === null) load() }
+
+  return (
+    <div style={{ background:'#fff', border:'1px solid #E9E7E0', borderRadius:12, marginBottom:20, overflow:'hidden' }}>
+      <div onClick={toggle} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 18px', cursor:'pointer' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          <span style={{ fontSize:14, fontWeight:700, color:'#1B1B3A' }}>Housing.com CRM Leads</span>
+          <span style={{ fontSize:11, color:'#8A8896' }}>From IndiHomes CRM — read-only</span>
+          {leads !== null && <span style={{ fontSize:11, fontWeight:700, color:'#0E5FBF', background:'#EEF6FF', padding:'2px 8px', borderRadius:20 }}>{leads.length}</span>}
+        </div>
+        <ChevronDown size={16} strokeWidth={2.4} color="#75737F" style={{ transform: open ? 'rotate(180deg)' : 'none', transition:'transform 0.15s' }} />
+      </div>
+      {open && (
+        <div style={{ borderTop:'1px solid #E9E7E0', padding:'12px 18px 18px' }}>
+          {loading && <div style={{ fontSize:13, color:'#8A8896' }}>Loading…</div>}
+          {err && <div style={{ fontSize:12.5, color:'#D64545' }}>Couldn't load Housing.com leads from the CRM right now — try again shortly.</div>}
+          {leads && leads.length === 0 && !err && <div style={{ fontSize:13, color:'#8A8896' }}>No Housing.com leads found in the CRM.</div>}
+          {leads && leads.length > 0 && (
+            <div style={{ display:'flex', flexDirection:'column', gap:6, maxHeight:360, overflowY:'auto' }}>
+              {leads.map((raw, i) => {
+                const f = metaCrmLeadFields(raw)
+                return (
+                  <div key={i} style={{ display:'flex', alignItems:'center', gap:14, padding:'9px 12px', background:'#F9F8F6', border:'1px solid #F0EEE8', borderRadius:8 }}>
+                    <div style={{ width:34, height:34, borderRadius:'50%', background:'#0E5FBF', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:800, flexShrink:0 }}>
+                      {initials(f.name)}
+                    </div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:13, fontWeight:700, color:'#1B1B3A' }}>{f.name || <EmptyValue />}</div>
+                      <div style={{ fontSize:11.5, color:'#75737F' }}>
+                        {f.phone || <EmptyValue />}{f.project ? ` · ${f.project}` : ''}
+                      </div>
+                    </div>
+                    {f.capturedAt && <div style={{ fontSize:11, color:'#8A8896', whiteSpace:'nowrap' }}>{timeAgo(new Date(f.capturedAt).getTime())}</div>}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // Lead detail view — rendered in-flow within LeadCapture (not a fixed
 // full-viewport overlay), so the app's persistent Sidebar + TopBar (search
 // box, bell, avatar, theme toggle, breadcrumb) stay exactly as every other
@@ -1237,6 +1299,7 @@ export default function LeadCapture({ onBreadcrumbExtra }) {
           header comment for why). Collapsed by default; loads on first
           expand. */}
       <MetaCrmLeadsSection />
+      <HousingCrmLeadsSection />
 
       {/* NOTE: the "IndiHomes CRM push" status field (syncStatus.crm) was
           intentionally removed from this screen per a UI-only cleanup pass —

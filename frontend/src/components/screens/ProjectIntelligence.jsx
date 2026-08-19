@@ -1645,7 +1645,7 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
               aligned even when one has noticeably more content than the
               other (SectionCard fills that stretched height itself; see
               its own comment). */}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16, alignItems:'start' }}>
 
             {/* Project Description (scraped fact) + AI Signals (derived synthesis) — PI-FR-08.
                 Source badge intentionally not rendered here (frontend
@@ -1881,12 +1881,12 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
               key insights → USP → target audience → competitor analysis →
               nearby/map), instead of sitting after the map. RERA stays
               paired with it (unchanged pairing, just moved as a unit).
-              alignItems intentionally NOT 'start' here — CSS Grid's default
+alignItems intentionally NOT 'start' here — CSS Grid's default
               (stretch) is what keeps a paired row's two cards bottom-
               aligned even when one has noticeably more content than the
               other (SectionCard fills that stretched height itself; see
               its own comment). */}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16, alignItems:'start' }}>
 
             {/* RERA Details (PI-FR-04) — every value here is either a real scraped fact or
                 explicitly marked "Not found". No fallback/placeholder RERA numbers, ever. */}
@@ -2080,7 +2080,7 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
               aligned even when one has noticeably more content than the
               other (SectionCard fills that stretched height itself; see
               its own comment). */}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16, alignItems:'start' }}>
 
             {/* Location Map (PI-FR-05) — real, interactive OpenStreetMap (Leaflet,
                 no API key/billing) with the project, every Nearby
