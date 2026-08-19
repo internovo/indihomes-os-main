@@ -80,4 +80,54 @@ async function searchPlacesText(textQuery, { lat, lon, radiusKm, maxResultCount 
   return { configured: true, places }
 }
 
-module.exports = { NON_RESIDENTIAL_PLACE_TYPES, isPlacesConfigured, searchPlacesText }
+module.exports = { NON_RESIDENTIAL_PLACE_TYPES, isPlacesConfigured, searchPlacesText, searchResidentialPlaces }
+
+// searchResidentialPlaces — the AI Search discovery path (Section: "make AI
+// Search work like a direct Maps search"). A SEPARATE function from
+// searchPlacesText above, not a shared/parameterized variant of it,
+// because the two have genuinely different requirements: searchPlacesText
+// (Competitor Analysis) needs a STRICT residential-only filter around an
+// ALREADY-KNOWN project's coordinates; this needs BROAD discovery FROM a
+// text query alone (no known location yet), richer display fields
+// (rating/review count/place type — confirmed missing from the existing
+// field mask, and exactly what a real side-by-side manual Places search
+// returns), and must NOT exclude real_estate_agency (a live reference
+// example explicitly included brokers/agencies as legitimate, useful
+// results for a buyer-facing search — excluding them would be over-
+// filtering for this specific use case, even though Competitor Analysis
+// correctly excludes them for ITS use case).
+async function searchResidentialPlaces(textQuery, { maxResultCount = 20, timeoutMs = 10000 } = {}) {
+  if (!isPlacesConfigured()) return { configured: false, places: [] }
+  const resp = await fetch('https://places.googleapis.com/v1/places:searchText', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': GOOGLE_PLACES_KEY,
+      'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location,places.googleMapsUri,places.types,places.primaryTypeDisplayName,places.rating,places.userRatingCount',
+    },
+    body: JSON.stringify({ textQuery, maxResultCount }),
+    signal: AbortSignal.timeout(timeoutMs),
+  })
+  if (!resp.ok) {
+    const bodyText = await resp.text().catch(() => '')
+    let reason = null
+    try { reason = JSON.parse(bodyText)?.error?.details?.find(d => d.reason)?.reason || null } catch (_) {}
+    throw new Error(`Google Places ${resp.status}${reason ? ` (${reason})` : ''}: ${bodyText.slice(0, 300)}`)
+  }
+  const data = await resp.json()
+  const places = (data.places || [])
+    .filter(p => p.displayName?.text && p.location)
+    .map(p => ({
+      name: p.displayName.text,
+      address: p.formattedAddress || null,
+      lat: p.location.latitude,
+      lon: p.location.longitude,
+      placeId: p.id,
+      mapsUrl: p.googleMapsUri || `https://www.google.com/maps/place/?q=place_id:${p.id}`,
+      types: p.types || [],
+      placeType: p.primaryTypeDisplayName?.text || (p.types || [])[0] || null,
+      rating: typeof p.rating === 'number' ? p.rating : null,
+      reviewCount: typeof p.userRatingCount === 'number' ? p.userRatingCount : null,
+    }))
+  return { configured: true, places }
+}

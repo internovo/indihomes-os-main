@@ -800,6 +800,117 @@ function initials(name) {
   return (parts[0][0] + (parts[1]?.[0] || '')).toUpperCase()
 }
 
+// ── Meta Ad Leads, sourced from IndiHomes' OWN CRM (backend/
+// indihomes-crm-leads-client.cjs's GET /api/leads/meta-crm) — genuinely
+// separate from the existing unified inbox table above, which only ever
+// shows leads already ingested into THIS app's own local database (via
+// Facebook Graph API direct pull, Housing.com, website intake, or manual
+// add). A CRM-sourced lead here is NOT a row in our local database — it
+// can't be PATCHed via /api/leads/:id, has no local id/edit-history/AI-
+// activity tracking, and its exact field shape (name/phone/project keys)
+// isn't documented anywhere this session had access to. Rendered as its
+// own small, clearly-labeled, read-only section rather than merged into
+// the editable table above, which would either break (wrong field names)
+// or silently offer edit/detail actions that don't actually work for a
+// record that lives in a different system entirely.
+//
+// Field access is deliberately defensive (tries a few plausible key names
+// per value) since the real CRM response shape hasn't been confirmed
+// against live data yet — same "diagnose against real data, don't guess
+// silently" discipline already used for the IndiHomes price/carpet-area
+// fields elsewhere in this app. Logs one raw record's keys to the console
+// on first load if none of the guessed field names produced a name/phone,
+// so the real shape can be confirmed and this hardened afterward.
+function pick(obj, keys) {
+  for (const k of keys) if (obj?.[k] != null && obj[k] !== '') return obj[k]
+  return null
+}
+// Meta's own field_data shape (confirmed real — the actual SDK call is
+// `new Lead(leadId).get(["field_data", "created_time"])`):
+// [{ name: 'full_name', values: ['John Doe'] }, { name: 'phone_number', values: ['+91...'] }, ...].
+// Used as a fallback when the flat name/phone fields above aren't present
+// on the stored lead — IndiHomes' backend may or may not have flattened
+// these into top-level fields when it saved the lead.
+function fromFieldData(raw, ...nameCandidates) {
+  const fd = raw?.field_data || raw?.fieldData
+  if (!Array.isArray(fd)) return null
+  for (const cand of nameCandidates) {
+    const entry = fd.find(f => String(f?.name || '').toLowerCase() === cand)
+    if (entry?.values?.[0]) return entry.values[0]
+  }
+  return null
+}
+let _loggedMetaCrmShapeOnce = false
+function metaCrmLeadFields(raw) {
+  const name = pick(raw, ['name', 'lead_name', 'full_name', 'customer_name']) || fromFieldData(raw, 'full_name', 'name')
+  const phone = pick(raw, ['phone', 'mobile', 'contact_number', 'number']) || fromFieldData(raw, 'phone_number', 'phone')
+  const project = pick(raw, ['project', 'project_name', 'projectName'])
+  const source = pick(raw, ['lead_source', 'source', 'campaign', 'adSrc']) || pick(raw, ['ad_name', 'adName'])
+  const capturedAt = pick(raw, ['created_at', 'createdAt', 'captured_at', 'date', 'created_time'])
+  if (!name && !phone && !_loggedMetaCrmShapeOnce) {
+    _loggedMetaCrmShapeOnce = true
+    console.warn('[meta-crm] none of the guessed field names matched — real CRM lead shape:', JSON.stringify(raw).slice(0, 500))
+  }
+  return { name, phone, project, source, capturedAt }
+}
+
+function MetaCrmLeadsSection() {
+  const [open, setOpen] = useState(false)
+  const [leads, setLeads] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [err, setErr] = useState(null)
+
+  const load = () => {
+    setLoading(true); setErr(null)
+    fetch(`${API}/api/leads/meta-crm`).then(r => r.json())
+      .then(d => { if (d.error) throw new Error(d.error); setLeads(d.leads || []) })
+      .catch(e => setErr(e.message))
+      .finally(() => setLoading(false))
+  }
+  const toggle = () => { setOpen(o => !o); if (!open && leads === null) load() }
+
+  return (
+    <div style={{ background:'#fff', border:'1px solid #E9E7E0', borderRadius:12, marginBottom:20, overflow:'hidden' }}>
+      <div onClick={toggle} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 18px', cursor:'pointer' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          <span style={{ fontSize:14, fontWeight:700, color:'#1B1B3A' }}>Meta Ad Leads</span>
+          <span style={{ fontSize:11, color:'#8A8896' }}>From IndiHomes CRM — read-only</span>
+          {leads !== null && <span style={{ fontSize:11, fontWeight:700, color:'#0E5FBF', background:'#EEF6FF', padding:'2px 8px', borderRadius:20 }}>{leads.length}</span>}
+        </div>
+        <ChevronDown size={16} strokeWidth={2.4} color="#75737F" style={{ transform: open ? 'rotate(180deg)' : 'none', transition:'transform 0.15s' }} />
+      </div>
+      {open && (
+        <div style={{ borderTop:'1px solid #E9E7E0', padding:'12px 18px 18px' }}>
+          {loading && <div style={{ fontSize:13, color:'#8A8896' }}>Loading…</div>}
+          {err && <div style={{ fontSize:12.5, color:'#D64545' }}>Couldn't load Meta Ad leads from the CRM right now — try again shortly.</div>}
+          {leads && leads.length === 0 && !err && <div style={{ fontSize:13, color:'#8A8896' }}>No Meta Ad leads found in the CRM.</div>}
+          {leads && leads.length > 0 && (
+            <div style={{ display:'flex', flexDirection:'column', gap:6, maxHeight:360, overflowY:'auto' }}>
+              {leads.map((raw, i) => {
+                const f = metaCrmLeadFields(raw)
+                return (
+                  <div key={i} style={{ display:'flex', alignItems:'center', gap:14, padding:'9px 12px', background:'#F9F8F6', border:'1px solid #F0EEE8', borderRadius:8 }}>
+                    <div style={{ width:34, height:34, borderRadius:'50%', background:'#0E5FBF', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:800, flexShrink:0 }}>
+                      {initials(f.name)}
+                    </div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:13, fontWeight:700, color:'#1B1B3A' }}>{f.name || <EmptyValue />}</div>
+                      <div style={{ fontSize:11.5, color:'#75737F' }}>
+                        {f.phone || <EmptyValue />}{f.project ? ` · ${f.project}` : ''}
+                      </div>
+                    </div>
+                    {f.capturedAt && <div style={{ fontSize:11, color:'#8A8896', whiteSpace:'nowrap' }}>{timeAgo(new Date(f.capturedAt).getTime())}</div>}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // Lead detail view — rendered in-flow within LeadCapture (not a fixed
 // full-viewport overlay), so the app's persistent Sidebar + TopBar (search
 // box, bell, avatar, theme toggle, breadcrumb) stay exactly as every other
@@ -943,18 +1054,26 @@ function LeadDetailView({ lead: initialLead, onClose }) {
 
 // Connection/health status strip for a lead source — replaces the previous
 // "only find out on click" pattern with an always-visible indicator.
+//
+// Detail text deliberately never surfaces raw technical content (a Graph
+// API error string like "Meta Graph 400: Error validating access token:
+// Session has expired on Monday, 17-Aug-26 04:00:00 PDT...", an endpoint
+// path like "POST /api/leads/intake/website", or any other implementation
+// detail) — per the explicit instruction that no source/debug metadata
+// belongs in end-user UI. The underlying status object (configured/
+// lastSuccess/lastFailure/description) is untouched server-side for
+// anyone who needs the real detail (server logs, an admin API) — only
+// this component's rendering was simplified.
 function SourceStatus({ label, status }) {
   if (!status) return null
   const dot = !status.configured ? '#D64545' : status.lastFailure && (!status.lastSuccess || status.lastFailure.ran_at > status.lastSuccess.ran_at) ? '#F7941D' : status.lastSuccess ? '#2E9E4F' : '#8A8896'
   const detail = !status.configured
-    ? `Missing: ${(status.missingEnv || []).join(', ') || 'credentials'}`
-    : status.description
-    ? status.description
+    ? 'Not connected'
+    : status.lastFailure && (!status.lastSuccess || status.lastFailure.ran_at > status.lastSuccess.ran_at)
+    ? 'Sync issue — contact your administrator'
     : status.lastSuccess
-    ? `Last success ${timeAgo(status.lastSuccess.ran_at)} · ${status.lastSuccess.created ?? 0} new`
-    : status.lastFailure
-    ? `Last attempt failed: ${status.lastFailure.error || 'unknown error'}`
-    : 'Never synced yet'
+    ? `Last synced ${timeAgo(status.lastSuccess.ran_at)} · ${status.lastSuccess.created ?? 0} new`
+    : 'Not synced yet'
   return (
     <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', background:'#fff', border:'1px solid #E9E7E0', borderRadius:10, fontSize:12 }}>
       <span style={{ width:8, height:8, borderRadius:'50%', background:dot, flexShrink:0 }} />
@@ -1111,6 +1230,13 @@ export default function LeadCapture({ onBreadcrumbExtra }) {
         <SourceStatus label="Meta" status={syncStatus?.meta} />
         <SourceStatus label="IndiHomes Website" status={syncStatus?.website} />
       </div>
+
+      {/* Meta Ad Leads, sourced directly from IndiHomes' own CRM (Section 8) —
+          a separate, read-only, collapsible section, not merged into the
+          editable unified-inbox table below (see MetaCrmLeadsSection's own
+          header comment for why). Collapsed by default; loads on first
+          expand. */}
+      <MetaCrmLeadsSection />
 
       {/* NOTE: the "IndiHomes CRM push" status field (syncStatus.crm) was
           intentionally removed from this screen per a UI-only cleanup pass —

@@ -16,6 +16,7 @@ import httpx
 from langsmith import traceable
 
 from . import cache
+from . import fact_extraction as _fact_extraction
 from .state import EvidenceItem, FetchedPage, ToolCallRecord
 
 logger = logging.getLogger("ai-search-agent.tools")
@@ -332,6 +333,52 @@ async def apify_search(query: str, market: str) -> tuple[list[EvidenceItem], Too
     return evidence, ToolCallRecord(tool="apify_search", args={"query": query, "market": market},
                                      status="error" if err and not evidence else "ok", count=len(evidence),
                                      duration_ms=duration_ms, error=err, cache_hit=cache_hit)
+
+
+# ── rera_lookup — targeted RERA enrichment for a project ALREADY selected
+# in Project Intelligence (Property Search or AI Search), not a discovery
+# tool. Built to close a real gap: the only pre-existing enrichment path
+# (/api/ai-research, Claude-driven) is permanently dead in this deployment
+# (no ANTHROPIC_API_KEY) and was never wired to auto-fire for a normally-
+# selected project anyway (only for a manually-onboarded one). This reuses
+# the SAME working tools/extraction every other part of this pipeline
+# already depends on (web_search + fetch_page + fact_extraction's
+# nearest_match-protected RERA regex) — no new scraper, no new LLM
+# dependency, no parallel extraction path.
+
+
+@traceable(name="rera_lookup", run_type="tool")
+async def rera_lookup(name: str, locality: Optional[str], city: Optional[str]) -> tuple[Optional[str], ToolCallRecord]:
+    """Returns (rera_number_or_None, ToolCallRecord). Never fabricates —
+    only a RERA number literally extracted from real fetched page text,
+    verified against `name` via fact_extraction's own nearest_match
+    protection (the exact fix built this session for cross-candidate fact
+    bleeding on a multi-project page), is ever returned. The source
+    URL/page is deliberately not returned to the caller — this tool's
+    only job is the number itself; server.cjs's route never forwards
+    provider/URL details to the frontend either way (source/debug removal).
+    """
+    start = time.monotonic()
+    query = f"{name} {locality or ''} RERA number registration".strip()
+    evidence, _ = await web_search(query, "india")
+    urls = [e.get("source_url") for e in evidence[:3] if e.get("source_url")]
+    rera_found = None
+    for url in urls:
+        page, _ = await fetch_page(url, candidate=name, source_type="rera-lookup")
+        if page.get("status") != "success" or not page.get("content"):
+            continue
+        facts, _ = _fact_extraction.deterministic_extract(name, page)
+        for f in facts:
+            if f["field"] == "rera_number" and f["value"]:
+                rera_found = f["value"]
+                break
+        if rera_found:
+            break
+    duration_ms = int((time.monotonic() - start) * 1000)
+    return rera_found, ToolCallRecord(
+        tool="rera_lookup", args={"name": name, "locality": locality, "city": city},
+        status="ok", count=1 if rera_found else 0, duration_ms=duration_ms, error=None, cache_hit=False,
+    )
 
 
 @traceable(name="official_lookup", run_type="tool")

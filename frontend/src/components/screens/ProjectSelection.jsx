@@ -1017,7 +1017,7 @@ function buildIntelFromCandidate(p) {
 // client-side from this candidate's own fields), so ProjectIntelligence.jsx
 // never needs to fall back to /api/ai-research for an AI-Search-sourced
 // candidate (Part P1.4's priority order).
-function toAnalysableProject(p, i) {
+function toAnalysableProject(p, i, siblings) {
   const id = p.id || buildCanonicalCandidateId(p)
   const out = {
     id,
@@ -1063,6 +1063,25 @@ function toAnalysableProject(p, i) {
     // Nominatim/Google Geocoding string-matching for this candidate.
     placesVerified: p.placesVerified ?? null, placesLat: p.placesLat ?? null, placesLon: p.placesLon ?? null,
     placesPlaceId: p.placesPlaceId ?? null, placesAddress: p.placesAddress ?? null,
+    // Real, already-found comparable projects from the SAME AI Search
+    // result set (everything else that matched the same location/query) —
+    // these are genuinely comparable (same locality, same search) and
+    // require no map/geocoding round-trip at all, unlike the Google Places
+    // nearby-search Competitor Analysis otherwise depends on. Confirmed
+    // live: Competitor Analysis was stuck on "Not connected — waiting for
+    // the Location Map" even when 6+ real, comparable Malad West projects
+    // were sitting right there in the same search's own results. Only real
+    // fields carried through — no coordinates fabricated for a sibling that
+    // doesn't have Places-verified ones.
+    aiSearchSiblings: (siblings || [])
+      .filter(s => s.id !== id)
+      .map(s => ({
+        name: s.name, developer: s.developer || null, location: s.location || null,
+        config: s.config || null, price: s.price || null, possession: s.possession || null,
+        lat: Number.isFinite(s.placesLat) ? s.placesLat : null,
+        lon: Number.isFinite(s.placesLon) ? s.placesLon : null,
+        sourceUrl: s.sourceUrl || null,
+      })),
     _autoResearch: true,
   }
   // Priority order (Part P1.4): (1) this exact candidate object — always,
@@ -1209,7 +1228,7 @@ function FactChip({ icon: Icon, value, title }) {
 // property type — never a placeholder for a missing one), and an amenities
 // strip. `key_match`/`limitations`/`sources` still carry through to Project
 // Intelligence via toAnalysableProject below.
-function PropertyCard({ p, i, onAnalyse }) {
+function PropertyCard({ p, i, onAnalyse, allProperties }) {
   const tierLabel = p.match_tier || rankOf(i).label
   const color = TIER_COLOR[tierLabel] || rankOf(i).color
   const imgUrl = projectImageUrl({ builder: p.developer, name: p.name, id: p.id })
@@ -1254,23 +1273,11 @@ function PropertyCard({ p, i, onAnalyse }) {
               as "unverified" kind, not "verified", so the badge itself never
               overclaims what this app hasn't actually confirmed. */}
           {p.rera && <FieldBadge kind="unverified" compact label={`RERA ${p.rera} (unverified)`} />}
-          {/* Source/verification (Part 10) — the real connector/portal this
-              candidate was actually retrieved from (p.sourceName, e.g.
-              "99acres" or "99acres + MagicBricks" once mergeDuplicateProperties
-              has combined multiple sources) — never fabricated, never a
-              generic "Verified" claim beyond what's true (this is provenance,
-              not a correctness guarantee). Links to the real source page when
-              one exists. */}
-          {p.sourceName && (
-            p.sourceUrl ? (
-              <a href={p.sourceUrl} target="_blank" rel="noopener noreferrer" title="View original source"
-                style={{ fontSize:10.5, color:'#75737F', textDecoration:'none', display:'inline-flex', alignItems:'center', gap:3, whiteSpace:'nowrap' }}>
-                <ExternalLink size={10} strokeWidth={2.2} /> {p.sourceName}
-              </a>
-            ) : (
-              <span style={{ fontSize:10.5, color:'#75737F', whiteSpace:'nowrap' }}>Source: {p.sourceName}</span>
-            )
-          )}
+          {/* Source/provider name intentionally never rendered here (explicit
+              instruction: no source/debug metadata in end-user UI) —
+              p.sourceName/p.sourceUrl still carry through to
+              toAnalysableProject for internal use, just never shown as a
+              badge/link on this card. */}
         </div>
 
         {/* Key facts — configuration / area / price / location, the four
@@ -1307,7 +1314,7 @@ function PropertyCard({ p, i, onAnalyse }) {
         )}
 
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-          <button onClick={() => onAnalyse && onAnalyse([toAnalysableProject(p, i)])}
+          <button onClick={() => onAnalyse && onAnalyse([toAnalysableProject(p, i, allProperties)])}
             style={{ padding: '7px 16px', background: '#0E0E52', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
             Open Project Intelligence →
           </button>
@@ -1372,7 +1379,7 @@ function RankedResults({ result, onAnalyse }) {
   return (
     <div style={{ marginBottom: 20 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {props.map((p, i) => <PropertyCard key={p.id || i} p={p} i={i} onAnalyse={onAnalyse} />)}
+        {props.map((p, i) => <PropertyCard key={p.id || i} p={p} i={i} onAnalyse={onAnalyse} allProperties={props} />)}
       </div>
     </div>
   )

@@ -12,8 +12,17 @@ import React from 'react'
 // number instead of the generic "Verified" wording).
 const KIND = {
   verified:   { icon: '✓', label: 'Verified',              color: '#2E9E4F', bg: '#E8F7EE' },
-  map:        { icon: '✓', label: 'Verified · OpenStreetMap', color: '#2E9E4F', bg: '#E8F7EE' },
-  places:     { icon: '✓', label: 'Verified · Google Places', color: '#2E9E4F', bg: '#E8F7EE' },
+  // Previously named the specific external provider ("Verified ·
+  // OpenStreetMap" / "Verified · Google Places") directly in end-user-
+  // facing UI — removed per explicit instruction that provider/source
+  // names must never render in the UI (they can stay attached to the
+  // underlying data for internal verification, just not shown here). Both
+  // collapse to the same generic "Verified" the plain `verified` kind
+  // already uses — kept as separate keys (not merged into `verified`
+  // itself) so call sites stay self-documenting about WHICH real source
+  // backs a given field, without that distinction leaking into the label.
+  map:        { icon: '✓', label: 'Verified',              color: '#2E9E4F', bg: '#E8F7EE' },
+  places:     { icon: '✓', label: 'Verified',              color: '#2E9E4F', bg: '#E8F7EE' },
   ai:         { icon: '✦', label: 'AI-derived',             color: '#6B4FBB', bg: '#F1EDFB' },
   unverified: { icon: '⚠', label: 'Not found',              color: '#8A8896', bg: '#F6F5F1' },
 }

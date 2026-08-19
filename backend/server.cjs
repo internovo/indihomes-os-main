@@ -20,6 +20,7 @@ const azureSearch = require('./azure-search.cjs')
 const leadIntake = require('./lead-intake.cjs')
 const housingClient = require('./housing-client.cjs')
 const metaClient = require('./meta-client.cjs')
+const indihomesCrmLeads = require('./indihomes-crm-leads-client.cjs')
 const indihomesClient = require('./indihomes-client.cjs')
 const indihomesLeadsClient = require('./indihomes-leads-client.cjs')
 const metaCapi = require('./meta-capi.cjs')
@@ -1991,6 +1992,23 @@ async function queryAgent(query, market) {
   return res.json()
 }
 
+// Section 5 fix (RERA enrichment) — proxies to the agent's own scoped
+// /agent/rera-lookup route, same connection pattern/timeout/degrade-
+// gracefully discipline as queryAgent above. A shorter timeout than the
+// full AI Search pipeline (this is one targeted lookup, not a whole
+// discovery pass) — own env var so it doesn't have to share
+// AI_SEARCH_TIMEOUT_MS's much larger budget.
+const RERA_LOOKUP_TIMEOUT_MS = parseInt(process.env.RERA_LOOKUP_TIMEOUT_MS, 10) || 20000
+async function queryReraLookup(name, locality, city) {
+  const res = await fetch(`${AGENT_SERVICE_URL}/agent/rera-lookup`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, locality, city }),
+    signal: AbortSignal.timeout(RERA_LOOKUP_TIMEOUT_MS),
+  })
+  if (!res.ok) throw new Error(`Agent service HTTP ${res.status}`)
+  return res.json()
+}
+
 // Adapts the agent's richer property shape onto the SAME field names the
 // existing frontend (RankedResults/toAnalysableProject in
 // ProjectSelection.jsx) already reads (match_score/why/sources/etc), so
@@ -2068,6 +2086,76 @@ app.post('/api/ai-search', async (req, res) => {
   const market = req.body?.market === 'dubai' ? 'dubai' : 'india'
   if (!query) return res.status(400).json({ error: 'query required' })
 
+  // Places-direct discovery (Section: "make AI Search work like a direct
+  // Maps search") — tried FIRST, before the LangGraph/legacy pipelines
+  // below. Confirmed live: the multi-stage lifecycle-classification
+  // pipeline was rejecting almost every real candidate ("20 candidates
+  // reviewed... 0 eligible"), while a direct Google Places text search for
+  // the same query returned 7+ real, well-named, real-address residential
+  // buildings immediately. Google Places itself has no lifecycle-status
+  // concept at all, so nothing here can be "rejected as not-new-launch" —
+  // this deliberately doesn't attempt that classification; it shows real,
+  // existing buildings matching the location + configuration, honestly.
+  // Falls through to the existing pipelines below (unchanged) when Places
+  // isn't configured, the market is Dubai (India-gazetteer-tuned for now),
+  // or it genuinely returns nothing — never a hard dependency, same
+  // "additive, never make things worse" discipline as every other
+  // integration in this app.
+  if (market === 'india' && placesClient.isPlacesConfigured()) {
+    try {
+      const filters = queryParser.parseExternalQuery(query, market)
+      // Deliberately passes something close to the RAW query text to Places
+      // (not just the extracted location) — Places' own text understanding
+      // handles landmark phrases ("near aarey metro") that this app's own
+      // regex-based extractLocations() has no way to capture, and the live
+      // reference example this was built from relied on exactly that.
+      const placesQuery = /apartment|residential|flat|housing|condo|society/i.test(query)
+        ? query : `residential apartments ${query}`
+      const { configured, places } = await placesClient.searchResidentialPlaces(placesQuery, { maxResultCount: 20 })
+      if (configured && places.length) {
+        const properties = places.map((p, i) => {
+          // Rank purely by Places' own result order (already relevance-
+          // ranked by Google) — rating/review count are fetched (see
+          // places-client.cjs) but deliberately NOT surfaced in the UI or
+          // used for scoring here, per explicit instruction to keep this
+          // looking like a normal project card, not a Maps listing.
+          const matchScore = Math.max(40, 95 - i * 4)
+          const tier = matchScore >= 80 ? 'PRIMARY' : matchScore >= 60 ? 'SECONDARY' : 'TERTIARY'
+          return {
+            id: `places:${p.placeId}`,
+            name: p.name,
+            developer: null,
+            location: p.address || (filters.locations || []).join(', ') || null,
+            city: null,
+            config: filters.configuration || null,
+            price: null, possession: null,
+            rera: null, rera_verified: null,
+            match_score: matchScore, match_tier: tier,
+            match_reasons: [`Real building found near ${(filters.locations || []).join(', ') || 'your search'}`],
+            why: `Found via Google Places near ${(filters.locations || []).join(', ') || 'your search'}`,
+            sourceUrl: p.mapsUrl, sourceName: null,
+            placesVerified: true, placesLat: p.lat, placesLon: p.lon,
+            placesPlaceId: p.placeId, placesAddress: p.address,
+          }
+        })
+        const reportId = cacheSearchContext(query, filters, market)
+        const ctx = searchReportCache.get(reportId)
+        ctx.skip = properties.length
+        try { db.logSearch({ mode: 'ai-search-places', query, filters, resultCount: properties.length }) }
+        catch (e) { console.error('[ai-search] history log failed:', e.message) }
+        return res.json({
+          filters, reportId, market, configured: true, enabled: true,
+          properties, sources: [], warning: null,
+          _source: 'places-direct',
+        })
+      }
+    } catch (e) {
+      console.error('[ai-search] Places-direct discovery failed, falling back to the existing pipeline:', e.message)
+      // No error surfaced to the client — fall through exactly as if this
+      // path didn't exist, same discipline as the LangGraph fallback below.
+    }
+  }
+
   if (process.env.LANGGRAPH_ENABLED === 'true') {
     try {
       const agentResult = await queryAgent(query, market)
@@ -2143,6 +2231,27 @@ app.post('/api/ai-search', async (req, res) => {
   } catch (e) {
     console.error('[ai-search] error:', e.message)
     res.status(500).json({ error: e.message })
+  }
+})
+
+// Section 5 fix (RERA enrichment) — for a project ALREADY selected in
+// Project Intelligence (from either Property Search or AI Search), do one
+// targeted lookup for its RERA number when it's missing. Degrades exactly
+// like every other agent-dependent route in this file: agent unreachable
+// or times out -> honest "not found", never a fabricated number, never a
+// 500 that would break the Project Intelligence page around it.
+app.post('/api/rera-lookup', async (req, res) => {
+  const { name, locality, city } = req.body || {}
+  if (!name || !String(name).trim()) return res.status(400).json({ error: 'name required', rera: null, found: false })
+  try {
+    const result = await queryReraLookup(String(name).trim(), locality || null, city || null)
+    // Never forwards a source URL/provider — the agent route itself
+    // already omits it, this is defense in depth against that contract
+    // ever drifting.
+    res.json({ rera: result.rera || null, found: !!result.found })
+  } catch (e) {
+    console.warn('[rera-lookup] agent unavailable or lookup failed:', e.message)
+    res.json({ rera: null, found: false })
   }
 })
 
@@ -2670,6 +2779,52 @@ app.post('/api/leads/sync-meta-capi', async (req, res) => {
     res.json(await runMetaCapiSync())
   } catch (e) {
     console.error('[sync-meta-capi] error:', e.message)
+    res.status(502).json({ error: e.message })
+  }
+})
+
+// Section 8 fix — "Meta Ad Leads" sourced from IndiHomes' OWN CRM
+// (get-paginated-leads + meta-leads/get-lead-history — confirmed real per a
+// direct clarification; get-new-leads/get-lead-src were part of an earlier,
+// less certain spec and are no longer relied on here), not Facebook's Graph
+// API directly (meta-client.cjs, still used unchanged for the existing
+// webhook/hourly-poll intake pipeline — this is an ADDITIONAL read path,
+// not a replacement of that capture mechanism). Identifies a Meta-sourced
+// lead by the PRESENCE of Meta's own webhook-captured fields
+// (field_data/ad_id/form_id/leadgen_id — see indihomes-crm-leads-client.cjs's
+// isMetaSource for the full reasoning) rather than cross-referencing a
+// separate source-name directory, since only leads that actually came
+// through the Meta webhook -> Facebook Business SDK pipeline would ever
+// carry those fields at all.
+app.get('/api/leads/meta-crm', async (req, res) => {
+  try {
+    // Confirmed live: POST /api/v1/meta-leads/sync doesn't exist (404
+    // "Cannot POST") — removed. get-paginated-leads + a client-side filter
+    // (isMetaSource: no project AND no configuration = Meta lead, per
+    // direct operator knowledge of how these records actually differ by
+    // source) is the only path now. Still blocked on a genuine, unresolved
+    // server-side error on get-paginated-leads itself (500 "Server error
+    // fetching leads") — this filter will apply automatically the moment
+    // that's fixed, no further code change needed here.
+    const page = parseInt(req.query.page, 10) || 1
+    const limit = parseInt(req.query.limit, 10) || 100
+    const leadsResp = await indihomesCrmLeads.getPaginatedLeads({ page, limit })
+    const leads = Array.isArray(leadsResp) ? leadsResp : (leadsResp?.data || leadsResp?.leads || [])
+    const metaLeads = leads.filter(lead => indihomesCrmLeads.isMetaSource(lead))
+    res.json({ leads: metaLeads, total: metaLeads.length, page, limit, totalUnfiltered: leads.length })
+  } catch (e) {
+    console.error('[meta-crm] error:', e.message)
+    res.status(502).json({ error: e.message, leads: [] })
+  }
+})
+
+// GET /api/leads/meta-crm/history/:number — proxies get-lead-history for one
+// lead's full CRM-side conversation/touch history, by phone number.
+app.get('/api/leads/meta-crm/history/:number', async (req, res) => {
+  try {
+    res.json(await indihomesCrmLeads.getLeadHistory(req.params.number))
+  } catch (e) {
+    console.error('[meta-crm] history lookup failed:', e.message)
     res.status(502).json({ error: e.message })
   }
 })

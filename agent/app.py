@@ -24,6 +24,7 @@ logger = logging.getLogger("ai-search-agent")
 
 from agent.graph import get_graph  # noqa: E402  (import after dotenv load so env-dependent modules see it)
 from agent.llm_providers import LLMRouter  # noqa: E402
+from agent import tools as agent_tools  # noqa: E402
 
 app = FastAPI(title="IndiHomes AI Search Agent", version="1.0.0")
 
@@ -31,6 +32,30 @@ app = FastAPI(title="IndiHomes AI Search Agent", version="1.0.0")
 class AISearchRequest(BaseModel):
     query: str
     market: str = "india"
+
+
+# Section 5 fix (RERA enrichment) — a lightweight, SCOPED sibling to the
+# main /agent/ai-search pipeline, not a variant of it. Takes an ALREADY-
+# IDENTIFIED project (from Property Search or AI Search — either entry
+# point) and runs one targeted lookup for its RERA number only, reusing
+# tools.rera_lookup (web_search + fetch_page + fact_extraction's own
+# nearest_match-protected regex, the same extraction machinery the main
+# pipeline already depends on). Deliberately outside the LangGraph state
+# machine — no discovery/dedup/scoring/eligibility needed when the project
+# is already known, just one extraction pass.
+class ReraLookupRequest(BaseModel):
+    name: str
+    locality: str | None = None
+    city: str | None = None
+
+
+@app.post("/agent/rera-lookup")
+async def rera_lookup_route(req: ReraLookupRequest):
+    rera, record = await agent_tools.rera_lookup(req.name, req.locality, req.city)
+    # Source URL/provider deliberately never returned here (Part 2's
+    # explicit "never show source/provider in the UI" rule) — only the
+    # extracted number itself and whether the lookup found anything.
+    return {"rera": rera, "found": bool(rera), "duration_ms": record["duration_ms"]}
 
 
 @app.get("/health")

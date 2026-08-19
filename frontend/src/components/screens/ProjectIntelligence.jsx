@@ -133,19 +133,13 @@ function NearbyMap({ projectQuery, fallbackQuery, onPlaces, onGeo, mapsUrl, disp
         const map = L.map(ref.current, { scrollWheelZoom: false, zoomControl: false }).setView([lat, lon], approx ? 13 : 15)
         L.control.zoom({ position: 'bottomright' }).addTo(map)
         mapRef.current = map
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-          // Part 6's own comment already claimed "Google Maps mobile-app
-          // conventions" (pin shape, zoom control position, bottom sheet)
-          // but never actually swapped the TILE LAYER itself — this was
-          // still standard light OpenStreetMap raster tiles underneath all
-          // that restyled chrome. CARTO's "Dark Matter" basemap: free, no
-          // API key/billing (same hosting model as the OSM tiles it
-          // replaces), dark navy/muted palette with teal water — the same
-          // visual category as Google Maps' own Night style, though not
-          // pixel-identical (different label font/POI icon set). True
-          // pixel-parity would require the real Google Maps JS SDK, a
-          // billed client-side key this app has deliberately avoided.
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          // Reverted from CARTO Dark Matter back to standard light OSM
+          // tiles per explicit instruction ("light map, not dark... clean
+          // roads and labels", direct contradiction of the prior request
+          // this dark styling was built for) — same free/no-key hosting
+          // model either way, tile source only.
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
           maxZoom: 19,
         }).addTo(map)
 
@@ -614,17 +608,24 @@ function resolveSourceLabel(source) {
 }
 
 function SourceTag({ source, compact }) {
-  const s = resolveSourceLabel(source)
+  // Provider/source names must never render in end-user UI (explicit
+  // instruction) — SourceTag's whole original purpose was showing exactly
+  // that ("99acres"/"MagicBricks"/"Housing.com"/etc), so it's now a plain
+  // generic "Verified" badge, matching FieldBadge's own `verified` kind
+  // exactly. `source` is still accepted (not removed from every call site,
+  // to avoid a larger refactor) but no longer affects what's shown — the
+  // real source string stays on the underlying data object for internal
+  // use, it just never reaches this label.
   return (
     <span style={{
       display:'inline-flex', alignItems:'center', gap:4,
-      background: s.bg, color: s.color,
+      background: '#E8F7EE', color: '#2E9E4F',
       padding: compact ? '2px 6px' : '3px 8px',
       borderRadius:4, fontSize:10, fontWeight:700,
       fontFamily:"'IBM Plex Mono',monospace", letterSpacing:'0.04em',
       flexShrink:0,
     }}>
-      {source && source !== 'estimated' ? '●' : '◌'} {s.label}
+      ✓ Verified
     </span>
   )
 }
@@ -1006,6 +1007,15 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
     fetch(`${API}/api/rera-status`).then(r => r.json()).then(d => setReraEnabled(!!d.enabled)).catch(() => {})
   }, [])
 
+  // Section 5 fix (RERA enrichment) — state/refs declared here (with the
+  // other useState/useRef hooks), the actual fetch-triggering effect is
+  // BELOW `reraCode`'s definition since it depends on that value (which is
+  // itself derived from official/live/research/current — all computed
+  // later in this function). See that effect for the real bug this fixes.
+  const [reraLookupResult, setReraLookupResult] = useState(null) // { rera, found } | null
+  const reraLookupRef = useRef({})
+  const reraLookupInFlight = useRef(new Set())
+
   const current = projects[Math.min(tab, projects.length - 1)] || projects[0]
   const rc      = RANK_COLOR[current?.rank] || '#8B8BD6'
 
@@ -1101,6 +1111,11 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
     const k = current.id || `${current.name}::${current.builder||''}`.toLowerCase().replace(/\W/g,'')
     setResearchErr(null)
     setReraCheck(reraRef.current[k] || null)
+    // Section 5 fix (RERA enrichment) — reset/restore per project, same
+    // pattern as reraCheck above, so switching tabs shows THIS project's
+    // cached lookup result (or null, triggering a fresh lookup) instead of
+    // lingering on whatever the previously-active project's result was.
+    setReraLookupResult(reraLookupRef.current[k] || null)
     setRealNearbyPlaces([])
     setProjectGeo(null)
     setRealCompetitors({ configured: null, competitors: [], error: null, radiusKm: 3 })
@@ -1128,9 +1143,22 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
     // before reaching this branch — Part P1.4's explicit rule that generic
     // discovery must never replace/resolve the selected candidate.
     if (current._autoResearch) return
-    if ((autoResearchRef.current === k) && !researchRef.current[k]) {
-      autoResearchRef.current = null
-      if (researchEnabled || current.code) setTimeout(() => runResearch(), 50)
+    // REAL BUG FIXED: this previously required `autoResearchRef.current === k`
+    // (set ONLY inside handleOnboardSubmit) before ever calling runResearch()
+    // — meaning a normally-selected Property Search project (never
+    // onboarded) NEVER had this condition true, so `official` (description,
+    // inventory, USPs — everything /api/ai-research fetches) was NEVER
+    // auto-fetched for any regular project, only a manually-onboarded one.
+    // Confirmed live: "38 Avenue By Artha Lifespaces" (a real, populated
+    // official catalog project with known RERA/price/developer) showed "No
+    // description found", "No unit configuration data", "No USPs found" —
+    // not because the data doesn't exist (fetchProjectByName correctly
+    // returns it, confirmed by reading indihomes-client.cjs directly), but
+    // because nothing ever called it. Now fires for ANY project that hasn't
+    // been researched yet, same broadened "any selected project, not just
+    // onboarded ones" philosophy the RERA-specific fix already established.
+    if (!researchRef.current[k] && (researchEnabled || current.code)) {
+      setTimeout(() => runResearch(), 50)
     }
   }, [current?.id, current?.name, current?.builder, current?.code, current?._agentIntel, researchEnabled])
 
@@ -1250,7 +1278,7 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
   const live = intel
   const official = research?.official || null
 
-  const officialConfigs = (official?.flatInventory || [])
+  const officialConfigs = (official?.flatInventory?.length ? official.flatInventory : current?.flatInventory || [])
     .filter(f => f.type)
     .map(f => ({ type: f.type, carpet: f.carpet, total: f.total, available: f.available, price: f.priceDisplay, _extracted: !!f._extracted }))
   // Distinguishes structured API data (flatInventory as-published) from the
@@ -1267,13 +1295,23 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
     movement:  c.movement || movement(c.available, c.total),
   }))
 
-  const displayAmenities   = (official?.amenities?.length ? official.amenities : live?.amenities?.length ? live.amenities : research?.amenities) || []
+  const displayAmenities   = (official?.amenities?.length ? official.amenities : current?.amenities?.length ? current.amenities : live?.amenities?.length ? live.amenities : research?.amenities) || []
   // Official-sourced USPs (derived from the official description/amenities +
   // official RERA presence) win whenever any can be extracted — "own data
   // first" applies to USP extraction the same way it already does to
   // description/amenities/configs, not just the raw fields.
-  const officialUSPs = official
-    ? deriveUSPs({ description: official.description, amenities: official.amenities, rera: !!official.reraCode })
+  //
+  // Same list-endpoint-has-it-already fix as description/configs above:
+  // deriveUSPs now runs against current.description/current.amenities too
+  // when `official` (the separate detail fetch) hasn't returned/populated
+  // yet — no reason USP extraction should wait on a second round-trip for
+  // data the list endpoint already provided.
+  const officialUSPs = (official || current)
+    ? deriveUSPs({
+        description: official?.description || current?.description,
+        amenities: official?.amenities?.length ? official.amenities : current?.amenities,
+        rera: !!(official?.reraCode || current?.reraCode),
+      })
     : []
   const displayUSPs = (officialUSPs.length ? officialUSPs : live?.usps?.length ? live.usps : research?.usps) || []
   const researchNearby     = Array.isArray(research?.nearby) ? research.nearby : (research?.nearby ? [research.nearby] : [])
@@ -1310,10 +1348,37 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
   // (that path is permanently unavailable in this deployment today, per
   // requirements.md, but kept as a fallback rather than deleted in case a
   // future deployment does enable a live-web-search LLM provider).
-  const displayCompetitors = realCompetitors.competitors.length
+  //
+  // NEW top priority: for an AI-Search-sourced candidate, the OTHER real
+  // properties already found in the SAME search (current.aiSearchSiblings)
+  // — genuinely comparable (same locality/query), zero map/geocoding
+  // dependency. Confirmed live: Competitor Analysis was stuck on "Not
+  // connected — waiting for the Location Map" even when several real,
+  // comparable projects were sitting right there in the same search's own
+  // results the whole time. Only shown when there's at least one real
+  // sibling with a real field to compare (never an empty placeholder list).
+  const siblingCompetitors = (current?.aiSearchSiblings || []).map(s => ({
+    name: s.name, address: s.location, config: s.config, price: s.price,
+    possession: s.possession, lat: s.lat, lon: s.lon,
+    mapsUrl: (s.lat != null && s.lon != null) ? `https://www.google.com/maps/search/?api=1&query=${s.lat},${s.lon}` : null,
+  }))
+  const displayCompetitors = siblingCompetitors.length
+    ? siblingCompetitors
+    : realCompetitors.competitors.length
     ? realCompetitors.competitors
     : (live?.competitors?.length ? live.competitors : research?.competitors) || []
-  const displayDescription = official?.description || live?.description || research?.summary || ''
+  const displayDescription = official?.description || current?.description || live?.description || research?.summary || ''
+  // Real fix: normalizeProject() (indihomes-client.cjs) already sets
+  // `description` on EVERY project returned by the LIST endpoint
+  // (fetchProjects/fetchCatalog) that powers Property Search itself —
+  // meaning `current.description` is already sitting in memory the moment
+  // a project is selected, from the exact same backend call that already
+  // populated this card's name/price/RERA. This was never checked here at
+  // all — only the separate, slower `official` fetch (a second network
+  // round-trip via /api/ai-research -> fetchProjectByName) or `research`
+  // were read, so a description already available with zero extra latency
+  // was being ignored in favor of waiting on a call that could fail, be
+  // slow, or (per the just-fixed trigger bug) never fire at all.
   // Real source for the description card's footer — the previous line read
   // `live`/`intel`, which are hardcoded null forever in this file (see the
   // comment on `const intel = null` above: this screen no longer has a
@@ -1327,7 +1392,31 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
     : research?.summary ? 'Drishti AI web research'
     : null
 
-  const reraCode    = official?.reraCode || live?.rera || research?.rera || current?.reraCode || ''
+  const reraCode    = official?.reraCode || live?.rera || research?.rera || current?.reraCode || reraLookupResult?.rera || ''
+
+  // Section 5 fix (RERA enrichment) — the actual triggering effect. Fires
+  // for ANY selected project (Property Search or AI Search, not just a
+  // manually-onboarded one — the real bug) whenever every other source
+  // came up empty. Placed here, after reraCode's own computation, since it
+  // needs that final resolved value to decide whether to fire at all, and
+  // must never re-run once a real number is found anywhere (including from
+  // this very lookup, via reraLookupResult itself feeding back into
+  // reraCode above — so this effect's own dependency on reraCode already
+  // protects against re-firing once it succeeds).
+  useEffect(() => {
+    if (!current?.name) return
+    const k = current.id || `${current.name}::${current.builder||''}`.toLowerCase().replace(/\W/g,'')
+    if (reraCode || reraLookupRef.current[k] || reraLookupInFlight.current.has(k)) return
+    reraLookupInFlight.current.add(k)
+    fetch(`${API}/api/rera-lookup`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: current.name, locality: current.location || official?.location || null, city: current.city || null }),
+    })
+      .then(r => r.json())
+      .then(j => { reraLookupRef.current[k] = j; setReraLookupResult(j) })
+      .catch(() => { reraLookupRef.current[k] = { rera: null, found: false }; setReraLookupResult({ rera: null, found: false }) })
+      .finally(() => reraLookupInFlight.current.delete(k))
+  }, [current?.id, current?.name, reraCode])
   const audienceBudgetMin = official?.budgetMin ?? current?.budgetMin ?? null
   const audienceBudgetMax = official?.budgetMax ?? current?.budgetMax ?? null
   const audienceConfig    = official?.config || current?.config || ''
@@ -1595,11 +1684,11 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
                   </ul>
                 </div>
               )}
-              <div style={{ marginTop:14, paddingTop:12, borderTop:'1px solid #E9E7E0' }}>
-                <span style={{ fontSize:11, color:'#8A8896', fontFamily:"'IBM Plex Mono',monospace" }}>
-                  Source: {descriptionSourceLabel || <EmptyValue />}
-                </span>
-              </div>
+              {/* Source footer removed per explicit instruction — provenance
+                  string ("IndiHomes Website"/"AI Search Agent research"/
+                  "Drishti AI web research") stays computed in
+                  descriptionSourceLabel for any future internal/debug use,
+                  just never rendered as its own row here. */}
             </SectionCard>
 
             {/* Inventory & Unit Configs (PI-FR-02, 03) */}
@@ -1681,15 +1770,23 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
           </SectionCard>
 
           {/* ── Row 2: USPs + Target Audience ───────────────────────────────── */}
-          {/* alignItems intentionally NOT 'start' here — CSS Grid's default
-              (stretch) is what keeps a paired row's two cards bottom-
-              aligned even when one has noticeably more content than the
-              other (SectionCard fills that stretched height itself; see
-              its own comment). */}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16 }}>
+          {/* alignItems: 'start' here (NOT the stretch default used by every
+              other paired row on this page) — Target Audience routinely
+              renders 7 rows while USP Extraction, when empty, is a single
+              centered line; stretching USP Extraction's card to match
+              Target Audience's full height turned an honest empty state
+              into a visually oversized blank box. Every OTHER paired row on
+              this page keeps the stretch default (their content heights are
+              close enough that stretch reads as intentional alignment, not
+              a blown-up empty card) — this is the one specific pairing
+              where the mismatch is large and visible. */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16, alignItems:'start' }}>
 
-            {/* USP Extraction (PI-FR-09) */}
-            <SectionCard title="USP Extraction" debugId="PI-FR-09"
+            {/* USP Extraction (PI-FR-09) — compact padding (style override,
+                not a change to SectionCard's shared default) per explicit
+                instruction to make this box smaller; every other card on
+                this page keeps the standard 16px/20px padding. */}
+            <SectionCard title="USP Extraction" debugId="PI-FR-09" style={{ padding: '12px 16px' }}
               badge={live?.usps?.length ? <SourceTag source={live._sources?.primary} compact /> : displayUSPs.length ? <FieldBadge kind="ai" /> : <FieldBadge kind="unverified" />}
               action={(
                 <button style={{ fontSize:11, color:'#0E0E52', background:'none', border:'1px solid #E9E7E0', borderRadius:6, padding:'4px 10px', cursor:'pointer', fontWeight:600, fontFamily:"'Plus Jakarta Sans',sans-serif", flexShrink:0 }}>
@@ -1797,7 +1894,7 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
               const isDubai = current?.market === 'dubai'
               const regLabel = isDubai ? 'DLD' : 'RERA'
               return (
-            <SectionCard accent={reraCode ? '#2E9E4F' : '#8A8896'} title={`${regLabel} Details`} debugId="PI-FR-04"
+            <SectionCard accent={reraCode ? '#2E9E4F' : '#8A8896'} title={`${regLabel} Details`} debugId="PI-FR-04" style={{ padding: '12px 16px' }}
               badge={official?.reraCode ? <SourceTag source="indihomes-db" compact /> : <FieldBadge kind={reraCode ? 'verified' : 'unverified'} />}>
                 {!isDubai && (
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 0', borderBottom:'1px solid #E9E7E0', fontSize:13 }}>
@@ -1822,7 +1919,13 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 0', borderBottom:'1px solid #E9E7E0', fontSize:13 }}>
                   <span style={{ color:'#75737F' }}>Source</span>
                   <span style={{ fontWeight:600, color: reraCode ? '#1B1B3A' : undefined, fontSize:13 }}>
-                    {official?.reraCode ? 'IndiHomes Website' : reraCode ? (live?._sources?.primary || (isDubai ? 'Web research' : '99acres listing')) : <EmptyValue />}
+                    {/* Never names the specific external provider here —
+                        collapses to a generic verified/unverified label
+                        regardless of whether this came from IndiHomes'
+                        own catalog or an external listing (per explicit
+                        instruction: source/provider names must never
+                        render in end-user UI). */}
+                    {reraCode ? (official?.reraCode ? 'Official listing' : 'Third-party listing') : <EmptyValue />}
                   </span>
                 </div>
                 {isDubai ? (
@@ -1840,9 +1943,9 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
                       : reraCheck?.error
                       ? `Verification attempt failed: ${reraCheck.error}`
                       : official?.reraCode
-                      ? 'Sourced directly from the IndiHomes Website. Click "Verify on MahaRERA" to additionally check it against the government registry.'
+                      ? 'Sourced directly from IndiHomes\' own catalog. Click "Verify on MahaRERA" to additionally check it against the government registry.'
                       : reraCode
-                      ? 'Advertiser-submitted detail, sourced from 99acres. Click "Verify on MahaRERA" to check it against the government registry.'
+                      ? 'Advertiser-submitted detail from a third-party listing. Click "Verify on MahaRERA" to check it against the government registry.'
                       : 'No RERA number was found for this project. Verify directly with the builder or the state RERA portal.'}
                   </div>
                 )}
@@ -1967,8 +2070,6 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
               <div style={{ marginTop:12, fontSize:12, color:'#8A8896' }}>
                 Within {realCompetitors.radiusKm || 3} km of this project's real coordinates
                 {projectGeo?.approx && ' (locality-level location — not the exact project coordinates)'}
-                {realCompetitors.competitors.length > 0 && ' · Source: Google Places'}
-                {!realCompetitors.competitors.length && displayCompetitors.length > 0 && ' · Source: Drishti AI live research'}
               </div>
             </SectionCard>
           </div>
