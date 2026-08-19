@@ -10,6 +10,16 @@ import { colors } from '../ui/tokens.js'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
+async function readCrmResponse(response) {
+  const text = await response.text()
+  let data
+  try { data = text ? JSON.parse(text) : {} } catch (_) {
+    throw new Error(`CRM backend returned non-JSON (HTTP ${response.status}, ${response.headers.get('content-type') || 'unknown content type'}). Restart the backend server.`)
+  }
+  if (!response.ok || data.success === false) throw new Error(data.error || `CRM request failed (HTTP ${response.status})`)
+  return data
+}
+
 // The lifecycle stages a lead actually moves through in this CRM — leads.status
 // is a free-text column (no DB-level enum) so this is a UI-level vocabulary,
 // not a schema constraint; a lead created before this list existed may still
@@ -800,27 +810,8 @@ function initials(name) {
   return (parts[0][0] + (parts[1]?.[0] || '')).toUpperCase()
 }
 
-// ── Meta Ad Leads, sourced from IndiHomes' OWN CRM (backend/
-// indihomes-crm-leads-client.cjs's GET /api/leads/meta-crm) — genuinely
-// separate from the existing unified inbox table above, which only ever
-// shows leads already ingested into THIS app's own local database (via
-// Facebook Graph API direct pull, Housing.com, website intake, or manual
-// add). A CRM-sourced lead here is NOT a row in our local database — it
-// can't be PATCHed via /api/leads/:id, has no local id/edit-history/AI-
-// activity tracking, and its exact field shape (name/phone/project keys)
-// isn't documented anywhere this session had access to. Rendered as its
-// own small, clearly-labeled, read-only section rather than merged into
-// the editable table above, which would either break (wrong field names)
-// or silently offer edit/detail actions that don't actually work for a
-// record that lives in a different system entirely.
-//
-// Field access is deliberately defensive (tries a few plausible key names
-// per value) since the real CRM response shape hasn't been confirmed
-// against live data yet — same "diagnose against real data, don't guess
-// silently" discipline already used for the IndiHomes price/carpet-area
-// fields elsewhere in this app. Logs one raw record's keys to the console
-// on first load if none of the guessed field names produced a name/phone,
-// so the real shape can be confirmed and this hardened afterward.
+// CRM-sourced records are read-only here because they live in IndiHomes CRM,
+// not the local lead database used by the editable inbox below.
 function pick(obj, keys) {
   for (const k of keys) if (obj?.[k] != null && obj[k] !== '') return obj[k]
   return null
@@ -854,121 +845,39 @@ function metaCrmLeadFields(raw) {
   return { name, phone, project, source, capturedAt }
 }
 
-function MetaCrmLeadsSection() {
-  const [open, setOpen] = useState(false)
-  const [leads, setLeads] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [err, setErr] = useState(null)
-
-  const load = () => {
-    setLoading(true); setErr(null)
-    fetch(`${API}/api/leads/meta-crm`).then(r => r.json())
-      .then(d => { if (d.error) throw new Error(d.error); setLeads(d.leads || []) })
-      .catch(e => setErr(e.message))
-      .finally(() => setLoading(false))
-  }
-  const toggle = () => { setOpen(o => !o); if (!open && leads === null) load() }
-
+function CrmLeadsSection({ leads, loading, error, tab, onTabChange, onRefresh }) {
+  const housing = leads.filter(lead => lead.classification === 'housing')
+  const meta = leads.filter(lead => lead.classification === 'meta')
+  const visible = tab === 'housing' ? housing : tab === 'meta' ? meta : leads
   return (
     <div style={{ background:'#fff', border:'1px solid #E9E7E0', borderRadius:12, marginBottom:20, overflow:'hidden' }}>
-      <div onClick={toggle} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 18px', cursor:'pointer' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-          <span style={{ fontSize:14, fontWeight:700, color:'#1B1B3A' }}>Meta Ad Leads</span>
-          <span style={{ fontSize:11, color:'#8A8896' }}>From IndiHomes CRM — read-only</span>
-          {leads !== null && <span style={{ fontSize:11, fontWeight:700, color:'#0E5FBF', background:'#EEF6FF', padding:'2px 8px', borderRadius:20 }}>{leads.length}</span>}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 18px' }}>
+        <div>
+          <div style={{ fontSize:14, fontWeight:700, color:'#1B1B3A' }}>IndiHomes CRM Leads</div>
+          <div style={{ fontSize:11, color:'#8A8896', marginTop:2 }}>All CRM sources — read-only</div>
         </div>
-        <ChevronDown size={16} strokeWidth={2.4} color="#75737F" style={{ transform: open ? 'rotate(180deg)' : 'none', transition:'transform 0.15s' }} />
+        <button onClick={onRefresh} disabled={loading} style={{ padding:'7px 12px', background:loading?'#ccc':'#0E0E52', color:'#fff', border:'none', borderRadius:7, fontSize:12, fontWeight:600, cursor:loading?'not-allowed':'pointer' }}>{loading ? '⟳ Syncing…' : '⟳ Sync CRM now'}</button>
       </div>
-      {open && (
-        <div style={{ borderTop:'1px solid #E9E7E0', padding:'12px 18px 18px' }}>
-          {loading && <div style={{ fontSize:13, color:'#8A8896' }}>Loading…</div>}
-          {err && <div style={{ fontSize:12.5, color:'#D64545' }}>Couldn't load Meta Ad leads from the CRM right now — try again shortly.</div>}
-          {leads && leads.length === 0 && !err && <div style={{ fontSize:13, color:'#8A8896' }}>No Meta Ad leads found in the CRM.</div>}
-          {leads && leads.length > 0 && (
-            <div style={{ display:'flex', flexDirection:'column', gap:6, maxHeight:360, overflowY:'auto' }}>
-              {leads.map((raw, i) => {
-                const f = metaCrmLeadFields(raw)
-                return (
-                  <div key={i} style={{ display:'flex', alignItems:'center', gap:14, padding:'9px 12px', background:'#F9F8F6', border:'1px solid #F0EEE8', borderRadius:8 }}>
-                    <div style={{ width:34, height:34, borderRadius:'50%', background:'#0E5FBF', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:800, flexShrink:0 }}>
-                      {initials(f.name)}
-                    </div>
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:13, fontWeight:700, color:'#1B1B3A' }}>{f.name || <EmptyValue />}</div>
-                      <div style={{ fontSize:11.5, color:'#75737F' }}>
-                        {f.phone || <EmptyValue />}{f.project ? ` · ${f.project}` : ''}
-                      </div>
-                    </div>
-                    {f.capturedAt && <div style={{ fontSize:11, color:'#8A8896', whiteSpace:'nowrap' }}>{timeAgo(new Date(f.capturedAt).getTime())}</div>}
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// Housing.com CRM Leads — symmetric to MetaCrmLeadsSection above (same
-// backend pull, split by indihomes-crm-leads-client.cjs's classifyLead:
-// projectName present -> here, absent -> Meta section above). Same
-// read-only/no-edit framing: a CRM-sourced record here is not a row in this
-// app's local database either.
-function HousingCrmLeadsSection() {
-  const [open, setOpen] = useState(false)
-  const [leads, setLeads] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [err, setErr] = useState(null)
-
-  const load = () => {
-    setLoading(true); setErr(null)
-    fetch(`${API}/api/leads/housing-crm`).then(r => r.json())
-      .then(d => { if (d.error) throw new Error(d.error); setLeads(d.leads || []) })
-      .catch(e => setErr(e.message))
-      .finally(() => setLoading(false))
-  }
-  const toggle = () => { setOpen(o => !o); if (!open && leads === null) load() }
-
-  return (
-    <div style={{ background:'#fff', border:'1px solid #E9E7E0', borderRadius:12, marginBottom:20, overflow:'hidden' }}>
-      <div onClick={toggle} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 18px', cursor:'pointer' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-          <span style={{ fontSize:14, fontWeight:700, color:'#1B1B3A' }}>Housing.com CRM Leads</span>
-          <span style={{ fontSize:11, color:'#8A8896' }}>From IndiHomes CRM — read-only</span>
-          {leads !== null && <span style={{ fontSize:11, fontWeight:700, color:'#0E5FBF', background:'#EEF6FF', padding:'2px 8px', borderRadius:20 }}>{leads.length}</span>}
-        </div>
-        <ChevronDown size={16} strokeWidth={2.4} color="#75737F" style={{ transform: open ? 'rotate(180deg)' : 'none', transition:'transform 0.15s' }} />
+      <div style={{ display:'flex', gap:8, padding:'0 18px 12px', borderBottom:'1px solid #E9E7E0' }}>
+        {[['all','All',leads.length], ['housing','Housing.com',housing.length], ['meta','Meta Ad',meta.length]].map(([value, label, count]) => (
+          <button key={value} onClick={() => onTabChange(value)} style={{ padding:'6px 12px', border:'1px solid', borderColor:tab===value?'#0E0E52':'#E9E7E0', background:tab===value?'#0E0E52':'#fff', color:tab===value?'#fff':'#1B1B3A', borderRadius:20, fontSize:12, fontWeight:600, cursor:'pointer' }}>{label} {count}</button>
+        ))}
       </div>
-      {open && (
-        <div style={{ borderTop:'1px solid #E9E7E0', padding:'12px 18px 18px' }}>
-          {loading && <div style={{ fontSize:13, color:'#8A8896' }}>Loading…</div>}
-          {err && <div style={{ fontSize:12.5, color:'#D64545' }}>Couldn't load Housing.com leads from the CRM right now — try again shortly.</div>}
-          {leads && leads.length === 0 && !err && <div style={{ fontSize:13, color:'#8A8896' }}>No Housing.com leads found in the CRM.</div>}
-          {leads && leads.length > 0 && (
-            <div style={{ display:'flex', flexDirection:'column', gap:6, maxHeight:360, overflowY:'auto' }}>
-              {leads.map((raw, i) => {
-                const f = metaCrmLeadFields(raw)
-                return (
-                  <div key={i} style={{ display:'flex', alignItems:'center', gap:14, padding:'9px 12px', background:'#F9F8F6', border:'1px solid #F0EEE8', borderRadius:8 }}>
-                    <div style={{ width:34, height:34, borderRadius:'50%', background:'#0E5FBF', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:800, flexShrink:0 }}>
-                      {initials(f.name)}
-                    </div>
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:13, fontWeight:700, color:'#1B1B3A' }}>{f.name || <EmptyValue />}</div>
-                      <div style={{ fontSize:11.5, color:'#75737F' }}>
-                        {f.phone || <EmptyValue />}{f.project ? ` · ${f.project}` : ''}
-                      </div>
-                    </div>
-                    {f.capturedAt && <div style={{ fontSize:11, color:'#8A8896', whiteSpace:'nowrap' }}>{timeAgo(new Date(f.capturedAt).getTime())}</div>}
-                  </div>
-                )
-              })}
+      <div style={{ padding:'12px 18px 18px' }}>
+        {loading && <div style={{ fontSize:13, color:'#8A8896' }}>Loading CRM leads…</div>}
+        {error && <div style={{ fontSize:12.5, color:'#D64545' }}>Couldn't load CRM leads: {error}</div>}
+        {!loading && !error && visible.length === 0 && <div style={{ fontSize:13, color:'#8A8896' }}>No leads found in the CRM.</div>}
+        {!loading && !error && visible.length > 0 && <div style={{ display:'flex', flexDirection:'column', gap:6, maxHeight:360, overflowY:'auto' }}>
+          {visible.map((raw, i) => {
+            const f = metaCrmLeadFields(raw)
+            return <div key={raw.id ?? i} style={{ display:'flex', alignItems:'center', gap:14, padding:'9px 12px', background:'#F9F8F6', border:'1px solid #F0EEE8', borderRadius:8 }}>
+              <div style={{ width:34, height:34, borderRadius:'50%', background:raw.classification === 'housing' ? '#8B1A1A' : '#0E5FBF', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:800, flexShrink:0 }}>{initials(f.name)}</div>
+              <div style={{ flex:1, minWidth:0 }}><div style={{ fontSize:13, fontWeight:700, color:'#1B1B3A' }}>{f.name || <EmptyValue />}</div><div style={{ fontSize:11.5, color:'#75737F' }}>{f.phone || <EmptyValue />}{f.project ? ` · ${f.project}` : ''}</div></div>
+              {f.capturedAt && <div style={{ fontSize:11, color:'#8A8896', whiteSpace:'nowrap' }}>{timeAgo(new Date(f.capturedAt).getTime())}</div>}
             </div>
-          )}
-        </div>
-      )}
+          })}
+        </div>}
+      </div>
     </div>
   )
 }
@@ -1192,6 +1101,10 @@ function CrmBadge({ status, error }) {
 // there is no score column yet rather than a fake one.
 export default function LeadCapture({ onBreadcrumbExtra }) {
   const [leads, setLeads] = useState([])
+  const [crmLeads, setCrmLeads] = useState([])
+  const [crmLoading, setCrmLoading] = useState(true)
+  const [crmError, setCrmError] = useState(null)
+  const [crmTab, setCrmTab] = useState('all')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [sourceFilter, setSourceFilter] = useState('All')
@@ -1213,13 +1126,24 @@ export default function LeadCapture({ onBreadcrumbExtra }) {
     fetch(`${API}/api/leads/sync-status`).then(r => r.json()).then(setSyncStatus).catch(() => {})
   }, [])
 
+  const fetchCrmLeads = useCallback((refresh = false) => {
+    setCrmLoading(true); setCrmError(null)
+    const request = refresh
+      ? fetch(`${API}/api/leads/crm/sync`, { method:'POST' })
+      : fetch(`${API}/api/leads/crm`)
+    request.then(readCrmResponse).then(data => {
+      setCrmLeads(Array.isArray(data.leads) ? data.leads : [])
+    }).catch(e => setCrmError(e.message)).finally(() => setCrmLoading(false))
+  }, [])
+
   useEffect(() => {
     fetchLeads()
+    fetchCrmLeads()
     fetchSyncStatus()
     const id = setInterval(fetchLeads, 30000)
     const statusId = setInterval(fetchSyncStatus, 30000)
     return () => { clearInterval(id); clearInterval(statusId) }
-  }, [fetchLeads, fetchSyncStatus])
+  }, [fetchLeads, fetchCrmLeads, fetchSyncStatus])
 
   const runSync = async (source, label, endpoint, reqBody = {}) => {
     setSyncingSource(source); setSyncMsg(null)
@@ -1235,8 +1159,15 @@ export default function LeadCapture({ onBreadcrumbExtra }) {
     } catch (e) { setSyncMsg(`${label} sync failed: ${e.message}`) }
     finally { setSyncingSource(null); fetchSyncStatus() }
   }
-  const syncHousing = () => runSync('housing', 'Housing.com', '/api/leads/sync-housing')
-  const syncMeta = () => runSync('meta', 'Meta', '/api/leads/sync-meta', { sinceDate: '2020-01-01' })
+  const syncCrm = (source, label) => {
+    setSyncingSource(source); setSyncMsg(null)
+    fetch(`${API}/api/leads/crm/sync`, { method:'POST' })
+      .then(readCrmResponse).then(j => { setCrmLeads(j.leads || []); setSyncMsg(`${label}: CRM refreshed · ${j.total} leads loaded`) })
+      .catch(e => { setSyncMsg(`${label} sync failed: ${e.message}`); setCrmError(e.message) })
+      .finally(() => { setSyncingSource(null); fetchSyncStatus() })
+  }
+  const syncHousing = () => syncCrm('housing', 'Housing.com')
+  const syncMeta = () => syncCrm('meta', 'Meta')
 
   const addLead = async (fields) => {
     const res = await fetch(`${API}/api/leads`, {
@@ -1277,7 +1208,7 @@ export default function LeadCapture({ onBreadcrumbExtra }) {
     <div style={{ padding:'28px 32px', maxWidth:1280 }}>
       {addLeadOpen && <AddLeadModal onClose={() => setAddLeadOpen(false)} onSubmit={addLead} />}
       <ModuleHeader module="MODULE 07" title="Unified Lead Inbox"
-        subtitle={loading ? 'Loading…' : `${Object.keys(bySource).length} source${Object.keys(bySource).length === 1 ? '' : 's'} normalised · ${leads.length} leads captured`}
+        subtitle={crmLoading ? 'Loading CRM leads…' : `${new Set(crmLeads.map(l => l.classification)).size} sources normalised · ${crmLeads.length} leads captured`}
         rightContent={
           <button onClick={() => setAddLeadOpen(true)} style={{ padding:'9px 18px', background:'#FECF55', color:'#0E0E52', border:'none', borderRadius:8, fontSize:13, fontWeight:700, cursor:'pointer' }}>＋ Add Lead</button>
         } />
@@ -1298,8 +1229,7 @@ export default function LeadCapture({ onBreadcrumbExtra }) {
           editable unified-inbox table below (see MetaCrmLeadsSection's own
           header comment for why). Collapsed by default; loads on first
           expand. */}
-      <MetaCrmLeadsSection />
-      <HousingCrmLeadsSection />
+      <CrmLeadsSection leads={crmLeads} loading={crmLoading} error={crmError} tab={crmTab} onTabChange={setCrmTab} onRefresh={() => fetchCrmLeads(true)} />
 
       {/* NOTE: the "IndiHomes CRM push" status field (syncStatus.crm) was
           intentionally removed from this screen per a UI-only cleanup pass —
@@ -1315,14 +1245,12 @@ export default function LeadCapture({ onBreadcrumbExtra }) {
           <div key={s} style={{ padding:'6px 14px', background:'#fff', border:'1px solid #E9E7E0', borderRadius:20, fontSize:12, fontWeight:600, color:'#1B1B3A' }}>{s}: {n}</div>
         ))}
         <div style={{ marginLeft:'auto', display:'flex', gap:8 }}>
-          <button onClick={syncMeta} disabled={!!syncingSource || (syncStatus && !syncStatus.meta?.configured)}
-            title={syncStatus && !syncStatus.meta?.configured ? `Missing: ${(syncStatus.meta.missingEnv || []).join(', ')}` : ''}
-            style={{ padding:'7px 16px', background: syncingSource || (syncStatus && !syncStatus.meta?.configured) ? '#ccc' : '#0E0E52', color:'#fff', border:'none', borderRadius:8, fontSize:12.5, fontWeight:600, cursor: syncingSource || (syncStatus && !syncStatus.meta?.configured) ? 'not-allowed' : 'pointer' }}>
+          <button onClick={syncMeta} disabled={!!syncingSource}
+            style={{ padding:'7px 16px', background: syncingSource ? '#ccc' : '#0E0E52', color:'#fff', border:'none', borderRadius:8, fontSize:12.5, fontWeight:600, cursor: syncingSource ? 'not-allowed' : 'pointer' }}>
             {syncingSource === 'meta' ? '⟳ Syncing…' : '⟳ Sync Meta now'}
           </button>
-          <button onClick={syncHousing} disabled={!!syncingSource || (syncStatus && !syncStatus.housing?.configured)}
-            title={syncStatus && !syncStatus.housing?.configured ? `Missing: ${(syncStatus.housing.missingEnv || []).join(', ')}` : ''}
-            style={{ padding:'7px 16px', background: syncingSource || (syncStatus && !syncStatus.housing?.configured) ? '#ccc' : '#0E0E52', color:'#fff', border:'none', borderRadius:8, fontSize:12.5, fontWeight:600, cursor: syncingSource || (syncStatus && !syncStatus.housing?.configured) ? 'not-allowed' : 'pointer' }}>
+          <button onClick={syncHousing} disabled={!!syncingSource}
+            style={{ padding:'7px 16px', background: syncingSource ? '#ccc' : '#0E0E52', color:'#fff', border:'none', borderRadius:8, fontSize:12.5, fontWeight:600, cursor: syncingSource ? 'not-allowed' : 'pointer' }}>
             {syncingSource === 'housing' ? '⟳ Syncing…' : '⟳ Sync Housing.com now'}
           </button>
         </div>

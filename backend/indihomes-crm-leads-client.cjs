@@ -19,9 +19,14 @@
 // own default) and builds each endpoint's exact path from that, rather than
 // assuming they all share one prefix.
 
-const RAW_BASE = (process.env.INDIHOMES_API_BASE_URL || '').replace(/\/$/, '')
+const RAW_BASE = (process.env.INDIHOMES_API_BASE_URL || 'https://api.indihomes.co.in').replace(/\/$/, '')
 const ROOT_URL = RAW_BASE.replace(/\/api\/v1$/, '')
 const TIMEOUT_MS = parseInt(process.env.INDIHOMES_CRM_READ_TIMEOUT_MS, 10) || 15000
+const PAGE_SIZE = 100
+const CACHE_TTL_MS = parseInt(process.env.INDIHOMES_CRM_READ_CACHE_TTL_MS, 10) || 45000
+let leadsCache = null
+let leadsCacheAt = 0
+let refreshPromise = null
 
 // Auth for these specific lead-read endpoints — UNCONFIRMED whether they even
 // require one (indihomes-client.cjs's project-catalog endpoints are
@@ -47,7 +52,11 @@ async function getJson(url) {
   const text = await res.text()
   let json = null
   try { json = text ? JSON.parse(text) : null } catch (_) { /* fall through to raw-text error below */ }
-  if (!res.ok) throw new Error(json?.message || json?.error || `IndiHomes CRM ${res.status}: ${text.slice(0, 200)}`)
+  if (!res.ok) {
+    const error = new Error(json?.message || json?.error || `IndiHomes CRM ${res.status}: ${text.slice(0, 200)}`)
+    error.details = { endpoint: url.split('?')[0], page: Number(new URL(url).searchParams.get('page')) || undefined, status: res.status, upstreamError: json?.message || json?.error }
+    throw error
+  }
   return json
 }
 
@@ -78,7 +87,7 @@ async function getLeadHistory(number) {
 // unresolved problem (likely auth or a missing/wrong parameter) — see
 // authHeaders() below.
 async function getPaginatedLeads({ page = 1, limit = 100 } = {}) {
-  return getJson(`${ROOT_URL}/api/v1/get-paginated-leads?page=${page}&limit=${limit}`)
+  return getJson(`${ROOT_URL}/api/v1/get-paginated-leads?page=${page}&limit=${limit}&budget=`)
 }
 
 // POST /api/v1/meta-leads/sync — a Meta-SPECIFIC sync trigger, distinct
@@ -133,8 +142,8 @@ async function getLeadSources() {
 // attempt at this classification (get-lead-src cross-reference, Meta
 // webhook-field presence, project+configuration absence) wholesale.
 function classifyLead(lead) {
-  const project = pick(lead, ['projectName', 'project_name', 'project'])
-  return project ? 'housing' : 'meta'
+  const projectName = typeof lead?.projectName === 'string' ? lead.projectName.trim() : ''
+  return projectName !== '' && projectName !== '-' ? 'housing' : 'meta'
 }
 
 // normalizePhone — strip everything but digits, keep the last 10. Collapses
@@ -150,31 +159,69 @@ function pick(obj, keys) {
   return null
 }
 
-// getAllLeadsClassified — pages through get-paginated-leads until a page
-// comes back short of `pageSize` (i.e. it was the last page) or `maxPages`
-// is hit, classifies every lead via classifyLead, and dedupes each bucket
-// by normalizePhone (first occurrence wins — a later page's copy of the
-// same person never overwrites the earlier one).
-async function getAllLeadsClassified({ maxPages = 50, pageSize = 100 } = {}) {
-  const housing = new Map()
-  const meta = new Map()
-  for (let page = 1; page <= maxPages; page++) {
-    const resp = await getPaginatedLeads({ page, limit: pageSize })
-    const leads = Array.isArray(resp) ? resp : (resp?.data || resp?.leads || [])
-    for (const lead of leads) {
-      const phone = normalizePhone(lead.phone || lead.mobile || lead.contact_number || lead.number)
-      if (!phone) continue
-      const bucket = classifyLead(lead) === 'housing' ? housing : meta
-      if (!bucket.has(phone)) bucket.set(phone, lead)
+function normalizeLeads(leads) {
+  const seenIds = new Set()
+  return leads.filter(lead => {
+    if (lead?.id == null) return true
+    const id = String(lead.id)
+    if (seenIds.has(id)) return false
+    seenIds.add(id)
+    return true
+  }).map(lead => ({ ...lead, classification: classifyLead(lead) }))
+}
+
+async function fetchAllCrmLeads() {
+  let page = 1
+  let totalPages = 1
+  const allLeads = []
+  while (page <= totalPages) {
+    const result = await getPaginatedLeads({ page, limit: PAGE_SIZE })
+    if (!result?.success) {
+      const error = new Error(result?.error || result?.message || 'Failed to fetch CRM leads')
+      error.details = { endpoint: `${ROOT_URL}/api/v1/get-paginated-leads`, page, upstreamError: error.message }
+      throw error
     }
-    if (leads.length < pageSize) break
+    if (!Array.isArray(result.data)) {
+      const error = new Error(`CRM page ${page} returned invalid lead data`)
+      error.details = { endpoint: `${ROOT_URL}/api/v1/get-paginated-leads`, page, upstreamError: error.message }
+      throw error
+    }
+    const parsedTotalPages = Number(result.totalPages)
+    if (!Number.isInteger(parsedTotalPages) || parsedTotalPages < 1) {
+      const error = new Error(`CRM page ${page} returned invalid totalPages`)
+      error.details = { endpoint: `${ROOT_URL}/api/v1/get-paginated-leads`, page, upstreamError: error.message }
+      throw error
+    }
+    allLeads.push(...result.data)
+    totalPages = parsedTotalPages
+    page++
   }
-  return { housing: [...housing.values()], meta: [...meta.values()] }
+  return normalizeLeads(allLeads)
+}
+
+async function getAllCrmLeads({ refresh = false } = {}) {
+  if (!refresh && leadsCache && Date.now() - leadsCacheAt < CACHE_TTL_MS) return leadsCache
+  if (refreshPromise) return refreshPromise
+  refreshPromise = fetchAllCrmLeads().then(leads => {
+    leadsCache = leads
+    leadsCacheAt = Date.now()
+    return leads
+  }).finally(() => { refreshPromise = null })
+  return refreshPromise
+}
+
+async function getAllLeadsClassified(options = {}) {
+  const leads = await getAllCrmLeads(options)
+  return {
+    all: leads,
+    housing: leads.filter(lead => lead.classification === 'housing'),
+    meta: leads.filter(lead => lead.classification === 'meta'),
+  }
 }
 
 function isConfigured() { return true } // same base URL as the rest of the IndiHomes integration — no separate flag
 
 module.exports = {
   isConfigured, getNewLeads, getLeadHistory, getPaginatedLeads, syncMetaLeads, getLeadSources,
-  classifyLead, normalizePhone, getAllLeadsClassified,
+  classifyLead, normalizePhone, getAllCrmLeads, getAllLeadsClassified,
 }

@@ -2783,35 +2783,37 @@ app.post('/api/leads/sync-meta-capi', async (req, res) => {
   }
 })
 
-// Section 8 fix — CRM leads sourced from IndiHomes' OWN CRM
-// (get-paginated-leads + meta-leads/get-lead-history), not Facebook's Graph
-// API directly (meta-client.cjs, still used unchanged for the existing
-// webhook/hourly-poll intake pipeline — this is an ADDITIONAL read path,
-// not a replacement of that capture mechanism). Classification rule (per
-// indihomes-crm-leads-client.cjs's classifyLead, final spec from a diagram):
-// projectName present -> Housing.com lead, absent -> Meta lead. One paginated
-// fetch (getAllLeadsClassified) feeds both this route and /api/leads/housing-crm
-// below, each deduped by phone number within its own bucket.
-app.get('/api/leads/meta-crm', async (req, res) => {
+// CRM leads sourced from IndiHomes' own paginated CRM endpoint. All routes
+// below use the same cached, classified dataset.
+async function crmResponse(req, res, refresh = false) {
   try {
-    const { meta } = await indihomesCrmLeads.getAllLeadsClassified({})
-    res.json({ leads: meta, total: meta.length })
+    const all = await indihomesCrmLeads.getAllCrmLeads({ refresh })
+    const source = req.query.source
+    const leads = source === 'housing'
+      ? all.filter(lead => lead.classification === 'housing')
+      : source === 'meta' ? all.filter(lead => lead.classification === 'meta') : all
+    const housingTotal = all.filter(lead => lead.classification === 'housing').length
+    const metaTotal = all.filter(lead => lead.classification === 'meta').length
+    res.json({ success: true, leads, total: all.length, housingTotal, metaTotal })
   } catch (e) {
-    console.error('[meta-crm] error:', e.message)
-    res.status(502).json({ error: e.message, leads: [] })
+    console.error(`[crm] ${req.method} ${req.originalUrl} failed:`, { endpoint: e.details?.endpoint, page: e.details?.page, status: e.details?.status, upstreamError: e.details?.upstreamError, error: e.message })
+    res.status(502).json({ success: false, error: 'Failed to fetch CRM leads', details: e.details || { error: e.message } })
   }
+}
+
+app.get('/api/leads/crm', (req, res) => crmResponse(req, res))
+app.post('/api/leads/crm/sync', (req, res) => crmResponse(req, res, true))
+
+app.get('/api/leads/meta-crm', async (req, res) => {
+  req.query.source = 'meta'
+  return crmResponse(req, res)
 })
 
 // GET /api/leads/housing-crm — symmetric to meta-crm above, the Housing.com
 // bucket (projectName present) of the same classified/deduped CRM pull.
 app.get('/api/leads/housing-crm', async (req, res) => {
-  try {
-    const { housing } = await indihomesCrmLeads.getAllLeadsClassified({})
-    res.json({ leads: housing, total: housing.length })
-  } catch (e) {
-    console.error('[housing-crm] error:', e.message)
-    res.status(502).json({ error: e.message, leads: [] })
-  }
+  req.query.source = 'housing'
+  return crmResponse(req, res)
 })
 
 // GET /api/leads/meta-crm/history/:number — proxies get-lead-history for one
