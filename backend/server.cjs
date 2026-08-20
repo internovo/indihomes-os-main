@@ -2787,6 +2787,18 @@ app.post('/api/leads/sync-meta-capi', async (req, res) => {
 // below use the same cached, classified dataset.
 async function crmResponse(req, res, refresh = false) {
   try {
+    const requestedPage = Number(req.query.page)
+    if (Number.isInteger(requestedPage) && requestedPage > 0) {
+      const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 100)
+      const pageResult = await indihomesCrmLeads.getCrmLeadPage({ page: requestedPage, limit, refresh })
+      const source = req.query.source
+      const leads = source === 'housing'
+        ? pageResult.leads.filter(lead => lead.classification === 'housing')
+        : source === 'meta' ? pageResult.leads.filter(lead => lead.classification === 'meta') : pageResult.leads
+      const summary = indihomesCrmLeads.getCachedCrmSummary()
+      indihomesCrmLeads.warmCrmCache()
+      return res.json({ success: true, leads, total: pageResult.total, page: pageResult.page, limit: pageResult.limit, totalPages: pageResult.totalPages, housingTotal: summary?.housingTotal ?? null, metaTotal: summary?.metaTotal ?? null })
+    }
     const all = await indihomesCrmLeads.getAllCrmLeads({ refresh })
     const source = req.query.source
     const leads = source === 'housing'
@@ -2801,8 +2813,13 @@ async function crmResponse(req, res, refresh = false) {
   }
 }
 
-app.get('/api/leads/crm', (req, res) => crmResponse(req, res))
+app.get('/api/leads/crm', (req, res) => crmResponse(req, res, req.query.refresh === '1' || req.query.refresh === 'true'))
 app.post('/api/leads/crm/sync', (req, res) => crmResponse(req, res, true))
+app.get('/api/leads/crm/summary', (_req, res) => {
+  const summary = indihomesCrmLeads.getCachedCrmSummary()
+  if (!summary) return res.status(202).json({ success: true, ready: false })
+  res.json({ success: true, ready: true, ...summary })
+})
 
 app.get('/api/leads/meta-crm', async (req, res) => {
   req.query.source = 'meta'

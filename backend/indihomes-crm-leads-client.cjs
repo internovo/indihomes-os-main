@@ -23,10 +23,12 @@ const RAW_BASE = (process.env.INDIHOMES_API_BASE_URL || 'https://api.indihomes.c
 const ROOT_URL = RAW_BASE.replace(/\/api\/v1$/, '')
 const TIMEOUT_MS = parseInt(process.env.INDIHOMES_CRM_READ_TIMEOUT_MS, 10) || 15000
 const PAGE_SIZE = 100
+const PAGE_CONCURRENCY = parseInt(process.env.INDIHOMES_CRM_PAGE_CONCURRENCY, 10) || 6
 const CACHE_TTL_MS = parseInt(process.env.INDIHOMES_CRM_READ_CACHE_TTL_MS, 10) || 45000
 let leadsCache = null
 let leadsCacheAt = 0
 let refreshPromise = null
+const pageCache = new Map()
 
 // Auth for these specific lead-read endpoints — UNCONFIRMED whether they even
 // require one (indihomes-client.cjs's project-catalog endpoints are
@@ -171,10 +173,9 @@ function normalizeLeads(leads) {
 }
 
 async function fetchAllCrmLeads() {
-  let page = 1
-  let totalPages = 1
   const allLeads = []
-  while (page <= totalPages) {
+  const fetchPage = async page => {
+    console.log(`[crm] fetching page ${page}`)
     const result = await getPaginatedLeads({ page, limit: PAGE_SIZE })
     if (!result?.success) {
       const error = new Error(result?.error || result?.message || 'Failed to fetch CRM leads')
@@ -192,9 +193,20 @@ async function fetchAllCrmLeads() {
       error.details = { endpoint: `${ROOT_URL}/api/v1/get-paginated-leads`, page, upstreamError: error.message }
       throw error
     }
-    allLeads.push(...result.data)
-    totalPages = parsedTotalPages
-    page++
+    return { data: result.data, totalPages: parsedTotalPages }
+  }
+
+  // Fetch page 1 first because it tells us how many pages exist. The
+  // remaining pages are then fetched in bounded parallel waves.
+  const firstPage = await fetchPage(1)
+  allLeads.push(...firstPage.data)
+  for (let start = 2; start <= firstPage.totalPages; start += PAGE_CONCURRENCY) {
+    const pages = []
+    for (let page = start; page < start + PAGE_CONCURRENCY && page <= firstPage.totalPages; page++) {
+      pages.push(fetchPage(page))
+    }
+    const results = await Promise.all(pages)
+    for (const result of results) allLeads.push(...result.data)
   }
   return normalizeLeads(allLeads)
 }
@@ -210,6 +222,35 @@ async function getAllCrmLeads({ refresh = false } = {}) {
   return refreshPromise
 }
 
+async function getCrmLeadPage({ page = 1, limit = 50, refresh = false } = {}) {
+  const cacheKey = `${page}:${limit}`
+  const cached = pageCache.get(cacheKey)
+  if (!refresh && cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.value
+  const result = await getPaginatedLeads({ page, limit })
+  if (!result?.success) throw new Error(result?.error || result?.message || 'Failed to fetch CRM leads')
+  if (!Array.isArray(result.data)) throw new Error(`CRM page ${page} returned invalid lead data`)
+  const totalPages = Number(result.totalPages)
+  if (!Number.isInteger(totalPages) || totalPages < 1) throw new Error(`CRM page ${page} returned invalid totalPages`)
+  const value = { leads: normalizeLeads(result.data), page, limit, total: Number(result.total) || result.data.length, totalPages }
+  pageCache.set(cacheKey, { value, at: Date.now() })
+  return value
+}
+
+function getCachedCrmSummary() {
+  if (!leadsCache || Date.now() - leadsCacheAt >= CACHE_TTL_MS) return null
+  return {
+    total: leadsCache.length,
+    housingTotal: leadsCache.filter(lead => lead.classification === 'housing').length,
+    metaTotal: leadsCache.filter(lead => lead.classification === 'meta').length,
+  }
+}
+
+function warmCrmCache() {
+  if (!leadsCache || Date.now() - leadsCacheAt >= CACHE_TTL_MS) {
+    getAllCrmLeads().catch(error => console.error('[crm] background summary failed:', error.message))
+  }
+}
+
 async function getAllLeadsClassified(options = {}) {
   const leads = await getAllCrmLeads(options)
   return {
@@ -223,5 +264,5 @@ function isConfigured() { return true } // same base URL as the rest of the Indi
 
 module.exports = {
   isConfigured, getNewLeads, getLeadHistory, getPaginatedLeads, syncMetaLeads, getLeadSources,
-  classifyLead, normalizePhone, getAllCrmLeads, getAllLeadsClassified,
+  classifyLead, normalizePhone, getAllCrmLeads, getCrmLeadPage, getCachedCrmSummary, warmCrmCache, getAllLeadsClassified,
 }

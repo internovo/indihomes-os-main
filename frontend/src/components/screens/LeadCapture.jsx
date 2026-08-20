@@ -16,7 +16,7 @@ async function readCrmResponse(response) {
   try { data = text ? JSON.parse(text) : {} } catch (_) {
     throw new Error(`CRM backend returned non-JSON (HTTP ${response.status}, ${response.headers.get('content-type') || 'unknown content type'}). Restart the backend server.`)
   }
-  if (!response.ok || data.success === false) throw new Error(data.error || `CRM request failed (HTTP ${response.status})`)
+  if ((response.status !== 202 && !response.ok) || data.success === false) throw new Error(data.error || `CRM request failed (HTTP ${response.status})`)
   return data
 }
 
@@ -845,7 +845,7 @@ function metaCrmLeadFields(raw) {
   return { name, phone, project, source, capturedAt }
 }
 
-function CrmLeadsSection({ leads, loading, error, tab, onTabChange, onRefresh }) {
+function CrmLeadsSection({ leads, loading, loadingMore, error, tab, onTabChange, onRefresh, onLoadMore, hasMore, total, housingTotal, metaTotal, limit, onLimitChange }) {
   const housing = leads.filter(lead => lead.classification === 'housing')
   const meta = leads.filter(lead => lead.classification === 'meta')
   const visible = tab === 'housing' ? housing : tab === 'meta' ? meta : leads
@@ -856,10 +856,16 @@ function CrmLeadsSection({ leads, loading, error, tab, onTabChange, onRefresh })
           <div style={{ fontSize:14, fontWeight:700, color:'#1B1B3A' }}>IndiHomes CRM Leads</div>
           <div style={{ fontSize:11, color:'#8A8896', marginTop:2 }}>All CRM sources — read-only</div>
         </div>
-        <button onClick={onRefresh} disabled={loading} style={{ padding:'7px 12px', background:loading?'#ccc':'#0E0E52', color:'#fff', border:'none', borderRadius:7, fontSize:12, fontWeight:600, cursor:loading?'not-allowed':'pointer' }}>{loading ? '⟳ Syncing…' : '⟳ Sync CRM now'}</button>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <label style={{ fontSize:12, color:'#75737F' }}>Limit:</label>
+          <select value={limit} onChange={e => onLimitChange(Number(e.target.value))} disabled={loading || loadingMore} style={{ padding:'7px 9px', border:'1px solid #E9E7E0', borderRadius:7, color:'#1B1B3A', background:'#fff', fontSize:12, cursor:'pointer' }}>
+            {[25, 50, 100].map(value => <option key={value} value={value}>{value}</option>)}
+          </select>
+          <button onClick={onRefresh} disabled={loading} style={{ padding:'7px 12px', background:loading?'#ccc':'#0E0E52', color:'#fff', border:'none', borderRadius:7, fontSize:12, fontWeight:600, cursor:loading?'not-allowed':'pointer' }}>{loading ? '⟳ Syncing…' : '⟳ Sync CRM now'}</button>
+        </div>
       </div>
       <div style={{ display:'flex', gap:8, padding:'0 18px 12px', borderBottom:'1px solid #E9E7E0' }}>
-        {[['all','All',leads.length], ['housing','Housing.com',housing.length], ['meta','Meta Ad',meta.length]].map(([value, label, count]) => (
+        {[['all','All',total], ['housing','Housing.com',housingTotal ?? housing.length], ['meta','Meta Ad',metaTotal ?? meta.length]].map(([value, label, count]) => (
           <button key={value} onClick={() => onTabChange(value)} style={{ padding:'6px 12px', border:'1px solid', borderColor:tab===value?'#0E0E52':'#E9E7E0', background:tab===value?'#0E0E52':'#fff', color:tab===value?'#fff':'#1B1B3A', borderRadius:20, fontSize:12, fontWeight:600, cursor:'pointer' }}>{label} {count}</button>
         ))}
       </div>
@@ -877,6 +883,7 @@ function CrmLeadsSection({ leads, loading, error, tab, onTabChange, onRefresh })
             </div>
           })}
         </div>}
+        {!loading && !error && hasMore && <button onClick={onLoadMore} disabled={loadingMore} style={{ marginTop:12, width:'100%', padding:'9px 12px', background:loadingMore?'#ccc':'#F6F5F1', color:'#0E0E52', border:'1px solid #E9E7E0', borderRadius:7, fontSize:12.5, fontWeight:700, cursor:loadingMore?'not-allowed':'pointer' }}>{loadingMore ? 'Loading more…' : `Load More (${leads.length} of ${total})`}</button>}
       </div>
     </div>
   )
@@ -1103,7 +1110,14 @@ export default function LeadCapture({ onBreadcrumbExtra }) {
   const [leads, setLeads] = useState([])
   const [crmLeads, setCrmLeads] = useState([])
   const [crmLoading, setCrmLoading] = useState(true)
+  const [crmLoadingMore, setCrmLoadingMore] = useState(false)
   const [crmError, setCrmError] = useState(null)
+  const [crmPage, setCrmPage] = useState(0)
+  const [crmTotal, setCrmTotal] = useState(0)
+  const [crmHousingTotal, setCrmHousingTotal] = useState(null)
+  const [crmMetaTotal, setCrmMetaTotal] = useState(null)
+  const [crmTotalPages, setCrmTotalPages] = useState(1)
+  const [crmLimit, setCrmLimit] = useState(50)
   const [crmTab, setCrmTab] = useState('all')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -1126,24 +1140,42 @@ export default function LeadCapture({ onBreadcrumbExtra }) {
     fetch(`${API}/api/leads/sync-status`).then(r => r.json()).then(setSyncStatus).catch(() => {})
   }, [])
 
-  const fetchCrmLeads = useCallback((refresh = false) => {
-    setCrmLoading(true); setCrmError(null)
-    const request = refresh
-      ? fetch(`${API}/api/leads/crm/sync`, { method:'POST' })
-      : fetch(`${API}/api/leads/crm`)
+  const fetchCrmLeads = useCallback((page = 1, refresh = false, requestedLimit = crmLimit) => {
+    if (page === 1) setCrmLoading(true)
+    else setCrmLoadingMore(true)
+    setCrmError(null)
+    const url = `${API}/api/leads/crm?page=${page}&limit=${requestedLimit}`
+    const request = refresh ? fetch(url, { method:'POST' }) : fetch(url)
     request.then(readCrmResponse).then(data => {
-      setCrmLeads(Array.isArray(data.leads) ? data.leads : [])
-    }).catch(e => setCrmError(e.message)).finally(() => setCrmLoading(false))
+      const incoming = Array.isArray(data.leads) ? data.leads : []
+      setCrmLeads(previous => page === 1 ? incoming : [...previous, ...incoming.filter(next => !previous.some(existing => existing.id != null && existing.id === next.id))])
+      setCrmPage(page)
+      setCrmTotal(Number(data.total) || 0)
+      if (Number.isInteger(data.housingTotal)) setCrmHousingTotal(data.housingTotal)
+      if (Number.isInteger(data.metaTotal)) setCrmMetaTotal(data.metaTotal)
+      setCrmTotalPages(Number(data.totalPages) || 1)
+    }).catch(e => setCrmError(e.message)).finally(() => { setCrmLoading(false); setCrmLoadingMore(false) })
+  }, [crmLimit])
+
+  const pollCrmSummary = useCallback(() => {
+    fetch(`${API}/api/leads/crm/summary`).then(readCrmResponse).then(data => {
+      if (data.ready) {
+        setCrmTotal(data.total)
+        setCrmHousingTotal(data.housingTotal)
+        setCrmMetaTotal(data.metaTotal)
+      } else setTimeout(pollCrmSummary, 1500)
+    }).catch(() => {})
   }, [])
 
   useEffect(() => {
     fetchLeads()
     fetchCrmLeads()
+    pollCrmSummary()
     fetchSyncStatus()
     const id = setInterval(fetchLeads, 30000)
     const statusId = setInterval(fetchSyncStatus, 30000)
     return () => { clearInterval(id); clearInterval(statusId) }
-  }, [fetchLeads, fetchCrmLeads, fetchSyncStatus])
+  }, [fetchLeads, fetchCrmLeads, fetchSyncStatus, pollCrmSummary])
 
   const runSync = async (source, label, endpoint, reqBody = {}) => {
     setSyncingSource(source); setSyncMsg(null)
@@ -1161,8 +1193,8 @@ export default function LeadCapture({ onBreadcrumbExtra }) {
   }
   const syncCrm = (source, label) => {
     setSyncingSource(source); setSyncMsg(null)
-    fetch(`${API}/api/leads/crm/sync`, { method:'POST' })
-      .then(readCrmResponse).then(j => { setCrmLeads(j.leads || []); setSyncMsg(`${label}: CRM refreshed · ${j.total} leads loaded`) })
+    fetch(`${API}/api/leads/crm?page=1&limit=${crmLimit}&refresh=1&_=${Date.now()}`)
+      .then(readCrmResponse).then(j => { setCrmLeads(j.leads || []); setCrmPage(Number(j.page) || 1); setCrmTotal(Number(j.total) || 0); setCrmHousingTotal(Number.isInteger(j.housingTotal) ? j.housingTotal : null); setCrmMetaTotal(Number.isInteger(j.metaTotal) ? j.metaTotal : null); setCrmTotalPages(Number(j.totalPages) || 1); setSyncMsg(`${label}: CRM refreshed · ${j.leads?.length || 0} leads loaded`); pollCrmSummary() })
       .catch(e => { setSyncMsg(`${label} sync failed: ${e.message}`); setCrmError(e.message) })
       .finally(() => { setSyncingSource(null); fetchSyncStatus() })
   }
@@ -1208,7 +1240,7 @@ export default function LeadCapture({ onBreadcrumbExtra }) {
     <div style={{ padding:'28px 32px', maxWidth:1280 }}>
       {addLeadOpen && <AddLeadModal onClose={() => setAddLeadOpen(false)} onSubmit={addLead} />}
       <ModuleHeader module="MODULE 07" title="Unified Lead Inbox"
-        subtitle={crmLoading ? 'Loading CRM leads…' : `${new Set(crmLeads.map(l => l.classification)).size} sources normalised · ${crmLeads.length} leads captured`}
+        subtitle={crmLoading ? 'Loading CRM leads…' : `${new Set(crmLeads.map(l => l.classification)).size} sources normalised · ${crmTotal} leads captured · ${crmLeads.length} loaded`}
         rightContent={
           <button onClick={() => setAddLeadOpen(true)} style={{ padding:'9px 18px', background:'#FECF55', color:'#0E0E52', border:'none', borderRadius:8, fontSize:13, fontWeight:700, cursor:'pointer' }}>＋ Add Lead</button>
         } />
@@ -1229,7 +1261,7 @@ export default function LeadCapture({ onBreadcrumbExtra }) {
           editable unified-inbox table below (see MetaCrmLeadsSection's own
           header comment for why). Collapsed by default; loads on first
           expand. */}
-      <CrmLeadsSection leads={crmLeads} loading={crmLoading} error={crmError} tab={crmTab} onTabChange={setCrmTab} onRefresh={() => fetchCrmLeads(true)} />
+      <CrmLeadsSection leads={crmLeads} loading={crmLoading} loadingMore={crmLoadingMore} error={crmError} tab={crmTab} onTabChange={setCrmTab} onRefresh={() => fetchCrmLeads(1, true)} onLoadMore={() => fetchCrmLeads(crmPage + 1)} hasMore={crmPage < crmTotalPages} total={crmTotal} housingTotal={crmHousingTotal} metaTotal={crmMetaTotal} limit={crmLimit} onLimitChange={nextLimit => { setCrmLimit(nextLimit); fetchCrmLeads(1, false, nextLimit) }} />
 
       {/* NOTE: the "IndiHomes CRM push" status field (syncStatus.crm) was
           intentionally removed from this screen per a UI-only cleanup pass —
