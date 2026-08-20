@@ -1535,3 +1535,146 @@ recorded into every response's `research_metadata.metrics`.
   call, and a real Playwright-driven browser session against
   `localhost:5174` — rather than trusting static code review alone for any
   of the five sections.
+
+  ---
+
+  ## Reduction pass — agent supervisor, an explicit pipeline label, and
+  ## deleting the Node fallback's duplicated classification logic
+
+  A deliberately shrinking pass, not a feature pass: three changes aimed at
+  reducing the complexity this doc has been accumulating, requested after
+  the Python agent (`agent/app.py`) had crashed from port conflicts
+  repeatedly throughout this project's history with nothing restarting it
+  — every time, AI Search silently fell back to a worse pipeline with no
+  visible signal, which is also why the Node fallback's classification
+  logic kept having to be patched a second time (see the "Wiring fix" and
+  "AI Property Search — hard lifecycle/eligibility filter" sections above)
+  instead of the agent just being reliably up.
+
+  **1. Agent supervisor (`backend/scripts/run-agent.ps1`, new).** A boring
+  `while ($true)` loop — no pm2, no systemd, no Docker, no new dependency.
+  Starts `agent/app.py` via `agent/.venv/Scripts/python.exe`; if the
+  process exits, restarts it, with a basic backoff (won't restart more
+  than once every 5 seconds, so a genuinely broken agent degrades to a
+  slow retry loop instead of a tight crash loop). On startup, checks
+  whether `AGENT_PORT` (default 8008) is already listening
+  (`Get-NetTCPConnection`) and, if so, does nothing — this is the actual
+  recurring failure mode this project has hit ("port already in use"
+  because an old instance never died), and treating an already-occupied
+  port as "already running" is simpler and safer than finding and killing
+  whatever's listening. `run-indihomes.ps1` (the existing "start
+  everything" script — untouched otherwise) now launches this supervisor
+  in the background, non-blocking, before `npm run start`, skipped with an
+  explanation if `agent\.venv` isn't set up yet. Live-verified: started the
+  supervisor, confirmed the agent came up on :8008, killed its `python.exe`
+  process directly (`Stop-Process -Force`, simulating a crash), confirmed
+  the port went down immediately and the supervisor brought a fresh
+  process back up on its own within the same run (no human touching a
+  terminal) — the process tree (`run-agent.ps1` → `python app.py` →
+  uvicorn worker) was inspected directly via `Get-CimInstance
+  Win32_Process`, not assumed from log output alone. One thing this
+  surfaced and fixed along the way: an em dash in the script's comments/
+  strings broke Windows PowerShell 5.1's parser when the file has no BOM
+  (the interpreter reads a non-BOM `.ps1` using the system codepage, not
+  UTF-8, so a multi-byte UTF-8 dash gets misread as stray characters) —
+  `backend/scripts/register-refresh-task.ps1` has the same latent issue
+  and was left as-is (out of scope for this pass), but every new/edited
+  `.ps1` file in this pass sticks to plain ASCII punctuation.
+
+  **2. Explicit `pipeline` field on every `/api/ai-search` response
+  (`backend/server.cjs`, `frontend/src/components/screens/
+  ProjectSelection.jsx`).** The route already had three branches (Places-
+  direct discovery → the LangGraph agent → the Node connector fallback,
+  each falling through to the next on failure/non-configuration) but which
+  one actually answered a given request was only inferable from
+  inconsistent ad-hoc fields (`_source: 'places-direct'` on one branch,
+  `_agent: true` on another, nothing distinguishing on the third) — this
+  is part of why a fix sometimes looked like it "did nothing" during this
+  project's history: the request never reached the fixed code path.
+  `pipeline: 'agent' | 'places-direct' | 'node-fallback'` is now set
+  explicitly on all three branches. `ProjectSelection.jsx`'s
+  `AnalystReport` renders a new `PipelineLabel` component — a small,
+  unobtrusive line ("via full research" / "via nearby buildings" / "via
+  quick search", plain language, no internal pipeline names) above the
+  filter chips. Live-verified against the real running backend: a plain
+  India-market query returned `pipeline: 'places-direct'`; the same query
+  with the agent stopped and a Dubai-market query (Places-direct is
+  India-gazetteer-tuned only, so it's skipped for `market: 'dubai'`)
+  returned `pipeline: 'node-fallback'`; starting the agent and re-running
+  the identical Dubai query returned `pipeline: 'agent'` with a real
+  `research_metadata` block attached — all three branches confirmed live,
+  not just read from the code.
+
+  **3. Deleted the Node fallback's duplicated classification/eligibility
+  logic (`backend/scoring.cjs`, `backend/external-search.cjs`).** This was
+  the main ask, investigated before anything was deleted. What depended on
+  it: grepped every caller of `isAggregatorTitle`, `classifyLifecycleStatus`,
+  `ALLOWED_LIFECYCLE_STATUSES`, `extractSubListings`, and the fuzzy tier
+  inside `mergeDuplicateProperties` across the whole repo (`backend/` and
+  `frontend/`) — every one of them was called ONLY from inside
+  `external-search.cjs`'s own `queryExternal()`, nowhere else. (`scoring.cjs`
+  also exports `scoreIndiHomesProject`/`filtersFromBuckets`/
+  `filtersFromParams`, which power Filter/Property Search against the
+  official IndiHomes catalog — a completely separate, unrelated code path;
+  confirmed untouched by grepping `server.cjs`'s own `scoring.` call sites.)
+  Nothing else in the codebase depended on the classification logic
+  specifically, so it was safe to delete outright rather than route around.
+
+  Deleted: `isAggregatorTitle()` + its `PORTAL_SEO_SUFFIX_RE`/
+  `PROJECTS_IN_PLACE_RE`/`PAGINATION_PREFIX_RE`/`isBareLocalityTitle()`/
+  `KNOWN_PLACE_NAMES` supporting regexes (scoring.cjs); `classifyLifecycleStatus()`
+  + its `RESALE_RE`/`RENTAL_RE`/`UNDER_CONSTRUCTION_RE`/`NEW_LAUNCH_RE`/
+  `PRE_LAUNCH_RE`/`NEAR_POSSESSION_RE`/`READY_TO_MOVE_RE`/
+  `parsePossessionMonthYear()` and `ALLOWED_LIFECYCLE_STATUSES` (scoring.cjs);
+  the geography/locality whole-phrase hard filter and its `locationTerms`
+  computation (external-search.cjs); the fuzzy dedup tier
+  (`GENERIC_PROJECT_WORDS`/`nameTokens()`/`fuzzyMatch()`) inside
+  `mergeDuplicateProperties` — the exact-key tier (RERA → normalized
+  name+location) stays, unchanged; and `extractSubListings()` (RERA-anchored
+  sub-listing extraction from rejected category pages) — this existed
+  purely to backfill listings from pages `isAggregatorTitle()` rejected, so
+  it had no remaining purpose once that classifier was gone. 524 lines
+  deleted across the two files (`wc -l`: scoring.cjs 725 → 495;
+  external-search.cjs 841 → 547).
+
+  **Kept, deliberately** (not part of this ask, still doing real, distinct
+  work): `looksLikeUnrelatedCommerce()`/`UNRELATED_COMMERCE_RE` (spam/
+  e-commerce content detection — not lifecycle classification) and
+  `looksLikeInvalidName()` + the Places-verify identity gate (the
+  "Security Alert" bot-interstitial garbage-name catch — a name-SHAPE
+  sanity check, independent of any lifecycle judgment); `scoreExternalProject()`
+  and its whole 30/25/20/15 scoring shape (ranks/labels results against the
+  parsed query, never rejects one outright); RERA/carpet-area/floor-count/
+  connectivity extraction (purely extractive fact-gathering, not
+  eligibility judgment); the exact-key dedup tier; and the low-confidence
+  floor (`match_score >= 15`).
+
+  What `external-search.cjs`'s `queryExternal()` is now: connectors → Azure
+  external index → spam filter → score/rank against the query → exact-key
+  dedup → Places name-verification sanity gate → done. No resale/rental/
+  category-page/geography rejection — a rental listing or a portal category
+  page can now appear in this path's results, same as it would from a
+  direct Google Places search. This is intentional: this path is reached
+  ONLY when both the agent (now reliably kept up by the supervisor above)
+  AND Places-direct discovery are unavailable — the genuinely-last-resort
+  case — and it now behaves the same honest, unclassified way Places-direct
+  already does ("show what a connector returned"), rather than being a
+  second, independently-maintained copy of the agent's real eligibility
+  pipeline that silently drifted out of sync with it (confirmed, repeatedly,
+  earlier in this document) every time one side got a correctness fix the
+  other didn't.
+
+  **Tests**: `backend/tests/test_lifecycle_and_eligibility.cjs` — the tests
+  for the deleted logic were deleted with it (not left dead), the rest kept
+  as regression coverage for what's still real: spam detection, deterministic
+  scoring/ranking/tiering, `buildCanonicalCandidateId` determinism, exact-key
+  dedup, the Places-verify invalid-name gate, and the Dubai location/amenity
+  disambiguation. 70 checks → 28 checks (the drop is the deleted logic's own
+  tests, not a coverage regression on what remains — every remaining check
+  from the 70 still passes unchanged). `agent/tests/` (Python) is completely
+  untouched by this pass — the agent keeps its full classification pipeline;
+  it's the one place that logic still needs to live. Both suites re-run
+  clean. The file name (`test_lifecycle_and_eligibility.cjs`) is now a bit
+  of a misnomer — most of what it tested is gone — but wasn't renamed, to
+  avoid a same-pass rename-plus-content-change diff; a future pass touching
+  this file again should rename it to something like `test_search_fallback.cjs`.

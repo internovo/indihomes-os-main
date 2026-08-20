@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { Search, Loader2, MapPin, Bed, IndianRupee, Calendar, Hammer, Sparkles, History, X, TriangleAlert, ArrowDown, SlidersHorizontal, ClipboardList, Inbox, ExternalLink } from 'lucide-react'
+import { Search, Loader2, MapPin, Bed, IndianRupee, Calendar, Hammer, Sparkles, History, X, TriangleAlert, ArrowDown, SlidersHorizontal, ClipboardList, Inbox, ExternalLink, Star } from 'lucide-react'
 import gazetteer from '../../../../shared/mmr-gazetteer.json'
 import FieldBadge from '../ui/FieldBadge.jsx'
 import { EmptyValue } from '../ui/EmptyState.jsx'
@@ -186,15 +186,6 @@ function CountdownBar({ nextRun }) {
   )
 }
 
-function SourceBadge({ source }) {
-  const s = SOURCE_STYLE[source] || { bg: '#F6F5F1', color: '#75737F' }
-  return (
-    <span style={{ background: s.bg, color: s.color, padding: '2px 7px', borderRadius: 4, fontSize: 10, fontWeight: 600, fontFamily: "'IBM Plex Mono',monospace" }}>
-      {s.label || source}
-    </span>
-  )
-}
-
 // Collapses a raw source/hostname (99acres.com, www.magicbricks.com,
 // tavily, google-cse, ...) onto SOURCE_STYLE's known keys so an AI Search
 // result card shows the same clean badge Property Search already uses,
@@ -209,99 +200,124 @@ function normalizedSourceKey(name) {
   return null
 }
 
-function ProjectCard({ project, index, selected, onToggle, aiMatch, hasActiveFilter }) {
-  // The PRIMARY/SECONDARY/TERTIARY badge is a claim that real matching
-  // happened against something the user asked for — showing it on a bare,
-  // unfiltered browse (project.rank is a static heuristic tag, not a live
-  // match result) implies ranking that hasn't actually occurred yet. Same
-  // gate the score column below already uses.
+// 5-star row for a 0-5 rating — filled stars use the tier color, empty ones
+// stay neutral. Purely a friendlier presentation of the same match score
+// shown as a number right below it, not a second signal.
+function StarRow({ rating, color }) {
+  const filled = Math.round(rating)
+  return (
+    <div style={{ display: 'flex', gap: 1 }}>
+      {[0, 1, 2, 3, 4].map(i => (
+        <Star key={i} size={11} color={i < filled ? color : '#E3E1DA'} fill={i < filled ? color : 'none'} />
+      ))}
+    </div>
+  )
+}
+
+// Pill-style tag — reused for RERA status and each source this project was
+// found on, matching the tag row of the redesigned card. Never fabricated
+// marketing copy (no "New launch"/"Green-certified" style tags this app
+// has no real field for) — only real, already-tracked project facts.
+function Tag({ label }) {
+  return (
+    <span style={{ background: '#F1EFEA', color: '#4A4A63', padding: '3px 10px', borderRadius: 999, fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap' }}>
+      {label}
+    </span>
+  )
+}
+
+function ProjectCard({ project, index, active, onActivate, selected, onToggle, briefMode, aiMatch, hasActiveFilter, onAnalyse }) {
+  // The PRIMARY/SECONDARY/TERTIARY badge and match score are a claim that
+  // real matching happened against something the user asked for — showing
+  // them on a bare, unfiltered browse (project.rank/project.score are
+  // scoring.cjs's static heuristic baseline, not a live match result)
+  // implies ranking that hasn't actually occurred yet. Before a search/
+  // filter is applied, the left column just shows the listing's plain
+  // position in the list (1, 2, 3…) instead — no invented rating/quality
+  // number standing in for a match that hasn't happened.
   const showRank = hasActiveFilter || !!aiMatch
   const rankLabel = showRank ? rankLabelOf(project, aiMatch) : null
   const rc = rankLabel ? rankColor(rankLabel) : '#C8C6D0'
-  const imgUrl = projectImageUrl(project)
+  const matchPct = aiMatch?.match_score ?? (hasActiveFilter ? project.score : null)
+  const rating = matchPct != null ? Math.round((matchPct / 20) * 10) / 10 : null
+
+  const tags = []
+  if (project.reraCode) tags.push(`RERA ${project.reraCode}`)
+  else if (project.rera) tags.push('RERA ✓')
+  for (const s of project.sources || []) tags.push((SOURCE_STYLE[s] && SOURCE_STYLE[s].label) || s)
 
   return (
     <div
-      onClick={() => onToggle(project.id)}
+      onClick={() => onActivate(project.id)}
       style={{
         background: '#fff',
-        border: selected ? `2px solid #0E0E52` : `1px solid #E9E7E0`,
-        borderLeft: selected ? `4px solid #0E0E52` : `4px solid ${rc}`,
+        border: active && showRank ? `2px solid ${rc}` : selected ? '2px solid #0E0E52' : '1px solid #E9E7E0',
         borderRadius: 12,
-        padding: selected ? '15px 19px' : '16px 20px',
+        padding: '16px 20px',
         display: 'flex',
         alignItems: 'flex-start',
-        gap: 16,
+        gap: 18,
         cursor: 'pointer',
-        transition: 'box-shadow 0.15s, border-color 0.15s',
-        boxShadow: selected ? '0 0 0 3px rgba(14,14,82,0.08)' : 'none',
+        transition: 'border-color 0.15s',
       }}
     >
-      {/* Checkbox */}
-      <div style={{ paddingTop: 2, flexShrink: 0 }}>
-        <div style={{
-          width: 18, height: 18, borderRadius: 4,
-          border: selected ? '2px solid #0E0E52' : '2px solid #C8C6D0',
-          background: selected ? '#0E0E52' : '#fff',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          transition: 'background 0.15s',
-        }}>
-          {selected && (
-            <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-              <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          )}
+      {/* Selection checkbox — only shown while building a multi-project
+          Campaign Brief; the primary per-card action is "Select & Analyse". */}
+      {briefMode && (
+        <div onClick={e => { e.stopPropagation(); onToggle(project.id) }} style={{ paddingTop: 2, flexShrink: 0, cursor: 'pointer' }}>
+          <div style={{
+            width: 18, height: 18, borderRadius: 4,
+            border: selected ? '2px solid #0E0E52' : '2px solid #C8C6D0',
+            background: selected ? '#0E0E52' : '#fff',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            {selected && (
+              <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Rank number */}
-      <div style={{ fontSize: 22, fontWeight: 800, color: '#E9E7E0', minWidth: 32, paddingTop: 2, fontFamily: "'IBM Plex Mono',monospace" }}>
-        #{index + 1}
-      </div>
-
-      {/* Project image */}
-      <div style={{ width: 80, height: 60, borderRadius: 8, flexShrink: 0, overflow: 'hidden', background: '#E9E7E0' }}>
-        <img
-          src={imgUrl}
-          alt={project.name}
-          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-          onError={e => {
-            e.currentTarget.style.display = 'none'
-            e.currentTarget.parentElement.style.background =
-              'repeating-linear-gradient(45deg,#E9E7E0,#E9E7E0 4px,#F6F5F1 4px,#F6F5F1 8px)'
-          }}
-        />
+      {/* Rank badge + rating */}
+      <div style={{ textAlign: 'center', minWidth: 56, flexShrink: 0 }}>
+        {showRank ? (
+          <>
+            <span style={{ display: 'inline-block', background: rc, color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700, fontFamily: "'IBM Plex Mono',monospace", marginBottom: 6 }}>
+              {rankLabel}
+            </span>
+            <div style={{ fontSize: 20, fontWeight: 800, color: rc, fontFamily: "'IBM Plex Mono',monospace" }}>{rating}</div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 3 }}>
+              <StarRow rating={rating} color={rc} />
+            </div>
+          </>
+        ) : (
+          <div title="Listing position — apply a search to see a real match" style={{ fontSize: 20, fontWeight: 800, color: '#C8C6D0', fontFamily: "'IBM Plex Mono',monospace" }}>
+            {index + 1}
+          </div>
+        )}
       </div>
 
       {/* Main info */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
           <span style={{ fontWeight: 700, fontSize: 15, color: '#1B1B3A' }}>{project.name}</span>
-          {showRank && (
-            <span style={{ background: rc, color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700, fontFamily: "'IBM Plex Mono',monospace" }}>
-              {rankLabel}
-            </span>
-          )}
-          {project.reraCode ? (
-            <FieldBadge kind="verified" label={`RERA ${project.reraCode}`} />
-          ) : project.rera ? (
-            <FieldBadge kind="verified" label="RERA ✓" />
-          ) : null}
+          {project.builder && <span style={{ fontSize: 12, color: '#8A8896', fontWeight: 600 }}>by {project.builder}</span>}
         </div>
 
-        <div style={{ fontSize: 12, color: '#75737F', marginBottom: 2 }}>
-          {project.builder} &middot; {project.city} &middot; {project.config}
-        </div>
-
-        <div style={{ fontSize: 12, color: '#75737F', marginBottom: 8 }}>
-          {project.budgetLabel}
-          {project.possession !== 'TBD' && ` · ${project.possession}`}
-          {project.sold != null && ` · ${project.sold}% sold`}
-          {project.units != null && ` · ${project.units} units`}
+        <div style={{ fontSize: 12, color: '#75737F', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+          <MapPin size={12} style={{ flexShrink: 0 }} />
+          <span>
+            {project.city} &middot; {project.config} &middot; {project.budgetLabel}
+            {project.possession !== 'TBD' && ` · ${project.possession}`}
+            {project.sold != null && ` · ${project.sold}% sold`}
+            {project.units != null && ` · ${project.units} units`}
+          </span>
         </div>
 
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-          {(project.sources || []).map(s => <SourceBadge key={s} source={s} />)}
+          {tags.map(t => <Tag key={t} label={t} />)}
           {project.listingUrl && (
             <a href={project.listingUrl} target="_blank" rel="noopener noreferrer"
               onClick={e => e.stopPropagation()}
@@ -319,47 +335,29 @@ function ProjectCard({ project, index, selected, onToggle, aiMatch, hasActiveFil
         )}
       </div>
 
-      {/* Score — only shown once the user has actually asked for something to
-          rank against (a filter, an NL "Fill filters" query, or an AI Search
-          "Analyse"-derived aiMatch). Before that, project.score/match are
-          scoring.cjs's completeness-only baseline (no filter dimensions were
-          "applicable"), which looks like a real ranked result but isn't one —
-          showing it on a bare, unfiltered browse is misleading. */}
-      <div style={{ textAlign: 'center', minWidth: 64 }}>
-        {aiMatch ? (
+      {/* Match % + per-card analyse action */}
+      <div style={{ textAlign: 'center', minWidth: 130, flexShrink: 0 }}>
+        {matchPct != null && (
           <>
-            <div style={{ fontSize: 22, fontWeight: 800, color: '#6B4FBB', fontFamily: "'IBM Plex Mono',monospace" }}>
-              {aiMatch.match_score ?? '—'}
-            </div>
-            <div style={{ fontSize: 10, color: '#8A8896', textTransform: 'uppercase', letterSpacing: '0.05em' }}>AI match</div>
-            {/* Genuinely a different number from AI match above — a static,
-                search-independent completeness/data-quality baseline
-                (indihomes-client.cjs's attachScore), not a second match
-                score. Labeled explicitly so it never reads as a duplicate/
-                conflicting percentage (same distinction Project Intelligence
-                already makes between "AI Match" and "IndiHomes Score"). */}
-            <div style={{ marginTop: 6, fontSize: 13, fontWeight: 700, color: '#1B1B3A' }} title="Static listing-quality baseline — not a search match">{project.match}%</div>
-            <div style={{ fontSize: 10, color: '#8A8896' }}>IndiHomes score</div>
+            <div style={{ fontSize: 10, color: '#8A8896', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Match</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: rc, fontFamily: "'IBM Plex Mono',monospace", marginBottom: 10 }}>{matchPct}%</div>
           </>
-        ) : hasActiveFilter ? (
-          <>
-            <div style={{ fontSize: 22, fontWeight: 800, color: rc, fontFamily: "'IBM Plex Mono',monospace" }}>
-              {project.score}
-            </div>
-            <div style={{ fontSize: 10, color: '#8A8896', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Score</div>
-          </>
-        ) : (
-          <div title="Apply a filter to rank projects against it">
-            <div style={{ fontSize: 22, fontWeight: 800, color: '#C8C6D0', fontFamily: "'IBM Plex Mono',monospace" }}>—</div>
-            <div style={{ fontSize: 10, color: '#8A8896', textTransform: 'uppercase', letterSpacing: '0.05em' }}>No filter yet</div>
-          </div>
         )}
+        <button
+          onClick={e => { e.stopPropagation(); onAnalyse(project) }}
+          style={{ padding: '9px 16px', background: '#0E0E52', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: "'Plus Jakarta Sans',sans-serif", whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+        >
+          Select & Analyse <span>→</span>
+        </button>
       </div>
     </div>
   )
 }
 
-function AnalyseBar({ count, onClear, onAnalyse, onBrief }) {
+// Floating bar shown only while building a multi-project Campaign Brief
+// (briefMode) — the per-card "Select & Analyse" button now handles single-
+// project analysis directly, so this bar no longer needs its own analyse action.
+function BriefBar({ count, onClear, onBrief }) {
   return (
     <div style={{
       position: 'fixed', bottom: 28, left: '50%', transform: 'translateX(-50%)',
@@ -367,7 +365,7 @@ function AnalyseBar({ count, onClear, onAnalyse, onBrief }) {
       borderRadius: 16, padding: '14px 24px',
       display: 'flex', alignItems: 'center', gap: 20,
       boxShadow: '0 8px 32px rgba(14,14,82,0.35)',
-      zIndex: 100, minWidth: 380,
+      zIndex: 100, minWidth: 340,
       fontFamily: "'Plus Jakarta Sans',sans-serif",
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
@@ -382,7 +380,7 @@ function AnalyseBar({ count, onClear, onAnalyse, onBrief }) {
           <div style={{ fontWeight: 700, fontSize: 14 }}>
             {count === 1 ? '1 project selected' : `${count} projects selected`}
           </div>
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>Ready for AI analysis</div>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>Ready for campaign brief</div>
         </div>
       </div>
       <button
@@ -394,15 +392,9 @@ function AnalyseBar({ count, onClear, onAnalyse, onBrief }) {
       <button
         onClick={onBrief}
         title="Generate a deterministic campaign brief from the selected projects — no AI/LLM involved"
-        style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.25)', color: '#fff', borderRadius: 10, padding: '10px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: "'Plus Jakarta Sans',sans-serif", whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 7 }}
+        style={{ background: '#F7941D', border: 'none', color: '#fff', borderRadius: 10, padding: '10px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: "'Plus Jakarta Sans',sans-serif", whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 7 }}
       >
         <ClipboardList size={14} /> Generate Campaign Brief
-      </button>
-      <button
-        onClick={onAnalyse}
-        style={{ background: '#F7941D', border: 'none', color: '#fff', borderRadius: 10, padding: '10px 22px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: "'Plus Jakarta Sans',sans-serif", display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}
-      >
-        Analyse Selected <span style={{ fontSize: 16 }}>→</span>
       </button>
     </div>
   )
@@ -1385,6 +1377,25 @@ function RankedResults({ result, onAnalyse }) {
   )
 }
 
+// Small, unobtrusive debugging aid — which of /api/ai-search's three
+// branches (agent / places-direct / node-fallback, see server.cjs) actually
+// answered this request. Previously invisible to anyone but a developer
+// reading server logs, which made a fix sometimes look like it "did
+// nothing" when the request simply never reached the fixed code path.
+// Plain language, not internal system/pipeline names.
+const PIPELINE_LABEL = {
+  agent: 'via full research',
+  'places-direct': 'via nearby buildings',
+  'node-fallback': 'via quick search',
+}
+function PipelineLabel({ pipeline }) {
+  const label = PIPELINE_LABEL[pipeline]
+  if (!label) return null
+  return (
+    <div style={{ fontSize: 11, color: '#A8A6B3', marginBottom: 8 }}>{label}</div>
+  )
+}
+
 function AnalystReport({ result, onAnalyse, onResultChange }) {
   const [moreLoading, setMoreLoading] = useState(false)
   const [moreErr, setMoreErr] = useState(null)
@@ -1416,6 +1427,7 @@ function AnalystReport({ result, onAnalyse, onResultChange }) {
 
   return (
     <div>
+      <PipelineLabel pipeline={result.pipeline} />
       <FilterChips filters={result.filters || {}} />
       {result.warning && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#FEF3E4', border: '1px solid #F7941D40', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 12.5, color: '#9A5B00' }}>
@@ -1586,6 +1598,16 @@ export default function ProjectSelection({ onAnalyse }) {
   const [nlSearchLoading, setNlSearchLoading] = useState(false)
   const [nlSearchNote, setNlSearchNote] = useState(null) // set when a search yields no extractable criteria at all
   const [selectedIds, setSelectedIds] = useState(new Set())
+  // Checkboxes/floating bar are hidden by default (each card's own "Select &
+  // Analyse" button handles the single-project case); briefMode reveals them
+  // only when the user actually wants to multi-select for a Campaign Brief.
+  const [briefMode, setBriefMode] = useState(false)
+  // Which card shows the colored "top pick" border. Defaults to whichever
+  // project is first in ranked order; clicking any other card moves it
+  // there instead (see activeId below, which also resets this back to the
+  // top of the list whenever the clicked project drops out of the current
+  // results — e.g. after a new search).
+  const [activeProjectId, setActiveProjectId] = useState(null)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [filterAnalysis, setFilterAnalysis] = useState(null)   // { [projectName]: {match_score, why} }
   const [filterAnalysisLoading, setFilterAnalysisLoading] = useState(false)
@@ -1749,27 +1771,29 @@ export default function ProjectSelection({ onAnalyse }) {
 
   const clearSelection = () => setSelectedIds(new Set())
 
-  const handleAnalyse = () => {
-    const allProjects = data?.projects || []
-    // _autoResearch tells Project Intelligence to run Drishti AI research
-    // immediately — without it, a project opened this way (vs. AI Search's
-    // "Analyse ->") would never trigger the only source it now has.
-    //
-    // matchScore/matchWhy: the real, query-specific match (/api/filter-rank's
-    // scoring.cjs output, already computed above for the cards currently on
-    // screen) carried through to Project Intelligence — without this,
-    // Project Intelligence's "AI Match" had nothing real of its own to show
-    // and silently duplicated the project's static IndiHomes Score instead
-    // (indihomes-client.cjs's attachScore sets `match: score` verbatim).
-    // null (not 0) when there's no active search to match against — Project
-    // Intelligence shows an honest "Not calculated" state for that, never a
-    // fabricated number.
-    const chosen = allProjects.filter(p => selectedIds.has(p.id)).map(p => {
-      const fa = filterAnalysis?.[p.name]
-      return { ...p, _autoResearch: true, matchScore: fa?.match_score ?? null, matchWhy: fa?.why ?? null }
-    })
-    if (onAnalyse) onAnalyse(chosen)
-  }
+  // _autoResearch tells Project Intelligence to run Drishti AI research
+  // immediately — without it, a project opened this way (vs. AI Search's
+  // "Analyse ->") would never trigger the only source it now has.
+  //
+  // matchScore/matchWhy: the real, query-specific match (/api/filter-rank's
+  // scoring.cjs output, already computed above for the cards currently on
+  // screen) carried through to Project Intelligence — without this,
+  // Project Intelligence's "AI Match" had nothing real of its own to show
+  // and silently duplicated the project's static IndiHomes Score instead
+  // (indihomes-client.cjs's attachScore sets `match: score` verbatim).
+  // null (not 0) when there's no active search to match against — Project
+  // Intelligence shows an honest "Not calculated" state for that, never a
+  // fabricated number.
+  const buildAnalysable = useCallback((p) => {
+    const fa = filterAnalysis?.[p.name]
+    return { ...p, _autoResearch: true, matchScore: fa?.match_score ?? null, matchWhy: fa?.why ?? null }
+  }, [filterAnalysis])
+
+  // Per-card "Select & Analyse" — jumps straight to Project Intelligence for
+  // just that one project, no multi-select step involved.
+  const analyseOne = useCallback((p) => {
+    if (onAnalyse) onAnalyse([buildAnalysable(p)])
+  }, [onAnalyse, buildAnalysable])
 
   const handleGenerateBrief = () => {
     const allProjects = data?.projects || []
@@ -1940,9 +1964,12 @@ export default function ProjectSelection({ onAnalyse }) {
   // everything else (selection, the /api/filter-rank candidates payload,
   // history logging), since those don't care about display order.
   const sortedFiltered = [...filtered].sort(compareRanked(p => filterAnalysis?.[p.name] || null))
+  const activeId = (activeProjectId && sortedFiltered.some(p => p.id === activeProjectId))
+    ? activeProjectId
+    : sortedFiltered[0]?.id
 
   return (
-    <div style={{ padding: '28px 32px', maxWidth: 1280, paddingBottom: selectedCount > 0 ? 100 : 28 }}>
+    <div style={{ padding: '28px 32px', maxWidth: 1280, paddingBottom: briefMode && selectedCount > 0 ? 100 : 28 }}>
       {historyOpen && <SearchHistoryPanel onClose={() => setHistoryOpen(false)} />}
 
       {/* Header */}
@@ -2092,8 +2119,19 @@ export default function ProjectSelection({ onAnalyse }) {
           ℹ {nlSearchNote}
         </div>
       )}
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16, fontSize: 13, color: '#75737F' }}>
-        {loading ? 'Loading…' : hasActiveFilter ? `${filtered.length} matching project${filtered.length === 1 ? '' : 's'} ranked` : `${filtered.length} project${filtered.length === 1 ? '' : 's'} available`}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, fontSize: 13, color: '#75737F' }}>
+        <span>
+          {loading ? 'Loading…' : hasActiveFilter ? `${filtered.length} matching project${filtered.length === 1 ? '' : 's'} ranked` : `${filtered.length} project${filtered.length === 1 ? '' : 's'} available`}
+        </span>
+        {/* Checkboxes stay hidden until the user actually wants to build a
+            multi-project Campaign Brief — the per-card button already covers
+            single-project analysis without any selection step. */}
+        <button
+          onClick={() => { setBriefMode(v => !v); if (briefMode) clearSelection() }}
+          style={{ background: 'none', border: 'none', color: briefMode ? '#D64545' : '#0E0E52', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', padding: 0 }}
+        >
+          {briefMode ? '✕ Done selecting' : '+ Select multiple for brief'}
+        </button>
       </div>
       </>
       )}
@@ -2147,21 +2185,24 @@ export default function ProjectSelection({ onAnalyse }) {
               key={p.id}
               project={p}
               index={idx}
+              active={p.id === activeId}
+              onActivate={setActiveProjectId}
               selected={selectedIds.has(p.id)}
               onToggle={toggleSelect}
+              briefMode={briefMode}
               aiMatch={filterAnalysis?.[p.name] || null}
               hasActiveFilter={hasActiveFilter}
+              onAnalyse={analyseOne}
             />
           ))}
         </div>
       )}
 
-      {/* Floating analyse bar */}
-      {selectedCount > 0 && (
-        <AnalyseBar
+      {/* Floating campaign-brief bar — only while actively building a brief */}
+      {briefMode && selectedCount > 0 && (
+        <BriefBar
           count={selectedCount}
           onClear={clearSelection}
-          onAnalyse={handleAnalyse}
           onBrief={handleGenerateBrief}
         />
       )}

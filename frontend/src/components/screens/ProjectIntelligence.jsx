@@ -817,6 +817,21 @@ const clip = (v, n = 160) => {
   return s.length > n ? s.slice(0, n) + '…' : s
 }
 
+// Word-boundary-safe clamp for the AI Project Summary tile — unlike clip()
+// above, never cuts mid-word (breaks at the last space before the limit).
+const clampWords = (v, max = 380) => {
+  const s = String(v ?? '').trim()
+  if (s.length <= max) return s
+  const cut = s.slice(0, max)
+  const lastSpace = cut.lastIndexOf(' ')
+  return (lastSpace > 40 ? cut.slice(0, lastSpace) : cut) + '…'
+}
+// Strips the light markdown displayDescription may carry (headers, bold,
+// bullets) down to plain prose — this summary tile is a short paragraph,
+// not a formatted document, so DescriptionMarkdown's full renderer would be
+// the wrong tool here.
+const stripMd = (v) => String(v ?? '').replace(/^#{1,3}\s+/gm, '').replace(/\*\*/g, '').replace(/^\s*[-*]\s+/gm, '').replace(/\s+/g, ' ').trim()
+
 function ResearchPanel({ data }) {
   if (data._empty) return <div style={{ marginTop:12, fontSize:13, color:'#75737F' }}>No web results found for this project.</div>
   const box = (label, val) => {
@@ -1392,6 +1407,14 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
     : research?.summary ? 'Drishti AI web research'
     : null
 
+  // AI Project Summary tile — prefers Drishti's own research summary
+  // (already a short synthesized paragraph) over the full listing
+  // description, which is often much longer; both are real sourced text,
+  // never freshly generated for this tile.
+  const aiSummaryText = research?.summary
+    ? clampWords(research.summary)
+    : displayDescription ? clampWords(stripMd(displayDescription)) : ''
+
   const reraCode    = official?.reraCode || live?.rera || research?.rera || current?.reraCode || reraLookupResult?.rera || ''
 
   // Section 5 fix (RERA enrichment) — the actual triggering effect. Fires
@@ -1492,17 +1515,17 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
       )}
 
       {/* ── Project Tabs ──────────────────────────────────────────────────────── */}
-      <div style={{ display:'flex', gap:0, borderBottom:'2px solid #E9E7E0', marginBottom:24, overflowX:'auto' }}>
+      <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:24, overflowX:'auto', paddingBottom:2 }}>
         {projects.map((p,i) => (
           <button key={p.id||p.name} onClick={() => setTab(i)}
-            style={{ padding:'10px 20px', border:'none', background:'none', cursor:'pointer', fontSize:13,
-              fontWeight: tab===i?700:500, color: tab===i?'#0E0E52':'#75737F',
-              borderBottom: tab===i?'2px solid #0E0E52':'2px solid transparent',
-              marginBottom:-2, fontFamily:"'Plus Jakarta Sans',sans-serif", whiteSpace:'nowrap' }}>
+            style={{ padding:'9px 18px', border: tab===i?'1px solid #0E0E52':'1px solid #E9E7E0', borderRadius:20, cursor:'pointer', fontSize:13,
+              fontWeight: tab===i?700:600, color: tab===i?'#fff':'#4A4A63',
+              background: tab===i?'#0E0E52':'#fff',
+              fontFamily:"'Plus Jakarta Sans',sans-serif", whiteSpace:'nowrap', flexShrink:0 }}>
             {p.name}
           </button>
         ))}
-        <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', paddingLeft:12 }}>
+        <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', paddingLeft:12, flexShrink:0 }}>
           <button style={{ padding:'6px 14px', border:'none', background:'none', cursor:'pointer', fontSize:12, color:'#0E0E52', fontWeight:600, whiteSpace:'nowrap' }}>
             ★ Change selection
           </button>
@@ -1537,17 +1560,31 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
           {/* ── Hero card (PI-FR-01) ────────────────────────────────────────── */}
           <div style={{ background:'#fff', border:'1px solid #E9E7E0', borderRadius:14, padding:'24px', marginBottom:20 }}>
             <div style={{ display:'flex', gap:20, alignItems:'flex-start' }}>
-              <div style={{ width:96, height:96, borderRadius:12, flexShrink:0, overflow:'hidden', background:'#E9E7E0' }}>
+              <div style={{ width:72, height:72, borderRadius:12, flexShrink:0, overflow:'hidden', background:'#E9E7E0' }}>
                 <img src={projectImageUrl(current)} alt={current?.name}
                   style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}
                   onError={e => { e.currentTarget.style.display='none'; e.currentTarget.parentElement.style.background='repeating-linear-gradient(45deg,#E9E7E0,#E9E7E0 5px,#F6F5F1 5px,#F6F5F1 10px)' }} />
               </div>
-              <div style={{ flex:1 }}>
-                <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6, flexWrap:'wrap' }}>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:4, flexWrap:'wrap' }}>
                   <h2 style={{ fontSize:22, fontWeight:800, color:'#1B1B3A', margin:0 }}>{current?.name}</h2>
-                  <span style={{ background: current?.score != null ? '#E8F7EE' : '#F6F5F1', color: current?.score != null ? '#2E9E4F' : colors.muted, padding:'3px 10px', borderRadius:4, fontSize:12, fontWeight:700 }}>{current?.score != null ? `${current.score}/100 ★` : 'No score yet'}</span>
+                  {/* Real, already-computed sales pace (salesVelocity()) — the
+                      one honest stand-in for a "status" pill; omitted
+                      entirely (never a guessed default) when sold%/units
+                      aren't available for this project. */}
+                  {velocity && (
+                    <span style={{ display:'inline-flex', alignItems:'center', gap:5, background:`${velocity.color}18`, color:velocity.color, padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700 }}>
+                      ● {velocity.pace}
+                    </span>
+                  )}
+                </div>
+                <p style={{ fontSize:13, color:'#75737F', margin:'0 0 12px' }}>
+                  {[current?.builder && `by ${current.builder}`, current?.city].filter(Boolean).join(' · ')}
+                </p>
+
+                <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', marginBottom:16 }}>
+                  <span style={{ background: current?.score != null ? '#E8F7EE' : '#F6F5F1', color: current?.score != null ? '#2E9E4F' : colors.muted, padding:'3px 10px', borderRadius:4, fontSize:11, fontWeight:700 }}>{current?.score != null ? `${current.score}/100 ★` : 'No score yet'}</span>
                   <span style={{ background:rc, color:'#fff', padding:'3px 10px', borderRadius:4, fontSize:11, fontWeight:700 }}>{current?.rank}</span>
-                  {reraCode && <span style={{ background:'#E8F7EE', color:'#2E9E4F', padding:'3px 10px', borderRadius:4, fontSize:11, fontWeight:600, fontFamily:"'IBM Plex Mono',monospace" }}>RERA {reraCode}</span>}
                   {/* Part P1.10 — a real cross-source RERA disagreement is
                       shown, never silently resolved by picking one value. */}
                   {research?.rera_conflict && (
@@ -1565,29 +1602,46 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
                   )}
                   {intel && !intel._error && <span style={{ background:'#0E0E5210', color:'#0E0E52', padding:'3px 8px', borderRadius:4, fontSize:10, fontWeight:600 }}>● Live · 99acres</span>}
                 </div>
-                <p style={{ fontSize:13, color:'#75737F', marginBottom:10, margin:'0 0 10px' }}>
-                  {[current?.builder, current?.city, current?.config, current?.budgetLabel,
-                    possession && possession !== 'TBD' ? `Possession ${possession}` : null,
-                    sold != null ? `${sold}% sold` : null,
-                    units != null ? `${units} units` : null,
-                  ].filter(Boolean).join(' · ')}
-                </p>
+
+                {/* Quick facts — the same fields the old subtitle line used
+                    to join into one sentence (config/budget/possession),
+                    now a scannable labeled grid; RERA No. absorbs the old
+                    standalone "RERA {code}" badge (shown once, not twice). */}
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:16 }}>
+                  {[
+                    ['RERA No.', reraCode || null],
+                    ['Configurations', current?.config || null],
+                    ['Price Band', current?.budgetLabel || null],
+                    ['Possession', possession && possession !== 'TBD' ? possession : null],
+                  ].map(([label, val]) => (
+                    <div key={label}>
+                      <div style={{ fontSize:10.5, color:'#8A8896', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:4 }}>{label}</div>
+                      <div style={{ fontSize:13.5, fontWeight:700, color:'#1B1B3A' }}>{val || <EmptyValue />}</div>
+                    </div>
+                  ))}
+                </div>
+
                 {/* Top 3 only — the full list already has its own card
-                    (USP Extraction) right below; showing all of them twice
+                    (USP Extraction) further below; showing all of them twice
                     with different styling read as two disagreeing sources
                     rather than one fact shown at two altitudes. */}
-                <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
-                  {displayUSPs.slice(0,3).map(tag => (
-                    <span key={tag} style={{ background:'#F6F5F1', color:'#1B1B3A', padding:'4px 10px', borderRadius:6, fontSize:11, fontWeight:500 }}>{tag}</span>
-                  ))}
-                  {displayUSPs.length > 3 && (
-                    <span style={{ fontSize:11, color:'#8A8896', fontStyle:'italic' }}>+{displayUSPs.length - 3} more below</span>
-                  )}
-                </div>
+                {displayUSPs.length > 0 && (
+                  <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center', marginTop:16 }}>
+                    {displayUSPs.slice(0,3).map(tag => (
+                      <span key={tag} style={{ background:'#F6F5F1', color:'#1B1B3A', padding:'4px 10px', borderRadius:6, fontSize:11, fontWeight:500 }}>{tag}</span>
+                    ))}
+                    {displayUSPs.length > 3 && (
+                      <span style={{ fontSize:11, color:'#8A8896', fontStyle:'italic' }}>+{displayUSPs.length - 3} more below</span>
+                    )}
+                  </div>
+                )}
               </div>
-              <div style={{ textAlign:'right', flexShrink:0 }} title="How well this project matched your last Property Search/AI Search query — distinct from IndiHomes Score below, which is this listing's own data-quality score.">
-                <div style={{ fontSize:28, fontWeight:800, color:rc, fontFamily:"'IBM Plex Mono',monospace" }}>{current?.matchScore != null ? `${current.matchScore}%` : '—'}</div>
-                <div style={{ fontSize:11, color:'#8A8896', textTransform:'uppercase', letterSpacing:'0.08em' }}>AI Match</div>
+              {/* Inventory-sold% headline stat — AI Match (a different,
+                  search-specific number) stays fully visible in the KPI
+                  row directly below, this is just no longer duplicated here too. */}
+              <div style={{ textAlign:'right', flexShrink:0 }} title="Share of this project's total inventory reported sold.">
+                <div style={{ fontSize:32, fontWeight:800, color: velocity ? velocity.color : '#C8C6D0', fontFamily:"'IBM Plex Mono',monospace" }}>{sold != null ? `${sold}%` : '—'}</div>
+                <div style={{ fontSize:11, color:'#8A8896', textTransform:'uppercase', letterSpacing:'0.08em' }}>inventory sold</div>
               </div>
             </div>
           </div>
@@ -1621,38 +1675,16 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
               trendDir={live?.searchTrend?.direction === 'down' ? 'down' : 'up'} accent="#8B8BD6" />
           </div>
 
-          {/* ── Inventory Movement Flag (PI-FR-11) ──────────────────────────── */}
-          {movementFlag && (
-            <div style={{ background:'#FEF3E4', border:'1px solid #F7941D40', borderLeft:'4px solid #F7941D', borderRadius:10, padding:'14px 18px', marginBottom:20, display:'flex', gap:14, alignItems:'flex-start' }}>
-              <span style={{ fontSize:20 }}>⚠️</span>
-              <div style={{ flex:1 }}>
-                <div style={{ fontWeight:700, fontSize:13, color:'#1B1B3A', marginBottom:4 }}>
-                  Inventory Movement Flag — {movementFlag.type} ({movementFlag.available} units unsold)
-                </div>
-                <div style={{ fontSize:13, color:'#75737F', lineHeight:1.6 }}>
-                  <strong>Suggested action:</strong> Launch targeted campaign for {movementFlag.type} segment — {movementFlag.available} units unsold, pricing above micro-market average. Consider limited-time incentive bundle.
-                </div>
-              </div>
-              <button style={{ flexShrink:0, padding:'7px 14px', background:'#F7941D', color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
-                Launch campaign →
-              </button>
-            </div>
-          )}
+          {/* Inventory Movement Flag (PI-FR-11) — moved inline into the
+              Inventory & Unit Configurations card below (as a footer note)
+              instead of its own full-width banner; same movementFlag data/
+              copy, no functionality lost (the old "Launch campaign" button
+              had no onClick handler — purely decorative). */}
 
-          {/* ── Row 1: AI Analysis + Inventory Table ────────────────────────── */}
-          {/* alignItems intentionally NOT 'start' here — CSS Grid's default
-              (stretch) is what keeps a paired row's two cards bottom-
-              aligned even when one has noticeably more content than the
-              other (SectionCard fills that stretched height itself; see
-              its own comment). */}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16, alignItems:'start' }}>
-
-            {/* Project Description (scraped fact) + AI Signals (derived synthesis) — PI-FR-08.
-                Source badge intentionally not rendered here (frontend
-                presentation choice only) — official?.description/
-                displayDescription still resolve official-first exactly as
-                before; provenance is still visible via SourceTag/FieldBadge
-                on every other card in this screen. */}
+          {/* ── Project Description (PI-FR-08) — full width (was paired with
+              Inventory below); content/behavior unchanged, just no longer
+              sharing a row. ────────────────────────────────────────────── */}
+          <div style={{ marginBottom:16 }}>
             <SectionCard accent="#0E0E52" title="Project Description" debugId="PI-FR-08"
               action={(
                 <button style={{ fontSize:12, color:'#0E0E52', background:'none', border:'1px solid #E9E7E0', borderRadius:6, padding:'5px 12px', cursor:'pointer', fontWeight:600, fontFamily:"'Plus Jakarta Sans',sans-serif", flexShrink:0 }}>
@@ -1690,6 +1722,11 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
                   descriptionSourceLabel for any future internal/debug use,
                   just never rendered as its own row here. */}
             </SectionCard>
+          </div>
+
+          {/* ── Row: Inventory & Unit Configurations + [RERA & Compliance,
+              Location Score] ──────────────────────────────────────────── */}
+          <div style={{ display:'grid', gridTemplateColumns:'1.4fr 1fr', gap:16, marginBottom:16, alignItems:'start' }}>
 
             {/* Inventory & Unit Configs (PI-FR-02, 03) */}
             <SectionCard title="Inventory & Unit Configurations" debugId="PI-FR-02"
@@ -1743,7 +1780,130 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
                 </span>
                 {intel && !intel._error && ' · Source: 99acres live data'}
               </div>
+              {/* Inventory Movement Flag (PI-FR-11) — same movementFlag data/
+                  copy as before, now an in-card note instead of its own
+                  full-width banner (that banner's "Launch campaign" button
+                  had no onClick handler — purely decorative, nothing lost). */}
+              {movementFlag && (
+                <div style={{ marginTop:14, background:'#FEF3E4', border:'1px solid #F7941D40', borderRadius:8, padding:'10px 14px', fontSize:12, color:'#1B1B3A', lineHeight:1.6 }}>
+                  <b>Drishti flags:</b> {movementFlag.type} inventory moving slower than the rest — {movementFlag.available} units unsold, pricing above micro-market average. Recommend a dedicated campaign & CP incentive.
+                </div>
+              )}
             </SectionCard>
+
+            {/* Right column: RERA & Compliance (moved up from the old Row 3
+                pairing with Competitor Analysis — same fields/buttons,
+                unchanged) + Location Score (new card, built entirely from
+                locQuality, already computed above from real nearby-places
+                data — never fabricated). */}
+            <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+              {(() => {
+                const isDubai = current?.market === 'dubai'
+                const regLabel = isDubai ? 'DLD' : 'RERA'
+                return (
+              <SectionCard accent={reraCode ? '#2E9E4F' : '#8A8896'} title={`${regLabel} & Compliance`} debugId="PI-FR-04" style={{ padding: '12px 16px' }}
+                badge={official?.reraCode ? <SourceTag source="indihomes-db" compact /> : <FieldBadge kind={reraCode ? 'verified' : 'unverified'} />}>
+                  {!isDubai && (
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 0', borderBottom:'1px solid #E9E7E0', fontSize:13 }}>
+                      <span style={{ color:'#75737F' }}>Trust score</span>
+                      <span style={{ fontWeight:700, color:reraTrust.color, background:reraTrust.bg, padding:'3px 10px', borderRadius:4, fontSize:11.5 }} title={reraTrust.desc}>
+                        {reraTrust.tier}
+                      </span>
+                    </div>
+                  )}
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 0', borderBottom:'1px solid #E9E7E0', fontSize:13 }}>
+                    <span style={{ color:'#75737F' }}>{regLabel} Registration No.</span>
+                    <span style={{ fontWeight:600, color: reraCode ? '#1B1B3A' : undefined, fontFamily:"'IBM Plex Mono',monospace", fontSize:12 }}>
+                      {reraCode || <EmptyValue>{`Not found${isDubai ? '' : ' on listing'}`}</EmptyValue>}
+                    </span>
+                  </div>
+                  {live?.reraAll?.length > 1 && (
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 0', borderBottom:'1px solid #E9E7E0', fontSize:13 }}>
+                      <span style={{ color:'#75737F' }}>Other tower registrations</span>
+                      <span style={{ fontWeight:600, color:'#1B1B3A', fontSize:12 }}>+{live.reraAll.length - 1} more</span>
+                    </div>
+                  )}
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 0', borderBottom:'1px solid #E9E7E0', fontSize:13 }}>
+                    <span style={{ color:'#75737F' }}>Source</span>
+                    <span style={{ fontWeight:600, color: reraCode ? '#1B1B3A' : undefined, fontSize:13 }}>
+                      {reraCode ? (official?.reraCode ? 'Official listing' : 'Third-party listing') : <EmptyValue />}
+                    </span>
+                  </div>
+                  {isDubai ? (
+                    <div style={{ marginTop:10, fontSize:11, color:'#8A8896', lineHeight:1.6, fontStyle:'italic' }}>
+                      {reraCode
+                        ? 'Dubai Land Department (DLD) reference found via web research. No automated DLD verification is integrated yet — confirm directly with the Dubai Land Department or the developer.'
+                        : 'No DLD registration reference was found for this project. Verify directly with the developer or the Dubai Land Department.'}
+                    </div>
+                  ) : (
+                    <div style={{ marginTop:10, fontSize:11, color:'#8A8896', lineHeight:1.6, fontStyle:'italic' }}>
+                      {reraCheck?.verified
+                        ? `Government-verified via RERA registry${reraCheck.project_name ? ` — official record: "${reraCheck.project_name}"` : ''}.`
+                        : reraCheck && !reraCheck.error
+                        ? 'Checked against the RERA registry — no matching verified record found for this number.'
+                        : reraCheck?.error
+                        ? `Verification attempt failed: ${reraCheck.error}`
+                        : official?.reraCode
+                        ? 'Sourced directly from IndiHomes\' own catalog. Click "Verify on MahaRERA" to additionally check it against the government registry.'
+                        : reraCode
+                        ? 'Advertiser-submitted detail from a third-party listing. Click "Verify on MahaRERA" to check it against the government registry.'
+                        : 'No RERA number was found for this project. Verify directly with the builder or the state RERA portal.'}
+                    </div>
+                  )}
+                  {!isDubai && (
+                  <div style={{ marginTop:14, display:'flex', gap:8 }}>
+                    <button
+                      disabled={!reraCode || reraChecking || !reraEnabled}
+                      onClick={runReraVerify}
+                      title={!reraEnabled ? 'Set SUREPASS_API_TOKEN on the server to enable' : reraCode ? 'Verify this registration number against the government RERA registry' : 'No RERA number found to verify'}
+                      style={{ flex:1, padding:'8px', background: reraCode && reraEnabled ? '#E8F7EE' : '#F6F5F1', color: reraCode && reraEnabled ? '#2E9E4F' : '#B8B6C0', border:`1px solid ${reraCode && reraEnabled ? '#2E9E4F40' : '#E9E7E0'}`, borderRadius:8, fontSize:12, fontWeight:700, cursor: reraCode && reraEnabled && !reraChecking ? 'pointer' : 'not-allowed', fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
+                      {reraChecking ? '⟳ Verifying…' : reraCheck?.verified ? '✓ Verified' : reraCheck && !reraCheck.error ? '⚠ Not Verified — Retry' : '↗ Verify on MahaRERA'}
+                    </button>
+                    {(() => {
+                      const certUrl = reraCheck?.certificate_url || live?.reraQrUrl
+                      const label = reraCheck?.certificate_url ? '📄 View RERA Certificate' : live?.reraQrUrl ? '▣ View RERA QR' : '▣ No certificate found'
+                      return (
+                        <button
+                          disabled={!certUrl}
+                          onClick={() => certUrl && window.open(certUrl, '_blank', 'noopener,noreferrer')}
+                          title={reraCheck?.certificate_url ? 'Opens the official government RERA certificate PDF' : live?.reraQrUrl ? 'Opens the RERA image from the listing' : 'Run "Verify on MahaRERA" first to fetch the official certificate'}
+                          style={{ flex:1, padding:'8px', background:'#F6F5F1', color: certUrl ? '#0E0E52' : '#B8B6C0', border:'1px solid #E9E7E0', borderRadius:8, fontSize:12, fontWeight:700, cursor: certUrl ? 'pointer' : 'not-allowed', fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
+                          {label}
+                        </button>
+                      )
+                    })()}
+                  </div>
+                  )}
+              </SectionCard>
+                )
+              })()}
+
+              {/* Location Score — new card built entirely from locQuality
+                  (locationQualityScore(realNearbyPlaces), already computed
+                  above). Honest EmptyState until real nearby-places data
+                  resolves, never a fabricated score. */}
+              <SectionCard title="Location Score" badge={<FieldBadge kind={locQuality ? 'map' : 'unverified'} />}>
+                {locQuality ? (
+                  <>
+                    <div style={{ display:'flex', alignItems:'baseline', gap:6 }}>
+                      <span style={{ fontSize:30, fontWeight:800, color:locQuality.color, fontFamily:"'IBM Plex Mono',monospace" }}>{(locQuality.score/10).toFixed(1)}</span>
+                      <span style={{ fontSize:14, color:'#8A8896', fontWeight:700 }}>/10</span>
+                    </div>
+                    <div style={{ fontSize:12, color:'#75737F', marginTop:2, marginBottom:12 }}>{locQuality.tier} · Walkability + connectivity</div>
+                    {(() => {
+                      const nearest = displayInfra.filter(i => i.dist).sort((a,b) => parseFloat(a.dist)-parseFloat(b.dist)).slice(0,4)
+                      return nearest.length > 0 ? (
+                        <div style={{ fontSize:11.5, color:'#4A4A63', lineHeight:1.7 }}>
+                          {nearest.map(i => `${i.name} (${i.dist})`).join(' · ')}
+                        </div>
+                      ) : null
+                    })()}
+                  </>
+                ) : (
+                  <EmptyState reason="Not connected." detail="Waiting for the Location Map below to resolve real coordinates for this project." />
+                )}
+              </SectionCard>
+            </div>
           </div>
 
           {/* ── Sales Velocity (PI-FR-12) — real sold%/unit counts only. Shows
@@ -1769,7 +1929,7 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
             )}
           </SectionCard>
 
-          {/* ── Row 2: USPs + Target Audience ───────────────────────────────── */}
+          {/* ── Row 2: AI Project Summary + USPs + Target Audience ──────────── */}
           {/* alignItems: 'start' here (NOT the stretch default used by every
               other paired row on this page) — Target Audience routinely
               renders 7 rows while USP Extraction, when empty, is a single
@@ -1780,7 +1940,25 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
               close enough that stretch reads as intentional alignment, not
               a blown-up empty card) — this is the one specific pairing
               where the mismatch is large and visible. */}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16, alignItems:'start' }}>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:16, marginBottom:16, alignItems:'start' }}>
+
+            {/* AI Project Summary — a short, already-sourced paragraph
+                (Drishti's own research summary, or the listing description
+                as a fallback — see aiSummaryText above); the FULL
+                description with the "DRISHTI AI SIGNALS" bullets and
+                Regenerate button still lives in its own full-width Project
+                Description card above, unchanged — this tile is a compact
+                companion to it, not a replacement. */}
+            <div style={{ background:'#0E0E52', borderRadius:14, padding:'16px 18px' }}>
+              <div style={{ fontSize:11, fontFamily:"'IBM Plex Mono',monospace", color:'rgba(255,255,255,0.55)', letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:12 }}>
+                ✦ AI Project Summary
+              </div>
+              {aiSummaryText ? (
+                <div style={{ fontSize:13, lineHeight:1.7, color:'rgba(255,255,255,0.92)' }}>{aiSummaryText}</div>
+              ) : (
+                <div style={{ fontSize:12.5, color:'rgba(255,255,255,0.5)', fontStyle:'italic' }}>No AI-researched summary available yet for this project.</div>
+              )}
+            </div>
 
             {/* USP Extraction (PI-FR-09) — compact padding (style override,
                 not a change to SectionCard's shared default) per explicit
@@ -1875,108 +2053,12 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
             </SectionCard>
           </div>
 
-          {/* ── Row 3: RERA + Competitor Analysis ───────────────────────────── */}
-          {/* Section-order fix — Competitor Analysis now directly follows
-              Target Audience (header/quick facts → overview → description →
-              key insights → USP → target audience → competitor analysis →
-              nearby/map), instead of sitting after the map. RERA stays
-              paired with it (unchanged pairing, just moved as a unit).
-alignItems intentionally NOT 'start' here — CSS Grid's default
-              (stretch) is what keeps a paired row's two cards bottom-
-              aligned even when one has noticeably more content than the
-              other (SectionCard fills that stretched height itself; see
-              its own comment). */}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16, alignItems:'start' }}>
-
-            {/* RERA Details (PI-FR-04) — every value here is either a real scraped fact or
-                explicitly marked "Not found". No fallback/placeholder RERA numbers, ever. */}
-            {(() => {
-              const isDubai = current?.market === 'dubai'
-              const regLabel = isDubai ? 'DLD' : 'RERA'
-              return (
-            <SectionCard accent={reraCode ? '#2E9E4F' : '#8A8896'} title={`${regLabel} Details`} debugId="PI-FR-04" style={{ padding: '12px 16px' }}
-              badge={official?.reraCode ? <SourceTag source="indihomes-db" compact /> : <FieldBadge kind={reraCode ? 'verified' : 'unverified'} />}>
-                {!isDubai && (
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 0', borderBottom:'1px solid #E9E7E0', fontSize:13 }}>
-                    <span style={{ color:'#75737F' }}>Trust score</span>
-                    <span style={{ fontWeight:700, color:reraTrust.color, background:reraTrust.bg, padding:'3px 10px', borderRadius:4, fontSize:11.5 }} title={reraTrust.desc}>
-                      {reraTrust.tier}
-                    </span>
-                  </div>
-                )}
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 0', borderBottom:'1px solid #E9E7E0', fontSize:13 }}>
-                  <span style={{ color:'#75737F' }}>{regLabel} Registration No.</span>
-                  <span style={{ fontWeight:600, color: reraCode ? '#1B1B3A' : undefined, fontFamily:"'IBM Plex Mono',monospace", fontSize:12 }}>
-                    {reraCode || <EmptyValue>{`Not found${isDubai ? '' : ' on listing'}`}</EmptyValue>}
-                  </span>
-                </div>
-                {live?.reraAll?.length > 1 && (
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 0', borderBottom:'1px solid #E9E7E0', fontSize:13 }}>
-                    <span style={{ color:'#75737F' }}>Other tower registrations</span>
-                    <span style={{ fontWeight:600, color:'#1B1B3A', fontSize:12 }}>+{live.reraAll.length - 1} more</span>
-                  </div>
-                )}
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 0', borderBottom:'1px solid #E9E7E0', fontSize:13 }}>
-                  <span style={{ color:'#75737F' }}>Source</span>
-                  <span style={{ fontWeight:600, color: reraCode ? '#1B1B3A' : undefined, fontSize:13 }}>
-                    {/* Never names the specific external provider here —
-                        collapses to a generic verified/unverified label
-                        regardless of whether this came from IndiHomes'
-                        own catalog or an external listing (per explicit
-                        instruction: source/provider names must never
-                        render in end-user UI). */}
-                    {reraCode ? (official?.reraCode ? 'Official listing' : 'Third-party listing') : <EmptyValue />}
-                  </span>
-                </div>
-                {isDubai ? (
-                  <div style={{ marginTop:10, fontSize:11, color:'#8A8896', lineHeight:1.6, fontStyle:'italic' }}>
-                    {reraCode
-                      ? 'Dubai Land Department (DLD) reference found via web research. No automated DLD verification is integrated yet — confirm directly with the Dubai Land Department or the developer.'
-                      : 'No DLD registration reference was found for this project. Verify directly with the developer or the Dubai Land Department.'}
-                  </div>
-                ) : (
-                  <div style={{ marginTop:10, fontSize:11, color:'#8A8896', lineHeight:1.6, fontStyle:'italic' }}>
-                    {reraCheck?.verified
-                      ? `Government-verified via RERA registry${reraCheck.project_name ? ` — official record: "${reraCheck.project_name}"` : ''}.`
-                      : reraCheck && !reraCheck.error
-                      ? 'Checked against the RERA registry — no matching verified record found for this number.'
-                      : reraCheck?.error
-                      ? `Verification attempt failed: ${reraCheck.error}`
-                      : official?.reraCode
-                      ? 'Sourced directly from IndiHomes\' own catalog. Click "Verify on MahaRERA" to additionally check it against the government registry.'
-                      : reraCode
-                      ? 'Advertiser-submitted detail from a third-party listing. Click "Verify on MahaRERA" to check it against the government registry.'
-                      : 'No RERA number was found for this project. Verify directly with the builder or the state RERA portal.'}
-                  </div>
-                )}
-                {!isDubai && (
-                <div style={{ marginTop:14, display:'flex', gap:8 }}>
-                  <button
-                    disabled={!reraCode || reraChecking || !reraEnabled}
-                    onClick={runReraVerify}
-                    title={!reraEnabled ? 'Set SUREPASS_API_TOKEN on the server to enable' : reraCode ? 'Verify this registration number against the government RERA registry' : 'No RERA number found to verify'}
-                    style={{ flex:1, padding:'8px', background: reraCode && reraEnabled ? '#E8F7EE' : '#F6F5F1', color: reraCode && reraEnabled ? '#2E9E4F' : '#B8B6C0', border:`1px solid ${reraCode && reraEnabled ? '#2E9E4F40' : '#E9E7E0'}`, borderRadius:8, fontSize:12, fontWeight:700, cursor: reraCode && reraEnabled && !reraChecking ? 'pointer' : 'not-allowed', fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
-                    {reraChecking ? '⟳ Verifying…' : reraCheck?.verified ? '✓ Verified' : reraCheck && !reraCheck.error ? '⚠ Not Verified — Retry' : '↗ Verify on MahaRERA'}
-                  </button>
-                  {(() => {
-                    const certUrl = reraCheck?.certificate_url || live?.reraQrUrl
-                    const label = reraCheck?.certificate_url ? '📄 View RERA Certificate' : live?.reraQrUrl ? '▣ View RERA QR' : '▣ No certificate found'
-                    return (
-                      <button
-                        disabled={!certUrl}
-                        onClick={() => certUrl && window.open(certUrl, '_blank', 'noopener,noreferrer')}
-                        title={reraCheck?.certificate_url ? 'Opens the official government RERA certificate PDF' : live?.reraQrUrl ? 'Opens the RERA image from the listing' : 'Run "Verify on MahaRERA" first to fetch the official certificate'}
-                        style={{ flex:1, padding:'8px', background:'#F6F5F1', color: certUrl ? '#0E0E52' : '#B8B6C0', border:'1px solid #E9E7E0', borderRadius:8, fontSize:12, fontWeight:700, cursor: certUrl ? 'pointer' : 'not-allowed', fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
-                        {label}
-                      </button>
-                    )
-                  })()}
-                </div>
-                )}
-            </SectionCard>
-              )
-            })()}
-
+          {/* ── Competitor Analysis ─────────────────────────────────────────── */}
+          {/* No longer paired with RERA (RERA & Compliance moved up into the
+              Inventory row's right column above) — its own full-width row,
+              directly after AI Project Summary/USP/Target Audience. Content/
+              behavior entirely unchanged. */}
+          <div style={{ marginBottom:16 }}>
             {/* Competitor Analysis (PI-FR-07) — real Google Places nearby-
                 search around this project's own resolved coordinates, same
                 "real source, no fabrication" standard as Nearby
@@ -2116,9 +2198,11 @@ alignItems intentionally NOT 'start' here — CSS Grid's default
                       No project name available to locate this project on a map.
                     </div>
                   )}
+              {/* Location Quality Score row removed from this list — now its
+                  own "Location Score" card above, right column of the
+                  Inventory row (same locQuality data, just not shown twice). */}
               {[
                 ['Locality', live?.localityName ? live.localityName : <EmptyValue />, '#1B1B3A'],
-                ['Location Quality Score', locQuality ? `${locQuality.score}/100 · ${locQuality.tier} (${locQuality.categoryCount} amenity types nearby)` : <EmptyValue />, locQuality ? locQuality.color : null],
                 ['Search Trend (7d vs prior 7d)', live?.searchTrend?.label ? live.searchTrend.label : <EmptyValue />, live?.searchTrend?.direction === 'down' ? '#D64545' : '#2E9E4F'],
                 ['Competing Projects', `${displayCompetitors.length} found nearby`, '#75737F'],
               ].map(([l,v,c]) => (
