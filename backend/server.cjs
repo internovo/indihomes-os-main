@@ -2147,6 +2147,12 @@ app.post('/api/ai-search', async (req, res) => {
           filters, reportId, market, configured: true, enabled: true,
           properties, sources: [], warning: null,
           _source: 'places-direct',
+          // Which of the three /api/ai-search branches actually answered
+          // this request — was previously only inferable from `_source`/
+          // `_agent` (inconsistent between branches), which made debugging
+          // "did my fix even run" unnecessarily confusing. Explicit and
+          // consistent across all three branches below.
+          pipeline: 'places-direct',
         })
       }
     } catch (e) {
@@ -2184,6 +2190,7 @@ app.post('/api/ai-search', async (req, res) => {
         // never has this key in the response at all.
         debug_trace: agentResult.debug_trace,
         _agent: true,
+        pipeline: 'agent',
       })
     } catch (e) {
       console.error('[ai-search] agent service unavailable, falling back to external-search.cjs:', e.message)
@@ -2227,6 +2234,7 @@ app.post('/api/ai-search', async (req, res) => {
       // Dev-only debug trace (Part 27) — present only when THIS server
       // process has AI_SEARCH_DEBUG_TRACE=true set; undefined otherwise.
       debug_trace: result.debug_trace,
+      pipeline: 'node-fallback',
     })
   } catch (e) {
     console.error('[ai-search] error:', e.message)

@@ -1,13 +1,21 @@
 'use strict'
 
 // Orchestrates AI Search (external/non-IndiHomes properties): connectors ->
-// normalize -> Azure AI Search external index -> query. No Claude anywhere
-// in this file — that's the whole point of this rework (brief rule 3).
+// Azure AI Search external index -> query. No Claude anywhere in this file.
+//
+// This is the genuinely-last-resort path — reached only when both the
+// Python agent (the classifying, eligibility-filtering pipeline — see
+// agent/README.md) and Places-direct discovery (server.cjs) are
+// unavailable. It intentionally does NOT reject resale/rental/category-page
+// candidates or verify geography — it just shows what a connector actually
+// returned, honestly, the same unclassified way Places-direct does. That
+// classification logic used to be duplicated here; removed once the agent
+// became reliably available (see scripts/run-agent.ps1's supervisor) so
+// there was no longer a second copy of it to keep in sync.
 
 const azureSearch = require('./azure-search.cjs')
 const { CONNECTORS, getConnectorStatus, placesConnector, placesVerify } = require('./external-connectors.cjs')
 const scoring = require('./scoring.cjs')
-const queryParser = require('./query-parser.cjs')
 
 function isEnabled() { return process.env.EXTERNAL_SEARCH_ENABLED === 'true' }
 // Dev-only debug trace (Part 27) — same server-side-only gate as the Python
@@ -110,101 +118,6 @@ function extractReraFromText(...texts) {
     if (m) return m[1].toUpperCase()
   }
   return null
-}
-
-// ── Sub-listing extraction from rejected category/search-results pages ────
-// Mirrors agent/agent/fact_extraction.py's extract_sub_listings exactly
-// (same reasoning, same RERA-anchored discipline — see that function's own
-// comment for the full writeup). A page correctly rejected as a category
-// page by isAggregatorTitle() can still name real, individually-identifiable
-// projects in its own body text, each with genuine RERA/price/carpet-area
-// facts. Confirmed live: "...Jadeite Kaveri... P51800079530 is the RERA
-// number of the project Jadeite Kaveri...". Deterministic-only, no LLM —
-// a sub-listing is only ever created when a real, shape-validated RERA
-// number anchors it; no RERA match nearby means no sub-listing.
-const RERA_GLOBAL_PATTERN = /\b(P[A-Z]{0,2}\d{9,13})\b/gi
-const RERA_OF_PROJECT_RE = /is\s+the\s+rera\s+number\s+of\s+the\s+project\s+([A-Z][A-Za-z0-9&.\-' ]{1,60}?)(?=[.,;:\n]|\s+(?:with|located|is|has|offers)\b|$)/i
-const TITLE_CASE_PHRASE_RE = /\b(?:[A-Z][a-z0-9]+(?:\s+|-)){1,4}[A-Z][a-z0-9]+\b/g
-// Same fixed word list as normalize.py's GENERIC_FILLER_WORDS — "the same
-// word means the same thing" across both pipelines.
-const GENERIC_FILLER_WORDS = new Set([
-  'bhk', 'flat', 'flats', 'apartment', 'apartments', 'property', 'properties',
-  'house', 'houses', 'for', 'sale', 'rent', 'in', 'near', 'below', 'resale',
-  'bedroom', 'luxury', 'budget', 'cr', 'crore', 'l', 'lakh', 'lakhs', 'and', 'the',
-])
-function isGenericPhrase(phrase) {
-  const words = (String(phrase || '').match(/[A-Za-z]+/g) || [])
-  return !words.length || words.every(w => GENERIC_FILLER_WORDS.has(w.toLowerCase()))
-}
-function nearestProjectName(text, reraStart, reraEnd) {
-  const window = text.slice(Math.max(0, reraStart - 40), Math.min(text.length, reraEnd + 160))
-  const explicit = RERA_OF_PROJECT_RE.exec(window)
-  if (explicit) {
-    const name = clean(explicit[1])
-    if (name && !isGenericPhrase(name)) return name
-  }
-  const before = text.slice(Math.max(0, reraStart - 150), reraStart)
-  const beforeMatches = [...before.matchAll(TITLE_CASE_PHRASE_RE)].map(m => m[0]).filter(p => !isGenericPhrase(p))
-  if (beforeMatches.length) return clean(beforeMatches[beforeMatches.length - 1])
-  const after = text.slice(reraEnd, Math.min(text.length, reraEnd + 150))
-  const afterMatches = [...after.matchAll(TITLE_CASE_PHRASE_RE)].map(m => m[0]).filter(p => !isGenericPhrase(p))
-  if (afterMatches.length) return clean(afterMatches[0])
-  return null
-}
-// Bounds fact extraction to sentences that actually mention THIS project's
-// own name — a fixed character radius alone bleeds a NEIGHBORING project's
-// price/area/possession into this one when several are described close
-// together in the same category-page paragraph (confirmed during
-// development, same bug the Python mirror was fixed for).
-function sentencesMentioningName(text, name, reraStart, reraEnd, radius = 400) {
-  const window = text.slice(Math.max(0, reraStart - radius), Math.min(text.length, reraEnd + radius))
-  const sentences = window.split(/(?<=[.!?])\s+/)
-  const nameLower = name.toLowerCase()
-  const kept = sentences.filter(s => s.toLowerCase().includes(nameLower))
-  return kept.length ? kept.join(' ') : window
-}
-// Deliberately minimal field set: this pipeline's OWN downstream .map()
-// step (below) already re-derives RERA (extractReraFromText), carpet
-// area/floors/connectivity (extractPropertyFacts), and lifecycle
-// (scoring.classifyLifecycleStatus) straight from `doc.name` + `doc.
-// description` for EVERY candidate — a sub-listing only needs to look
-// like a normal discovered `doc` (a real name + a real, sentence-scoped
-// description containing its own RERA/price/possession text) for all of
-// that existing machinery to apply identically, with no duplicate
-// extraction logic here. `budgetMax` is the one field read straight off
-// the object rather than re-parsed from text downstream, so it's set
-// explicitly via the same extractor query-parser.cjs already uses.
-function extractSubListings(doc) {
-  const text = `${doc.name || ''} ${doc.description || ''}`.trim()
-  if (!text) return []
-  const subItems = []
-  const seenRera = new Set()
-  const seenNames = new Set()
-  let m
-  RERA_GLOBAL_PATTERN.lastIndex = 0
-  while ((m = RERA_GLOBAL_PATTERN.exec(text))) {
-    const rera = m[1].toUpperCase()
-    if (seenRera.has(rera)) continue
-    const name = nearestProjectName(text, m.index, m.index + m[0].length)
-    if (!name || seenNames.has(name.toLowerCase())) continue
-    seenRera.add(rera)
-    seenNames.add(name.toLowerCase())
-    const factWindow = sentencesMentioningName(text, name, m.index, m.index + m[0].length)
-    const currency = doc.currency === 'AED' ? 'AED' : 'INR'
-    subItems.push({
-      name, description: factWindow.trim(),
-      sourceName: doc.sourceName, sourceUrl: doc.sourceUrl, sourceQuality: doc.sourceQuality,
-      location: doc.location, community: doc.community, city: doc.city, market: doc.market, currency: doc.currency,
-      budgetMax: queryParser.extractBudgetMax(factWindow, currency),
-      possessionDate: queryParser.extractPossession(factWindow) || null,
-      lastSeenAt: doc.lastSeenAt,
-      // Provenance (Part 2, follow-up spec) — mirrors Python's
-      // source_type: "category_page_extract" so this can be told apart
-      // from a page fetched/scraped directly for this specific project.
-      _fromCategoryPageExtract: true,
-    })
-  }
-  return subItems
 }
 
 // ── Canonical candidate ID (Part P1.2) — this pipeline (the legacy
@@ -364,55 +277,14 @@ function normalizedNameKey(name, location) {
   return `${nameKey}::${locKey}`
 }
 
-// Part 6 fuzzy tier — mirrors agent/dedupe.py's _fuzzy_match exactly (see
-// its own comment for the full reasoning): only reached when the exact
-// name+location key above misses, and only merges when MULTIPLE
-// independent signals agree — name-token overlap alone is never enough,
-// since two genuinely different projects routinely share a generic word
-// ("Heights", "Residency", "Garden", a compass direction). No lat/lon
-// proximity signal is available at this pipeline stage either (same
-// disclosed limitation as the Python side).
-const GENERIC_PROJECT_WORDS = new Set([
-  'heights', 'residency', 'enclave', 'residences', 'towers', 'tower',
-  'apartments', 'apartment', 'homes', 'home', 'gardens', 'garden',
-  'greens', 'green', 'park', 'phase', 'west', 'east', 'north', 'south',
-  'project', 'residential', 'properties', 'property',
-])
-function nameTokens(name) {
-  const stripped = coreNameKey(name).toLowerCase()
-  const words = (stripped.match(/[a-z0-9]+/g) || [])
-  return new Set(words.filter(w => !GENERIC_PROJECT_WORDS.has(w)))
-}
-function fuzzyMatch(a, b) {
-  const ta = nameTokens(a.name), tb = nameTokens(b.name)
-  if (!ta.size || !tb.size) return false
-  const inter = [...ta].filter(t => tb.has(t)).length
-  const union = new Set([...ta, ...tb]).size
-  if (inter / union < 0.5) return false
-  const devA = clean(a.developer || '').toLowerCase(), devB = clean(b.developer || '').toLowerCase()
-  const sameDeveloper = !!devA && !!devB && devA === devB
-  const locA = clean(a.location || '').toLowerCase(), locB = clean(b.location || '').toLowerCase()
-  const sameLocality = !!locA && !!locB && (locA === locB || locA.includes(locB) || locB.includes(locA))
-  return sameDeveloper || sameLocality
-}
-
 function mergeDuplicateProperties(list) {
   const groups = new Map()
   const singles = []
   for (const p of list) {
     const exactKey = normalizedNameKey(p.name, p.location)
     if (!exactKey.replace(/[^a-z0-9]/g, '')) { singles.push(p); continue }
-    let key = exactKey
-    if (!groups.has(key)) {
-      // Fuzzy tier — only tried once the exact key above misses. Small
-      // per-search candidate counts make an O(existing groups) scan per
-      // candidate cheap; correctness over cleverness here.
-      for (const [existingKey, existingGroup] of groups) {
-        if (fuzzyMatch(existingGroup[0], p)) { key = existingKey; break }
-      }
-    }
-    if (!groups.has(key)) groups.set(key, [])
-    groups.get(key).push(p)
+    if (!groups.has(exactKey)) groups.set(exactKey, [])
+    groups.get(exactKey).push(p)
   }
   const merged = [...singles]
   for (const group of groups.values()) {
@@ -468,63 +340,30 @@ async function queryExternal(query, filters = {}, market = 'india', { skip = 0, 
   const azureFilters = { market, locations: filters.locations, currency: market === 'dubai' ? 'AED' : 'INR' }
   const result = await azureSearch.searchExternal(query, azureFilters, { skip, top })
   const rejectedForDebug = []
-  // Whole-phrase location terms (Part 1) — the query's own free-text
-  // location mentions PLUS whatever explicit filter chips the frontend
-  // sent, deduped. Both are already real, extractive signals (never
-  // guessed) — extractLocations mirrors agent/query_understanding.py's
-  // extract_locations exactly.
-  const locationTerms = [...new Set([...(filters.locations || []), ...queryParser.extractLocations(query)])].filter(t => t && t.length >= 3)
-  // Part 2 (follow-up spec) — a page whose OWN title correctly reads as a
-  // category/search-results page can still have real, individually-named
-  // projects sitting in its own description text, each anchored by a
-  // genuine RERA number — confirmed live. Expand FIRST (mirrors agent/
-  // agent/normalize.py's normalize_all exactly): the wrapper page still
-  // goes on to fail the aggregator check below and gets rejected as
-  // always; each extracted sub-listing is a normal-shaped `doc` that
-  // flows through the SAME filter/lifecycle/geography/scoring pipeline as
-  // any other discovered candidate, never a second path.
-  const expandedResults = (result.results || []).flatMap(doc => [doc, ...(scoring.isAggregatorTitle(doc.name) ? extractSubListings(doc) : [])])
-  // Part 4 — structured, non-string-matched counts (incremented at the
-  // exact point each disqualifier fires, never inferred later from a
-  // rejection reason STRING, which would silently break if that wording
-  // changes) so a zero/thin result set's root cause is answerable: no
-  // eligible projects vs. sources returned only category pages vs.
-  // resale/rental vs. lifecycle unverified vs. an upstream source
-  // failure (cross-reference connectorErrors for that last case).
-  // `total` counts the EXPANDED pool (post category-page-extraction) —
-  // matches agent/agent/curator.py's _retrieval_metrics, which counts
-  // deduplicated_properties (also post-expansion), not the raw pre-
-  // extraction retrieval count.
-  const retrievalCounts = { total: expandedResults.length, aggregator: 0, resale: 0, rental: 0, unknown: 0, invalidName: 0 }
+  // Genuinely last-resort path (agent down AND Places-direct unavailable/
+  // unconfigured — see server.cjs's /api/ai-search) — no lifecycle/
+  // aggregator-page/geography classification here anymore. That logic
+  // lived only to make this fallback "smart"; the Python agent (now kept
+  // reliably up by scripts/run-agent.ps1's supervisor) is the one place
+  // that classification still runs. This path just shows what a connector
+  // actually returned, honestly unranked-by-eligibility, the same way the
+  // Places-direct path already does — still filtered for genuine spam
+  // (looksLikeUnrelatedCommerce) and garbage name extractions
+  // (looksLikeInvalidName, below), which are sanity checks, not lifecycle
+  // classification.
+  const retrievalCounts = { total: (result.results || []).length, invalidName: 0 }
   // How many raw candidates this run's discovery pool got specifically from
-  // the new Places connector (Part 1) — tracked regardless of whether they
+  // the Places connector (Part 1) — tracked regardless of whether they
   // survive the filter chain below, so the empty-result explanation can
   // honestly say "Places was also checked" rather than leaving Places'
   // involvement invisible to whoever reads a zero-result response.
-  const placesContributedCount = expandedResults.filter(d => d.sourceName === 'Google Places').length
-  const rawProperties = expandedResults
-    // Guide/category/aggregator pages ("Complete Guide: How to Buy...",
-    // "14+ Flats for Sale in Liberty Garden") are excluded outright here,
-    // not just down-ranked — the previous behavior (a -20% quality penalty
-    // inside scoreExternalProject) still let them appear in the results list
-    // at a lower position, which read as "guides mixed in with listings" to
-    // anyone scrolling past the first couple of results. A real listing
-    // whose title happens to trip this pattern is an acceptable rare
-    // false-positive versus routinely showing non-listings as search results.
-    .filter(doc => {
-      if (scoring.isAggregatorTitle(doc.name)) {
-        retrievalCounts.aggregator++
-        if (isDebugTraceEnabled()) rejectedForDebug.push({ name: doc.name, reason: 'Reads like a portal category/search-results page, not an individual project listing' })
-        return false
-      }
-      return true
-    })
+  const placesContributedCount = (result.results || []).filter(d => d.sourceName === 'Google Places').length
+  const rawProperties = (result.results || [])
     // Follow-up spec — confirmed live: a search connector returned a
     // candidate sourced from an unrelated domain (a German butcher shop's
     // site) indexed with keyword-stuffed text mentioning the searched
     // locality/possession year, but whose actual content is shopping/
-    // e-commerce spam, not a real-estate listing at all — passed the
-    // aggregator check (title doesn't read as a category page) untouched.
+    // e-commerce spam, not a real-estate listing at all.
     .filter(doc => {
       const unrelated = scoring.looksLikeUnrelatedCommerce(`${doc.name || ''} ${doc.description || ''}`)
       if (unrelated) {
@@ -532,77 +371,6 @@ async function queryExternal(query, filters = {}, market = 'india', { skip = 0, 
         return false
       }
       return true
-    })
-    // Hard lifecycle/transaction-type eligibility gate (Part 1-3) — a
-    // resale/rental listing can be perfectly well-formed (a real title,
-    // price, BHK, description) and still sail through the aggregator check
-    // above untouched, because it LOOKS like an individual listing page.
-    // This is the second, independent gate: even a well-formed individual
-    // listing is rejected outright (never merely down-ranked) if it isn't
-    // an eligible new-project lifecycle stage. Deterministic, no LLM.
-    .filter(doc => {
-      const { status, evidence } = scoring.classifyLifecycleStatus(doc)
-      doc._lifecycleStatus = status // stashed for the .map() below, avoids re-classifying
-      doc._lifecycleEvidence = evidence
-      if (!scoring.ALLOWED_LIFECYCLE_STATUSES.has(status)) {
-        if (status === 'RESALE') {
-          retrievalCounts.resale++
-          if (isDebugTraceEnabled()) rejectedForDebug.push({ name: doc.name, reason: 'Resale listing — not new-project inventory' })
-          return false
-        }
-        if (status === 'RENTAL') {
-          retrievalCounts.rental++
-          if (isDebugTraceEnabled()) rejectedForDebug.push({ name: doc.name, reason: 'Rental listing — not for sale' })
-          return false
-        }
-        if (status === 'READY_TO_MOVE') {
-          // A CONFIRMED stage outside this search's active policy (this
-          // search targets pre-completion inventory) — this is positive
-          // evidence of an ineligible stage, not an absence of evidence,
-          // so it's rejected outright regardless of source. Distinct from
-          // UNKNOWN below.
-          retrievalCounts.unknown++
-          if (isDebugTraceEnabled()) rejectedForDebug.push({ name: doc.name, reason: 'Ready-to-move / completed inventory — outside the active new-project search policy' })
-          return false
-        }
-        // UNKNOWN — deferred, not rejected outright (broadened escape
-        // hatch, mirrors agent/agent/graph.py's identical fix). Previously
-        // this only spared a candidate ALREADY Places-verified at THIS
-        // pipeline stage (doc.lat/doc.lon set — see external-connectors.cjs)
-        // — every other UNKNOWN candidate was rejected purely for LACKING
-        // lifecycle language, which treats an ABSENCE of evidence as if it
-        // were POSITIVE evidence of ineligibility. Every UNKNOWN candidate
-        // that survived the aggregator/unrelated-commerce checks above now
-        // gets a real verification attempt via the placesVerify pass below
-        // (bounded to PLACES_VERIFY_MAX, same as before) regardless of
-        // whether it was itself discovered by placesConnector; only a
-        // genuinely invalid-looking name (looksLikeInvalidName — the same
-        // independent identity check already applied elsewhere in this
-        // pipeline) is POSITIVE disqualifying evidence, applied in the
-        // unified filter step right after the placesVerify pass below —
-        // its absence alone is never itself disqualifying.
-        doc._unverifiedLifecycle = true
-        return true
-      }
-      return true
-    })
-    // Part 1 — geography/locality relevance gate. Confirmed live (2026-08-17):
-    // a Mumbai search for "Liberty Garden" surfaced a Las Vegas, NV
-    // home-builder listing ("Liberty at Mayfield") purely because its name
-    // contains the single word "Liberty" — location was only ever a SCORING
-    // dimension (scoreExternalProject's soft cap-at-55 rule), never a hard
-    // gate, so nothing stopped a coincidental word match from reaching final
-    // results when nothing better survived the lifecycle filter above.
-    // Deliberately WHOLE-PHRASE matching (never split into individual
-    // words) — "Liberty" alone must not satisfy "Liberty Garden". Skipped
-    // entirely when the query has no resolvable location at all (nothing to
-    // check against). Mirrors agent/graph.py's _matches_searched_location.
-    .filter(doc => {
-      if (!locationTerms.length) return true
-      const text = `${doc.name || ''} ${doc.location || ''} ${doc.community || ''} ${doc.city || ''} ${doc.description || ''}`.toLowerCase()
-      if (locationTerms.some(t => text.includes(t.toLowerCase()))) return true
-      if (isDebugTraceEnabled()) rejectedForDebug.push({ name: doc.name, reason: 'Does not appear to be located in the searched area — no match to the searched locality/city found in this candidate\'s own text' })
-      return false
     })
     .map(doc => {
       // Weighted against the ACTUAL parsed query filters (budget/location/
@@ -621,18 +389,7 @@ async function queryExternal(query, filters = {}, market = 'india', { skip = 0, 
       // score dimension) so "Matches: 2 BHK · Liberty Garden · deck" is
       // possible without changing the underlying confidence weighting.
       const matchedAmenities = (filters.amenities || []).filter(a => (doc.amenities || []).some(x => String(x).toLowerCase().includes(String(a).toLowerCase())))
-      let allReasons = matchedAmenities.length ? [...reasons, `${matchedAmenities.join(', ')} available`] : reasons
-      // Places-verified-but-lifecycle-unconfirmed candidates (see the
-      // filter step above) get the same 55-point ceiling this codebase
-      // already uses for a wrong-location/aggregator-page result — real,
-      // but never claimed as a strong confirmed match.
-      let finalConfidence = confidence
-      let finalTier = tier
-      if (doc._unverifiedLifecycle) {
-        finalConfidence = Math.min(confidence, 55)
-        finalTier = finalConfidence >= 40 ? 'TERTIARY' : 'LOW_MATCH'
-        allReasons = [...allReasons, 'Real building confirmed via Google Places near your search — new-launch/construction status could not be independently verified']
-      }
+      const allReasons = matchedAmenities.length ? [...reasons, `${matchedAmenities.join(', ')} available`] : reasons
       const propertyResult = {
         id: buildCanonicalCandidateId({ rera: extractedRera, name: doc.name, location: doc.location || doc.community || doc.city, sourceUrl: doc.sourceUrl }),
         name: doc.name, developer: doc.developer, location: doc.location || doc.community || doc.city,
@@ -662,29 +419,19 @@ async function queryExternal(query, filters = {}, market = 'india', { skip = 0, 
           placesVerified: true, placesLat: doc.lat, placesLon: doc.lon,
           placesPlaceId: doc.placeId, placesAddress: doc.formattedAddress,
         } : {}),
-        // Carried forward so the unified invalid-name gate after the
-        // placesVerify pass (below) knows this candidate's lifecycle was
-        // never confirmed — same discipline the escape hatch above uses.
-        ...(doc._unverifiedLifecycle ? { _unverifiedLifecycle: true } : {}),
-        confidence: finalConfidence, freshnessLabel,
-        match_score: finalConfidence,
+        confidence, freshnessLabel,
+        match_score: confidence,
         // Real, score-derived tier (Part 32) — previously unset on this
         // path, which left ProjectSelection.jsx's PropertyCard falling back
         // to pure array-position labeling for every Node-fallback result.
         // See scoreExternalProject's own comment in scoring.cjs.
-        match_tier: finalTier,
-        why: allReasons.length ? `${allReasons.join(' · ')} · ${freshnessLabel}` : `${finalConfidence}% source confidence · ${freshnessLabel}`,
+        match_tier: tier,
+        why: allReasons.length ? `${allReasons.join(' · ')} · ${freshnessLabel}` : `${confidence}% source confidence · ${freshnessLabel}`,
         matchReason: allReasons.join(' · ') || null,
         // "External market listing" — distinguishes this from an official
         // IndiHomes-catalog project everywhere the frontend needs to (see
         // ProjectSelection.jsx's toAnalysableProject: code stays null here).
         listingType: 'external',
-        // Deterministic lifecycle classification (Part 2/22) — already
-        // hard-filtered to an eligible stage by the time it reaches here
-        // (see the .filter() above); surfaced so the UI can label it and
-        // quote the real evidence text, never fabricated.
-        lifecycleStatus: doc._lifecycleStatus,
-        lifecycleEvidence: doc._lifecycleEvidence,
       }
       propertyResult.dataQuality = computeDataQuality(propertyResult)
       return propertyResult
@@ -705,9 +452,9 @@ async function queryExternal(query, filters = {}, market = 'india', { skip = 0, 
   if (filteredByFloor.length) properties = filteredByFloor
 
   // ── Part 2 (Places-augmented pipeline) — per-candidate name verification.
-  // Bounded to the candidates that already survived every gate above (real,
-  // eligible-looking, geography-matched) — not the raw discovery pool —
-  // same cost-control principle as the Python pipeline's bounded deep-
+  // Bounded to the candidates that already survived the spam/floor filters
+  // above — not the raw discovery pool — same cost-control principle as
+  // the Python pipeline's bounded deep-
   // research budget (5 candidates there; 8 here, matching the existing
   // "top 8" convention /api/competing-projects already uses). This pipeline
   // has no separate "name finalization" step the way the LangGraph
@@ -741,16 +488,13 @@ async function queryExternal(query, filters = {}, market = 'india', { skip = 0, 
       }
     })
   }
-  // Unified identity gate — runs regardless of whether placesConnector is
-  // even configured (a name-shape check never depended on Places to be
-  // meaningful) and regardless of a candidate's lifecycle status: ANY
-  // candidate whose Places verification didn't resolve (placesVerified is
-  // `false`, or was never attempted at all — e.g. Places not configured, or
-  // this candidate fell outside PLACES_VERIFY_MAX) is only rejected here if
-  // its NAME independently looks invalid. This is the ONE place lifecycle-
-  // UNKNOWN candidates deferred above (Part 1d's broadened escape hatch)
-  // can still be rejected — on POSITIVE evidence (an invalid-looking name),
-  // never on a plain absence of lifecycle evidence.
+  // Identity gate — a name-shape sanity check, independent of lifecycle
+  // classification (there is none left on this path): any candidate whose
+  // Places verification didn't resolve is only rejected here if its NAME
+  // independently looks invalid (garbage-extraction protection, e.g. the
+  // live "Security Alert" bot-interstitial case) — never on a plain
+  // absence of Places data, since a real project can simply not be in
+  // Places yet.
   properties = properties.filter(p => {
     if (p.placesVerified !== true && scoring.looksLikeInvalidName(p.name)) {
       retrievalCounts.invalidName++
@@ -763,60 +507,23 @@ async function queryExternal(query, filters = {}, market = 'india', { skip = 0, 
   // Never silently swallow a connector failure — when every connector that
   // ran this query failed, say exactly why (and what to configure instead)
   // rather than handing back an empty result with no explanation.
-  // Part 25 (test query 5) — a rental-intent query naturally lands on an
-  // empty result (RENTAL-classified candidates are hard-rejected above
-  // regardless of intent); say so plainly instead of leaving it unexplained.
   let message = buildConnectorFailureMessage(connectorErrors, activeConnectors.length)
-  if (!message && !properties.length && /\brent(al)?\b|\bto\s+let\b|\blease\b|\bpaying\s*guest\b|\bpg\b/i.test(query)) {
-    message = 'This search is for new residential projects for sale (under-construction, near-possession, or new-launch) — rental listings are not shown here. Try Property Search or a rental-specific listing site instead.'
-  } else if (!message && !properties.length && retrievalCounts.total > 0) {
-    // Part 17 — a genuinely empty (but correctly filtered) result set must
-    // say WHY, not just "no results": distinguishes "nothing exists" from
-    // "everything found was disqualified", using the SAME real counts
-    // retrievalCounts above tracks. Only the summary sentence is always
-    // shown; the full per-candidate breakdown stays debug-only below.
-    const bits = []
-    if (retrievalCounts.aggregator) bits.push(`${retrievalCounts.aggregator} were portal category/search-results pages, not individual projects`)
-    const rr = retrievalCounts.resale + retrievalCounts.rental
-    if (rr) bits.push(`${rr} were resale/rental listings`)
-    if (retrievalCounts.unknown) bits.push(`${retrievalCounts.unknown} had a lifecycle stage that couldn't be confidently verified`)
-    if (retrievalCounts.invalidName) bits.push(`${retrievalCounts.invalidName} had a name that could not be verified as a real project`)
-    const breakdown = bits.length > 1 ? `${bits.slice(0, -1).join(', ')}, and ${bits[bits.length - 1]}` : (bits[0] || 'None matched the active new-project search policy')
-    // Part 1's explicit transparency requirement — a zero-result response
-    // must say whether Google Places was ALSO checked (and found nothing),
-    // not leave that connector's involvement invisible. Only mentioned when
-    // Places is actually configured; silent when it isn't (same "never
-    // claim a check that didn't happen" rule as connectorErrors above).
+  if (!message && !properties.length && retrievalCounts.total > 0) {
     const placesNote = placesConnector.isConfigured()
-      ? ` Google Places was also checked (${placesContributedCount} additional candidate${placesContributedCount !== 1 ? 's' : ''} found${placesContributedCount ? ', none eligible' : ''}).`
+      ? ` Google Places was also checked (${placesContributedCount} additional candidate${placesContributedCount !== 1 ? 's' : ''} found).`
       : ''
-    message = `No verified new residential projects found. ${retrievalCounts.total} candidate${retrievalCounts.total !== 1 ? 's' : ''} were reviewed. ${breakdown}.${placesNote}`
+    message = `No results found. ${retrievalCounts.total} candidate${retrievalCounts.total !== 1 ? 's' : ''} were reviewed${retrievalCounts.invalidName ? `, ${retrievalCounts.invalidName} of which had a name that could not be verified as a real project` : ''}.${placesNote}`
   }
-  // Part 1e — always present (not debug-gated), unlike the richer
-  // per-candidate breakdown in debug_trace below. Aggregate COUNTS ONLY (no
-  // candidate names/URLs), safe for the frontend to read directly — this is
-  // what lets ProjectSelection.jsx distinguish "no candidates found at all"
-  // vs. "candidates found but explicitly disqualified" vs. "candidates
-  // found and plausible, but couldn't be verified" instead of collapsing
-  // all three into one generic empty state.
+  // Part 1e — always present (not debug-gated). Aggregate COUNTS ONLY (no
+  // candidate names/URLs), safe for the frontend to read directly. This
+  // path no longer classifies eligibility, so most of the richer breakdown
+  // the agent/Places-direct paths carry doesn't apply here — total/eligible
+  // is enough for ProjectSelection.jsx's empty-state to stay honest.
   const retrievalMetrics = {
     total_candidates: retrievalCounts.total,
-    individual_project_candidates: retrievalCounts.total - retrievalCounts.aggregator,
-    aggregator_pages: retrievalCounts.aggregator,
-    resale_candidates: retrievalCounts.resale,
-    rental_candidates: retrievalCounts.rental,
-    unknown_candidates: retrievalCounts.unknown,
     invalid_name_candidates: retrievalCounts.invalidName,
     eligible_candidates: properties.length,
-    // Summed from the always-tracked counts above, NOT rejectedForDebug —
-    // that array is only ever populated when AI_SEARCH_DEBUG_TRACE=true
-    // (see its push sites), so it would silently read 0 here on every
-    // production request otherwise.
-    rejected_candidates: retrievalCounts.aggregator + retrievalCounts.resale + retrievalCounts.rental + retrievalCounts.unknown + retrievalCounts.invalidName,
-    // Places-augmented pipeline (Part 1/38) — how many raw candidates
-    // came specifically from the new Google Places connector, real
-    // regardless of whether Places is even configured (0 either way
-    // when it isn't) — never inferred, always a genuine count.
+    rejected_candidates: retrievalCounts.invalidName,
     places_configured: placesConnector.isConfigured(),
     places_contributed_candidates: placesContributedCount,
   }
@@ -837,4 +544,4 @@ async function queryExternal(query, filters = {}, market = 'india', { skip = 0, 
   return response
 }
 
-module.exports = { isEnabled, getStatus, queryExternal, refreshExternalIndex, buildCanonicalCandidateId, mergeDuplicateProperties, extractSubListings }
+module.exports = { isEnabled, getStatus, queryExternal, refreshExternalIndex, buildCanonicalCandidateId, mergeDuplicateProperties }
