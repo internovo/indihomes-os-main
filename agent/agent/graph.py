@@ -362,80 +362,25 @@ def _apply_hard_eligibility_filter(scored: list, final: bool = False, location_t
                 # make the actual accept/reject call once that's happened.
                 accepted.append(p)
                 continue
-            # Places-verified escape hatch — the architectural change this
-            # comment documents: a candidate Google Places itself confirmed
-            # is a REAL, EXISTING building (places_verified is True, real
-            # lat/lon/place_id attached) should not be thrown away purely
-            # because nothing in its text ever stated a construction status
-            # — Places doesn't track that at all, so a real building found
-            # via Places is STRUCTURALLY unable to ever satisfy this gate the
-            # normal way. Confirmed live: a real search returned candidates
-            # correctly rejected here despite Places independently verifying
-            # them as genuine buildings in the searched area. Rather than
-            # keep silently discarding real, verified inventory, this now
-            # ACCEPTS a Places-verified candidate whose lifecycle status
-            # simply couldn't be determined — but marks it
-            # `_unverified_lifecycle=True` so scoring.py caps its tier and
-            # the frontend renders it as "real building, launch status not
-            # confirmed" rather than claiming it's a verified new-launch
-            # project. This is exactly the same honesty standard Competitor
-            # Analysis already uses (real buildings, no lifecycle claim at
-            # all) — not a relaxation of what "confirmed new-launch" means
-            # for every OTHER candidate, which keeps the existing strict
-            # rule unchanged.
-            def _accept_unverified(p: dict, honest_reason: str) -> dict:
-                p = dict(p)
-                p["_unverified_lifecycle"] = True
-                # Cap here, not in scoring.py — score_all() already ran
-                # before this filter (node_final_scoring's own order), so
-                # this is the first point that KNOWS the candidate's
-                # lifecycle is unconfirmed. Never claim PRIMARY/SECONDARY
-                # ("strongly matches") for a building whose construction
-                # status is honestly unknown — same 55 ceiling this codebase
-                # already uses for a wrong-location or aggregator-page
-                # result, for the same reason: real, but not a strong
-                # confirmed match.
-                p["match_score"] = min(p.get("match_score", 0), 55)
-                p["match_tier"] = "TERTIARY" if p["match_score"] >= 40 else "LOW_MATCH"
-                p["match_reasons"] = list(p.get("match_reasons") or []) + [honest_reason]
-                return p
-
-            if p.get("places_verified") is True:
-                accepted.append(_accept_unverified(
-                    p, "Real building confirmed via Google Places near your search — new-launch/construction status could not be independently verified"
-                ))
-                continue
-            # Broadened escape hatch (AI Property Search spec, "UNKNOWN must
-            # not auto-reject") — this used to be Places-verification-only.
-            # The rule this codebase otherwise applies everywhere (dedup,
-            # geography gating, name extraction — "upgrade, never guess, and
-            # a candidate gets every chance research affords before being
-            # thrown away") was being violated specifically for a candidate
-            # whose lifecycle simply never resolved: a plain ABSENCE of
-            # lifecycle evidence was treated as if it were POSITIVE evidence
-            # of ineligibility, for every candidate except the (comparatively
-            # rare) Places-sourced ones. status == "UNKNOWN" here (never
-            # READY_TO_MOVE, which is deliberately excluded further down —
-            # that status is a CONFIRMED stage outside this search's policy,
-            # not an absence of evidence) has, by construction, already
-            # cleared every other hard gate above (not an aggregator page,
-            # not resale/rental, not unrelated commerce) by this point in
-            # the loop — 1b's deep-research/targeted-research prioritization
-            # already gave it real priority for a genuine verification
-            # attempt (see _prioritize_for_deep_research above) ahead of
-            # already-eligible candidates. Only a genuinely invalid-looking
-            # name (looks_like_invalid_name — the same independent identity
-            # check applied to every other candidate a few lines below) is
-            # POSITIVE disqualifying evidence here; its absence is not.
-            if status == "UNKNOWN" and not normalize_mod.looks_like_invalid_name(p.get("name") or ""):
-                accepted.append(_accept_unverified(
-                    p, "Individual project found near your search, but its launch/construction status could not be confirmed even after research — verify directly before presenting to a buyer."
-                ))
-                continue
+            # Final pass, still outside the allowed set (READY_TO_MOVE, or
+            # UNKNOWN even after deep research had every chance to resolve
+            # it) — rejected outright, no exceptions. This used to have two
+            # escape hatches here: a Places-verified acceptance ("a real,
+            # existing building shouldn't be discarded just because Places
+            # doesn't track construction status") and a broader "any
+            # UNKNOWN + valid-looking name" acceptance — both accepted the
+            # candidate anyway with a score capped to TERTIARY and an
+            # honest "status not confirmed" label, rather than rejecting.
+            # Removed per explicit policy: this search must strictly show
+            # only new-launch/pre-launch/under-construction/near-possession
+            # inventory. A real building whose construction status simply
+            # never resolved — however confidently Places verified its
+            # existence, however plausible its name looks — is not
+            # confirmed new-project inventory, so it is not shown, full
+            # stop. No capped/labeled middle ground.
             reason = (
                 "Ready-to-move / completed inventory — outside the active new-project search policy" if status == "READY_TO_MOVE"
-                else "Could not verify this is a real project name" if status == "UNKNOWN"
-                else "Lifecycle stage could not be confidently determined even after deep research"
+                else "Launch/construction status could not be confirmed as new-project inventory even after deep research"
             )
             rejected.append({"name": p.get("name") or p.get("id"), "reason": reason, "evidence": p.get("lifecycle_evidence_text")})
             continue

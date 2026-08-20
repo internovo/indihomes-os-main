@@ -58,6 +58,29 @@ async def rera_lookup_route(req: ReraLookupRequest):
     return {"rera": rera, "found": bool(rera), "duration_ms": record["duration_ms"]}
 
 
+# System A (Places-direct) enrichment — a lightweight, SCOPED sibling to
+# /agent/rera-lookup above, same reasoning: an already-identified building
+# (this time from Google Places, not RERA lookup) gets ONE bounded real
+# web search + extraction pass, reusing tools.enrich_property (itself
+# reusing deep_research's own fact_extraction/normalize machinery) rather
+# than a second extraction pipeline. Called from server.cjs's Places-direct
+# branch, bounded to the top 10-15 results by Places' own relevance rank —
+# never the full 20, and never blocking Places-direct's own discovery call.
+class EnrichPropertyRequest(BaseModel):
+    name: str
+    locality: str | None = None
+    city: str | None = None
+    configuration: str | None = None
+    market: str = "india"
+
+
+@app.post("/agent/enrich-property")
+async def enrich_property_route(req: EnrichPropertyRequest):
+    result, record = await agent_tools.enrich_property(req.name, req.locality, req.city, req.configuration, req.market)
+    result["duration_ms"] = record["duration_ms"]
+    return result
+
+
 @app.get("/health")
 async def health():
     reasoning = LLMRouter("reasoning")

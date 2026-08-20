@@ -311,10 +311,27 @@ def dedupe(properties: list[NormalizedProperty]) -> list[NormalizedProperty]:
         rera = p.get("rera")
         name_loc_key = f"{_core_name_key(p.get('name'))}::{_key(p.get('location'))}"
 
+        # A category page's extracted sub-listings (normalize.py's
+        # extract_sub_listings, source_type "category_page_extract") inherit
+        # the PARENT page's URL verbatim — they're synthetic entries pulled
+        # out of one real page's body text, not each their own fetched page.
+        # Live-caught bug (Mahatre Wadi trace): the URL tier below treated
+        # that shared, inherited URL as if it identified one real listing,
+        # so the SECOND sub-listing extracted from a page always got
+        # redirected into the FIRST sub-listing's group via url_index —
+        # regardless of their distinct names/RERA numbers — collapsing e.g.
+        # "Arkade Vistas"/"Im Applaud"/"Mahant Sahyadree" back into one
+        # candidate, exactly the bug extract_sub_listings exists to avoid.
+        # Excluded from both matching against and registering into
+        # url_index; they still correctly merge via the RERA or
+        # name+locality tiers when two sub-listings really are the same
+        # project.
+        is_synthetic_url = "category_page_extract" in (p.get("source_types") or [])
+
         key = name_loc_key
         if rera and _looks_like_real_rera(rera) and rera in rera_index:
             key = rera_index[rera]
-        elif source_url and source_url in url_index:
+        elif not is_synthetic_url and source_url and source_url in url_index:
             key = url_index[source_url]
         elif key not in groups:
             # Part 6 fuzzy tier — only tried once the three exact-match
@@ -340,7 +357,7 @@ def dedupe(properties: list[NormalizedProperty]) -> list[NormalizedProperty]:
 
         if rera and _looks_like_real_rera(rera):
             rera_index[rera] = key
-        if source_url:
+        if not is_synthetic_url and source_url:
             url_index[source_url] = key
 
     return list(groups.values())

@@ -16,6 +16,7 @@ import httpx
 from langsmith import traceable
 
 from . import cache
+from . import dedupe as _dedupe
 from . import fact_extraction as _fact_extraction
 from .state import EvidenceItem, FetchedPage, ToolCallRecord
 
@@ -247,6 +248,25 @@ async def portal_search(query: str, market: str, locations: list[str], configura
         cache_namespace="portal-search", cache_key=f"{market}:{','.join(sorted(locations))}:{configuration or ''}",
     )
     evidence = data.get("evidence", [])
+    # portal_search's underlying connector (legacy-portal-connector.cjs — a
+    # direct, non-headless Playwright DOM scrape of 99acres/MagicBricks
+    # city-listing pages) has the SAME "dead in this deployment" shape
+    # already found and fixed for web_search's Google CSE/Bing: confirmed
+    # live (repeated across several different localities this session) —
+    # it reaches the real per-city scrape step (`SSR source=dom domCards=0`
+    # in the Node logs) and consistently finds zero cards, most plausibly
+    # the connector's own documented "only reliable from a residential IP"
+    # limitation, not a query-building bug on this (agent) side. Same fix,
+    # same reused tool, no second fallback mechanism: fall back to
+    # tavily_search, which is ALREADY site-scoped to exactly these two
+    # portals for every call (external-connectors.cjs's
+    # biasQueryToPortals() appends "(site:99acres.com OR site:magicbricks.com
+    # OR ...)" to every Tavily query for the India market) — this genuinely
+    # is the same 99acres/MagicBricks-scoped search portal_search was
+    # always trying to do, just via a connector that's actually healthy
+    # here.
+    if not evidence:
+        evidence, _ = await tavily_search(query, market)
     return evidence, ToolCallRecord(tool="portal_search", args=payload,
                                      status="error" if err and not evidence else "ok", count=len(evidence),
                                      duration_ms=duration_ms, error=err, cache_hit=cache_hit)
@@ -378,6 +398,68 @@ async def rera_lookup(name: str, locality: Optional[str], city: Optional[str]) -
     return rera_found, ToolCallRecord(
         tool="rera_lookup", args={"name": name, "locality": locality, "city": city},
         status="ok", count=1 if rera_found else 0, duration_ms=duration_ms, error=None, cache_hit=False,
+    )
+
+
+@traceable(name="enrich_property", run_type="tool")
+async def enrich_property(name: str, locality: Optional[str], city: Optional[str], configuration: Optional[str], market: str) -> tuple[dict, ToolCallRecord]:
+    """Places-direct's bounded per-result enrichment (Places has no price or
+    lifecycle-status data at all) — one real web search + page fetch for a
+    SINGLE already-discovered Places result, reusing the exact same
+    extraction machinery the main pipeline's deep_research uses
+    (fact_extraction.deterministic_extract, which itself calls
+    normalize.classify_lifecycle_status against the real fetched page text —
+    never a second, differently-calibrated classifier) rather than a
+    parallel extraction pipeline built just for this. Deliberately bounded
+    to at most 2 page fetches (not deep_research's multi-source, multi-
+    iteration research) — Places-direct's whole reason for existing is
+    being much cheaper than the full agent path; this stays a light,
+    single-purpose lookup, not a second research pass.
+
+    Never fabricates — every returned field stays None/empty/"UNKNOWN" when
+    nothing was actually found on a real fetched page, same "absent, not
+    guessed" discipline as every other extractor in this codebase.
+    """
+    start = time.monotonic()
+    query = f"{name} {locality or ''} price possession".strip()
+    evidence, _ = await web_search(query, market)
+    # web_search (Google CSE + Bing) can come back genuinely empty in a
+    # deployment where those specific connectors aren't healthy (confirmed
+    # live in this one: Google CSE 403s, Bing isn't configured) — falls back
+    # to tavily_search, the SAME tool the main deep-research pipeline
+    # already relies on for this exact kind of query, rather than leaving
+    # this bounded lookup silently starved because of an unrelated
+    # connector-health gap. Still just one extra search, still bounded.
+    if not evidence:
+        evidence, _ = await tavily_search(query, market)
+    urls = [e.get("source_url") for e in evidence[:2] if e.get("source_url")]
+    merged: dict = {"name": name, "lifecycle_status": "UNKNOWN"}
+    pages_fetched = 0
+    for url in urls:
+        page, _ = await fetch_page(url, candidate=name, source_type="places-enrich")
+        pages_fetched += 1
+        if page.get("status") != "success" or not page.get("content"):
+            continue
+        facts, features = _fact_extraction.deterministic_extract(name, page)
+        if facts or features:
+            merged = _dedupe.merge_extracted_facts(merged, facts, features)
+        # Stop early once this bounded lookup has both a real price AND a
+        # resolved (non-UNKNOWN) lifecycle status — nothing more for a
+        # single-search enrichment to usefully learn from a second page.
+        if merged.get("price_display") and merged.get("lifecycle_status") != "UNKNOWN":
+            break
+    result = {
+        "price": merged.get("price_display"),
+        "rera": merged.get("rera"),
+        "lifecycle_status": merged.get("lifecycle_status") or "UNKNOWN",
+        "lifecycle_evidence_text": merged.get("lifecycle_evidence_text"),
+        "configuration_evidence": merged.get("configuration_evidence") or {},
+    }
+    duration_ms = int((time.monotonic() - start) * 1000)
+    return result, ToolCallRecord(
+        tool="enrich_property",
+        args={"name": name, "locality": locality, "city": city, "configuration": configuration, "market": market},
+        status="ok", count=pages_fetched, duration_ms=duration_ms, error=None, cache_hit=False,
     )
 
 

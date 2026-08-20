@@ -359,8 +359,14 @@ async def curate(state: ResearchState) -> dict:
             "factual field (price, BHK, possession, RERA, developer, amenities, location). "
             "You may only: pick which of the given candidates to feature, write a short "
             "(2-3 sentence) summary of the result set, write one short 'key_match' "
-            "sentence per property explaining why it matches (using ONLY the match_reasons "
-            "already provided), and write a clean 'display_name' per property. "
+            "sentence per property explaining why it matches, and write a clean "
+            "'display_name' per property. RULES FOR key_match: write ONE genuine, "
+            "natural-language sentence grounded ONLY in the match_reasons/fields already "
+            "given for that property (e.g. 'This 2 BHK in Malad West is under construction "
+            "and within your ₹1.5Cr budget.') — never a fact not present in the data, "
+            "never just copying a match_reasons string verbatim without turning it into a "
+            "real sentence, and never mentioning a field that's null/missing for this "
+            "property. "
             "RULES FOR display_name: many raw titles are generic portal SEO text "
             "('BHK / Bedroom Apartment / Flat for rent in JB Nagar Mumbai for 25000 - "
             "Makaan.com') rather than an actual project/building name \u2014 rewrite these into "
@@ -407,7 +413,18 @@ async def curate(state: ResearchState) -> dict:
         summary = _deterministic_summary(state, selected)
     for p in selected:
         if "key_match" not in p:
-            p["key_match"] = p["match_reasons"][0] if p["match_reasons"] else "Matches your search on available evidence."
+            # No LLM configured (or it returned nothing usable) — same
+            # location-preferred, then-configuration, then-first-available
+            # priority as scoring.cjs's pickPrimaryMatchReason (Node side),
+            # so a candidate without a real key_match still gets the most
+            # relevant single reason, not just whichever happened to be
+            # first in match_reasons' own (budget-first) internal order.
+            reasons = p["match_reasons"] or []
+            p["key_match"] = (
+                next((r for r in reasons if "location" in r.lower() or "locality" in r.lower() or "located" in r.lower()), None)
+                or next((r for r in reasons if "bhk" in r.lower() or "configuration" in r.lower()), None)
+                or (reasons[0] if reasons else "Matches your search on available evidence.")
+            )
 
     requested_amenities = (state.get("parsed_requirements") or {}).get("amenities") or []
     verification_by_candidate = {v["candidate"]: v for v in state.get("verification_results", [])}

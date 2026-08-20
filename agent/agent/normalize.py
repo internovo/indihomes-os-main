@@ -161,7 +161,20 @@ PORTAL_CATEGORY_TITLE_RE = re.compile(
     # portal's own "<count>+ <config> Flats/Apartments in <Place>" SEO
     # title is actually phrased. Second group now accepts that full
     # configuration phrase, not just a bare "bhk".
-    r"^\s*(\d+\+?\s*)?(\d+(?:\s*[&,]\s*\d+)*\s*(?:bhk|bed(?:room)?s?)\s*)?([/\s]*(flats?|apartments?|propert(y|ies)|resale(\s+flats?)?|new\s+projects?|projects?|houses?|rooms?|bedroom))+\b.{0,50}\b(in|for\s+sale|for\s+rent|near)\b",
+    #
+    # Live-caught gap (Mahatre Wadi trace, this pass): "BHK Flats in
+    # Pandurang Wadi, Mumbai - 3 2 BHK Flats for Sale..." wasn't matching
+    # EITHER — the config group above still required a digit BEFORE "bhk"
+    # (the whole group is optional, but if it tries to match "bhk" at all
+    # it demanded a leading number), so a title that opens with a bare
+    # "BHK" (no digit — the site's own generic multi-config category page,
+    # or a garbled/truncated title upstream) left "BHK" unconsumed at
+    # position 0 and defeated the anchored match entirely, letting a real
+    # 5-6-listing category page survive as ONE fake "candidate" with all
+    # of them merged. The digit is now optional WITHIN the config group
+    # itself, so a bare "BHK Flats in X" matches exactly like "1 BHK Flats
+    # in X" does.
+    r"^\s*(\d+\+?\s*)?((?:\d+(?:\s*[&,]\s*\d+)*\s*)?(?:bhk|bed(?:room)?s?)\s*)?([/\s]*(flats?|apartments?|propert(y|ies)|resale(\s+flats?)?|new\s+projects?|projects?|houses?|rooms?|bedroom))+\b.{0,50}\b(in|for\s+sale|for\s+rent|near)\b",
     re.IGNORECASE,
 )
 # Trailing "N+ Properties/Flats/Apartments" count, with or without a

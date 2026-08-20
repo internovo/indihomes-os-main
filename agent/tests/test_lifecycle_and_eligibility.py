@@ -220,15 +220,17 @@ scored = [
     {"id": "d", "name": "Buy 1 BHK in Borivali", "match_score": 70, "is_aggregator": True, "lifecycle_status": "UNKNOWN"},
     {"id": "e", "name": "Godrej Horizon", "match_score": 82, "is_aggregator": False, "lifecycle_status": "NEW_LAUNCH"},
     # "Mystery Listing" is a real-looking name (not caught by
-    # looks_like_invalid_name) with UNKNOWN lifecycle — the broadened
-    # escape-hatch case (Part 1d): absence of lifecycle evidence is not
-    # itself disqualifying, so this must be ACCEPTED (capped/honest), not
-    # rejected, on the final pass.
+    # looks_like_invalid_name) with UNKNOWN lifecycle. No escape hatch for
+    # this anymore — the search must strictly show only confirmed new-
+    # launch/pre-launch/under-construction/near-possession inventory, so
+    # this is REJECTED on the final pass, full stop, despite the highest
+    # score in the batch and an otherwise-plausible name.
     {"id": "f", "name": "Mystery Listing", "match_score": 95, "is_aggregator": False, "lifecycle_status": "UNKNOWN"},
-    # "Security Alert" — an actually invalid-looking name (garbage-page
-    # interstitial title) with UNKNOWN lifecycle — POSITIVE disqualifying
-    # evidence (the name itself), so this one still IS rejected on the
-    # final pass despite the highest score in the batch.
+    # "Security Alert" — an invalid-looking name (garbage-page interstitial
+    # title) with UNKNOWN lifecycle. Also rejected — same outcome as "f"
+    # now that the escape hatches are gone, but kept as its own case since
+    # it used to be rejected for a DIFFERENT reason (positive disqualifying
+    # name evidence, not just an unresolved lifecycle).
     {"id": "g", "name": "Security Alert", "match_score": 99, "is_aggregator": False, "lifecycle_status": "UNKNOWN"},
 ]
 # First pass (final=False, before deep_research) — RESALE/RENTAL/aggregator
@@ -247,19 +249,17 @@ check("every first-pass rejection carries a reason", all(r.get("reason") for r i
 check("first-pass rejected count matches (resale+rental+aggregator only)", len(rejected) == 3)
 
 # Second pass (final=True, after deep_research had its chance) — anything
-# CONFIRMED ineligible (resale/rental/aggregator/READY_TO_MOVE, or UNKNOWN
-# with a positively invalid-looking name) is rejected for real; a
-# still-UNKNOWN candidate with an otherwise-real-looking name is ACCEPTED
-# (capped tier, honest reason) — Part 1d's broadened escape hatch: absence
-# of lifecycle evidence is not itself disqualifying evidence.
+# still outside ALLOWED_LIFECYCLE_STATUSES is now rejected outright, no
+# exceptions: no Places-verified escape hatch, no "UNKNOWN + valid-looking
+# name" escape hatch. A candidate whose construction status never resolved
+# is not confirmed new-project inventory, so it is not shown.
 accepted2, rejected2 = _apply_hard_eligibility_filter(scored, final=True)
 accepted2_ids = {p["id"] for p in accepted2}
-accepted2_by_id = {p["id"]: p for p in accepted2}
 check("final pass: confirmed-eligible candidates kept", {"a", "e"} <= accepted2_ids)
-check("final pass: UNKNOWN with a real-looking name is ACCEPTED, not rejected, even though never confirmed", "f" in accepted2_ids)
-check("final pass: that acceptance is honestly capped, never claimed as a strong confirmed match", accepted2_by_id["f"]["match_score"] <= 55 and accepted2_by_id["f"].get("_unverified_lifecycle") is True)
-check("final pass: UNKNOWN with an invalid-looking name (positive disqualifying evidence) IS rejected, despite the highest score", "g" not in accepted2_ids)
-check("final-pass rejected count matches (resale+rental+aggregator+invalid-named-unknown)", len(rejected2) == 4)
+check("final pass: UNKNOWN with a real-looking name is now REJECTED (no escape hatch), even with the highest score", "f" not in accepted2_ids)
+check("final pass: UNKNOWN with an invalid-looking name is REJECTED", "g" not in accepted2_ids)
+check("final-pass rejected count matches (resale+rental+aggregator+both still-UNKNOWN candidates)", len(rejected2) == 5)
+check("every final-pass rejection carries a reason", all(r.get("reason") for r in rejected2))
 
 # ── deterministic ranking / tie-breaker ──────────────────────────────────
 tied = [
@@ -415,6 +415,25 @@ check("the wrapper page itself is STILL correctly flagged is_aggregator (rejecte
 extracted_names = {p["name"] for p in normalized} - {category_evidence["title"]}
 check("both real sub-listings appear as their own non-aggregator candidates", extracted_names == {"Jadeite Kaveri", "Ruparel Optima"})
 check("sub-listing candidates are correctly NOT flagged as aggregator pages themselves", all(p["is_aggregator"] is False for p in normalized if p["name"] in extracted_names))
+
+# ── Real live bug (Mahatre Wadi trace): dedupe()'s URL-matching tier
+# treated the wrapper page's URL — inherited VERBATIM by every one of its
+# extract_sub_listings() sub-listings, since they're synthetic entries
+# pulled from one real page's body text, not each their own fetched page —
+# as if it uniquely identified one real listing. The result: the SECOND
+# sub-listing sharing that URL got silently redirected into the FIRST
+# sub-listing's group regardless of its own distinct name/RERA, collapsing
+# genuinely different projects (confirmed live: "Arkade Vistas"/"Im
+# Applaud"/"Mahant Sahyadree"/"Space Residence II") into one fake merged
+# candidate. This is the exact `normalized` pool from the case just above —
+# three entries (the rejected wrapper + 2 real sub-listings) that ALL share
+# one inherited source_url.
+deduped_sub_listings = dedupe(normalized)
+check("category-page sub-listings sharing an inherited URL are NOT collapsed into one candidate", len(deduped_sub_listings) == 3)
+deduped_names = {p["name"] for p in deduped_sub_listings}
+check("each sub-listing keeps its own distinct name after dedupe", deduped_names == {category_evidence["title"], "Jadeite Kaveri", "Ruparel Optima"})
+jadeite_deduped = next(p for p in deduped_sub_listings if p["name"] == "Jadeite Kaveri")
+check("the surviving sub-listing candidate keeps its OWN rera, not a merged/foreign one", jadeite_deduped["rera"] == "P51800079530")
 
 # ── Follow-up: deep-research must classify lifecycle from the REAL fetched
 # page's own title+content, not just a narrow set of already-structured
