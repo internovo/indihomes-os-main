@@ -303,4 +303,67 @@ function parseExternalQuery(query, market = 'india') {
   }
 }
 
-module.exports = { parseNLQuery, parseExternalQuery, extractLocations, extractBudgetMaxCr, extractBudgetMax, extractConfiguration, extractPossession, extractAmenities }
+// ── AI Search query defense — a cheap, deterministic pre-check applied
+// ONCE before any pipeline (agent/Places-direct/Node fallback) processes a
+// query. A genuine property search always has at least one recognizable
+// shape signal (a KNOWN locality, a configuration, a budget, a possession
+// mention, or a generic real-estate noun) — no LLM call, no per-phrase
+// injection blocklist (a losing, gameable game); an off-topic question or
+// an instruction-injection attempt has no property-search shape at all,
+// caught by the SAME positive check that accepts a genuine, if terse,
+// real query like "Malad West" or "under 1.5 Cr".
+//
+// Deliberately does NOT reuse filters.locations from parseExternalQuery —
+// confirmed live, that field's generic Title-Case fallback tier (built to
+// catch a real but non-gazetteer locality, e.g. a Dubai neighborhood) is
+// far too permissive for a SECURITY check: "What is the capital of
+// France?" / "Ignore all previous instructions..." / "You are now DAN..."
+// all extracted a bogus "location" ("France"/"Ignore"/"You"/"Dan") purely
+// because those words happen to be capitalized. Uses a direct, STRICT
+// membership check against the real gazetteer's own city/locality/alias
+// names instead — a real signal, not "any capitalized word."
+const KNOWN_LOCALITY_RE = (() => {
+  const names = new Set()
+  for (const city of Object.keys(GAZETTEER.cities || {})) names.add(city)
+  for (const localities of Object.values(GAZETTEER.cities || {})) for (const l of localities) names.add(l)
+  for (const alias of Object.values(GAZETTEER.aliases || {})) {
+    if (alias.canonical) names.add(alias.canonical)
+    if (alias.parent) names.add(alias.parent)
+    if (alias.city) names.add(alias.city)
+  }
+  names.add('Dubai'); names.add('UAE')
+  const escaped = [...names].filter(Boolean).map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  return new RegExp(`\\b(${escaped.join('|')})\\b`, 'i')
+})()
+const GENERIC_REAL_ESTATE_NOUN_RE = /\b(flats?|apartments?|propert(?:y|ies)|projects?|villas?|plots?|houses?|homes?|residential|residences?|condos?|society|societies|complex|towers?|buildings?|real\s*estate|builder|developer)\b/i
+// A bare, hyper-local locality name outside the (Mumbai-only) gazetteer's
+// coverage — "Mahatre Wadi", "Kandarpada" — must still pass; the strict
+// gazetteer check above alone rejects real micro-localities it simply
+// doesn't list. Structural fallback: SHORT (<=5 words), every word Title-
+// Case-or-ALL-CAPS with no lowercase function word anywhere, and no
+// sentence-shaped stopword — a real English sentence (question, instruction,
+// injection attempt) always has at least one of "is/the/of/you/ignore/tell/
+// me/..." somewhere; a bare place name never does. Deliberately errs toward
+// ACCEPTING an unfamiliar-but-plausible place name (worst case: an honest
+// "no results found" from the pipelines, not a security issue) over
+// rejecting a genuine hyper-local search.
+const SENTENCE_SHAPE_STOPWORD_RE = /\b(is|are|was|were|the|of|what|who|when|where|why|how|you|your|yourself|please|now|ignore|forget|disregard|previous|instructions?|system|prompt|prompts|tell|me|explain|write|generate|translate|joke|story|recipe|poem|code|hack|jailbreak|act|pretend|roleplay|reveal|repeat|output|print)\b/i
+function looksLikeBareLocalityPhrase(text) {
+  const words = String(text || '').trim().split(/\s+/).filter(Boolean)
+  if (!words.length || words.length > 5) return false
+  if (SENTENCE_SHAPE_STOPWORD_RE.test(text)) return false
+  return words.every(w => /^[A-Z][a-zA-Z'-]*$/.test(w))
+}
+function isPropertySearchQuery(query, filters) {
+  const text = String(query || '')
+  if (filters?.configuration) return true
+  if (filters?.bedrooms != null) return true
+  if (filters?.budgetMax != null) return true
+  if (filters?.possession) return true
+  if (filters?.amenities?.length) return true
+  if (KNOWN_LOCALITY_RE.test(text)) return true
+  if (looksLikeBareLocalityPhrase(text)) return true
+  return GENERIC_REAL_ESTATE_NOUN_RE.test(text)
+}
+
+module.exports = { parseNLQuery, parseExternalQuery, extractLocations, extractBudgetMaxCr, extractBudgetMax, extractConfiguration, extractPossession, extractAmenities, isPropertySearchQuery }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { Search, Loader2, MapPin, Bed, IndianRupee, Calendar, Hammer, Sparkles, History, X, TriangleAlert, ArrowDown, SlidersHorizontal, ClipboardList, Inbox, ExternalLink, Star } from 'lucide-react'
+import { Search, Loader2, MapPin, Bed, IndianRupee, Calendar, Hammer, Sparkles, History, X, TriangleAlert, ArrowDown, ArrowRight, SlidersHorizontal, ClipboardList, Inbox, ExternalLink, Star } from 'lucide-react'
 import gazetteer from '../../../../shared/mmr-gazetteer.json'
 import FieldBadge from '../ui/FieldBadge.jsx'
 import { EmptyValue } from '../ui/EmptyState.jsx'
@@ -354,10 +354,12 @@ function ProjectCard({ project, index, active, onActivate, selected, onToggle, b
   )
 }
 
-// Floating bar shown only while building a multi-project Campaign Brief
-// (briefMode) — the per-card "Select & Analyse" button now handles single-
-// project analysis directly, so this bar no longer needs its own analyse action.
-function BriefBar({ count, onClear, onBrief }) {
+// Floating selection bar — shared by Property Search's "build a multi-
+// project Campaign Brief" flow and AI Search's "Analyse Selected" flow
+// (Item 6: reuses this one component instead of building a second bar),
+// parameterized by subtitle/action copy so each caller's bulk action reads
+// correctly without forking the component.
+function BriefBar({ count, onClear, onAction, subtitle = 'Ready for campaign brief', actionLabel = 'Generate Campaign Brief', actionTitle = 'Generate a deterministic campaign brief from the selected projects — no AI/LLM involved', actionIcon: ActionIcon = ClipboardList, actionColor = '#F7941D' }) {
   return (
     <div style={{
       position: 'fixed', bottom: 28, left: '50%', transform: 'translateX(-50%)',
@@ -380,7 +382,7 @@ function BriefBar({ count, onClear, onBrief }) {
           <div style={{ fontWeight: 700, fontSize: 14 }}>
             {count === 1 ? '1 project selected' : `${count} projects selected`}
           </div>
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>Ready for campaign brief</div>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>{subtitle}</div>
         </div>
       </div>
       <button
@@ -390,11 +392,11 @@ function BriefBar({ count, onClear, onBrief }) {
         Clear
       </button>
       <button
-        onClick={onBrief}
-        title="Generate a deterministic campaign brief from the selected projects — no AI/LLM involved"
-        style={{ background: '#F7941D', border: 'none', color: '#fff', borderRadius: 10, padding: '10px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: "'Plus Jakarta Sans',sans-serif", whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 7 }}
+        onClick={onAction}
+        title={actionTitle}
+        style={{ background: actionColor, border: 'none', color: '#fff', borderRadius: 10, padding: '10px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: "'Plus Jakarta Sans',sans-serif", whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 7 }}
       >
-        <ClipboardList size={14} /> Generate Campaign Brief
+        <ActionIcon size={14} /> {actionLabel}
       </button>
     </div>
   )
@@ -1073,6 +1075,13 @@ function toAnalysableProject(p, i, siblings) {
         lat: Number.isFinite(s.placesLat) ? s.placesLat : null,
         lon: Number.isFinite(s.placesLon) ? s.placesLon : null,
         sourceUrl: s.sourceUrl || null,
+        // Real per-candidate lifecycle status, carried through regardless of
+        // which pipeline found this sibling (agent path always has one for
+        // anything that survived its hard eligibility filter; Places-direct
+        // now carries one too via server.cjs's per-result enrichment) — lets
+        // Competitor Analysis apply the same eligible-statuses-only filter
+        // uniformly, instead of special-casing by source.
+        lifecycleStatus: s.lifecycleStatus || null,
       })),
     _autoResearch: true,
   }
@@ -1189,20 +1198,37 @@ const TIER_COLOR = { PRIMARY: '#2E9E4F', SECONDARY: '#F7941D', TERTIARY: '#8B8BD
 // fields are null/undefined" rule). Shared by the "key facts" and
 // "secondary facts" rows below so both read as one consistent visual
 // language instead of two different chip styles.
-// Human-readable labels for the deterministic lifecycle enum the backend
-// already hard-filters to eligible stages before a candidate ever reaches
-// the frontend (agent/agent/normalize.py's classify_lifecycle_status /
-// backend/scoring.cjs's classifyLifecycleStatus). READY_TO_MOVE/RESALE/
-// RENTAL/UNKNOWN are deliberately absent — a candidate carrying one of
-// those never reaches this component at all.
+// Human-readable labels for the deterministic lifecycle enum. For the agent
+// path, the backend already hard-filters to eligible stages before a
+// candidate ever reaches the frontend (agent/agent/normalize.py's
+// classify_lifecycle_status) — READY_TO_MOVE/RESALE/RENTAL never reach this
+// component from that pipeline. Places-direct is different: server.cjs's
+// bounded per-result enrichment (item 3) can genuinely come back UNKNOWN
+// (the check ran but found no confirmable status) — kept, not excluded,
+// labeled honestly here rather than shown nothing at all.
 const LIFECYCLE_LABEL = {
   UNDER_CONSTRUCTION: 'Under Construction',
   NEAR_POSSESSION: 'Near Possession',
   NEW_LAUNCH: 'New Launch',
+  PRE_LAUNCH: 'Pre-Launch',
+  UNKNOWN: 'Status unknown',
 }
 
-function FactChip({ icon: Icon, value, title }) {
-  if (!value) return null
+// `emptyLabel` — when set, a missing value renders as an honest muted chip
+// (e.g. "Price not available") instead of silently disappearing. Only used
+// for facts that are genuinely expected on every card (price); most facts
+// here still render nothing when absent, which stays correct for optional
+// ones (floors, connectivity, etc.) that many real listings simply don't have.
+function FactChip({ icon: Icon, value, title, emptyLabel }) {
+  if (!value) {
+    if (!emptyLabel) return null
+    return (
+      <span title={title} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12.5, color: '#ABA9B5', background: '#F6F5F1', borderRadius: 6, padding: '4px 9px' }}>
+        {Icon && <Icon size={12} strokeWidth={2.2} color="#ABA9B5" />}
+        {emptyLabel}
+      </span>
+    )
+  }
   return (
     <span title={title} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12.5, color: '#1B1B3A', background: '#F6F5F1', borderRadius: 6, padding: '4px 9px' }}>
       {Icon && <Icon size={12} strokeWidth={2.2} color="#75737F" />}
@@ -1220,15 +1246,35 @@ function FactChip({ icon: Icon, value, title }) {
 // property type — never a placeholder for a missing one), and an amenities
 // strip. `key_match`/`limitations`/`sources` still carry through to Project
 // Intelligence via toAnalysableProject below.
-function PropertyCard({ p, i, onAnalyse, allProperties }) {
+function PropertyCard({ p, i, onAnalyse, allProperties, selectMode, selected, onToggle }) {
   const tierLabel = p.match_tier || rankOf(i).label
   const color = TIER_COLOR[tierLabel] || rankOf(i).color
   const imgUrl = projectImageUrl({ builder: p.developer, name: p.name, id: p.id })
   const amenities = Array.isArray(p.amenities) ? p.amenities : []
   const shownAmenities = amenities.slice(0, 5)
+  const cardKey = p.id || i
 
   return (
-    <div style={{ background: '#fff', border: '1px solid #E9E7E0', borderLeft: `4px solid ${color}`, borderRadius: 12, padding: '16px 20px', display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+    <div style={{ background: '#fff', border: selected ? '2px solid #0E0E52' : '1px solid #E9E7E0', borderLeft: `4px solid ${color}`, borderRadius: 12, padding: '16px 20px', display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+      {/* Selection checkbox — only shown while building a multi-project
+          bulk analysis (Item 6), same pattern as Property Search's
+          ProjectCard checkbox above. */}
+      {selectMode && (
+        <div onClick={() => onToggle(cardKey)} style={{ paddingTop: 2, flexShrink: 0, cursor: 'pointer' }}>
+          <div style={{
+            width: 18, height: 18, borderRadius: 4,
+            border: selected ? '2px solid #0E0E52' : '2px solid #C8C6D0',
+            background: selected ? '#0E0E52' : '#fff',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            {selected && (
+              <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            )}
+          </div>
+        </div>
+      )}
       <div style={{ fontSize: 22, fontWeight: 800, color: '#E9E7E0', minWidth: 32, paddingTop: 2, fontFamily: "'IBM Plex Mono',monospace" }}>#{i + 1}</div>
       <div style={{ width: 80, height: 60, borderRadius: 8, flexShrink: 0, overflow: 'hidden', background: '#E9E7E0' }}>
         <img
@@ -1246,15 +1292,20 @@ function PropertyCard({ p, i, onAnalyse, allProperties }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
           <span style={{ fontWeight: 700, fontSize: 15, color: '#1B1B3A' }}>{p.name}</span>
           <span style={{ background: color, color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700, fontFamily: "'IBM Plex Mono',monospace" }}>{tierLabel}</span>
-          {/* Deterministic lifecycle classification (Part 2/20) — every
-              candidate that reaches this card has already passed the hard
-              eligibility filter (backend, never the LLM), so this is
-              purely informational: which eligible stage it's at. Never
-              rendered for RESALE/RENTAL/UNKNOWN — those are rejected
-              before they ever reach this component. */}
+          {/* Deterministic lifecycle classification (Part 2/20). For the
+              agent path, every candidate that reaches this card has already
+              passed the hard eligibility filter (backend, never the LLM),
+              so this is purely informational — RESALE/RENTAL/READY_TO_MOVE
+              never reach this component from that pipeline. A Places-direct
+              result can genuinely be "UNKNOWN" (checked, inconclusive) —
+              rendered in a muted, neutral style, distinct from a confirmed
+              eligible stage's confident blue, so the two are never visually
+              conflated. */}
           {p.lifecycleStatus && LIFECYCLE_LABEL[p.lifecycleStatus] && (
             <span title={p.lifecycleEvidence || undefined}
-              style={{ background: '#EEF6FF', color: '#0E5FA8', padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700, letterSpacing: '0.02em' }}>
+              style={p.lifecycleStatus === 'UNKNOWN'
+                ? { background: '#F6F5F1', color: '#8A8896', padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700, letterSpacing: '0.02em' }
+                : { background: '#EEF6FF', color: '#0E5FA8', padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700, letterSpacing: '0.02em' }}>
               {LIFECYCLE_LABEL[p.lifecycleStatus]}
             </span>
           )}
@@ -1263,8 +1314,14 @@ function PropertyCard({ p, i, onAnalyse, allProperties }) {
               MahaRERA/DLD the way an IndiHomes-catalog project's RERA is
               (p.rera_verified stays null for every external result). Shown
               as "unverified" kind, not "verified", so the badge itself never
-              overclaims what this app hasn't actually confirmed. */}
-          {p.rera && <FieldBadge kind="unverified" compact label={`RERA ${p.rera} (unverified)`} />}
+              overclaims what this app hasn't actually confirmed.
+              ALWAYS renders something (Part 4) — a missing RERA number is a
+              normal, expected state for many real listings, not a failure,
+              so it gets an honest neutral "not available" badge rather than
+              silently showing nothing. */}
+          {p.rera
+            ? <FieldBadge kind="unverified" compact label={`RERA ${p.rera} (unverified)`} />
+            : <FieldBadge kind="none" compact label="RERA not available" />}
           {/* Source/provider name intentionally never rendered here (explicit
               instruction: no source/debug metadata in end-user UI) —
               p.sourceName/p.sourceUrl still carry through to
@@ -1272,13 +1329,25 @@ function PropertyCard({ p, i, onAnalyse, allProperties }) {
               badge/link on this card. */}
         </div>
 
+        {/* Why this matched — ONE short, plain sentence (Part 2), never the
+            old multi-clause "·"-joined string. Backend already picked the
+            single most relevant reason (scoring.pickPrimaryMatchReason);
+            this only truncates for card width, capped around 60 characters. */}
+        {p.why && (
+          <div style={{ fontSize: 12, color: '#75737F', marginBottom: 8 }}>
+            {p.why.length > 60 ? `${p.why.slice(0, 59).trimEnd()}…` : p.why}
+          </div>
+        )}
+
         {/* Key facts — configuration / area / price / location, the four
-            things scanned first. Falls back to nothing rendered for a
-            missing one rather than an empty chip. */}
+            things scanned first. Price ALWAYS renders something (Part 3) —
+            a missing price is a normal state for a Places-direct result
+            (Google Places has no price data) or a listing that simply never
+            published one, honestly labeled rather than silently blank. */}
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: shownAmenities.length ? 6 : 8 }}>
           <FactChip icon={Bed} value={p.config} title="Configuration" />
           <FactChip icon={ClipboardList} value={p.carpetArea ? `${p.carpetArea} carpet` : p.builtUpArea ? `${p.builtUpArea} built-up` : null} title="Area" />
-          <FactChip icon={IndianRupee} value={p.price ? `₹${String(p.price).replace(/^₹/, '')}` : null} title="Price" />
+          <FactChip icon={IndianRupee} value={p.price ? `₹${String(p.price).replace(/^₹/, '')}` : null} title="Price" emptyLabel="Price not available" />
           <FactChip icon={MapPin} value={p.location} title="Location" />
         </div>
 
@@ -1324,7 +1393,7 @@ function PropertyCard({ p, i, onAnalyse, allProperties }) {
 // Filter Search (#N, rank badge, RERA badge, match % column). When the
 // AI Search Agent (LangGraph) produced this result, an optional research
 // summary line appears above the cards.
-function RankedResults({ result, onAnalyse }) {
+function RankedResults({ result, onAnalyse, selectMode, selectedIds, onToggleSelect }) {
   const props = result.properties || []
   // Part 24 — a genuinely empty, ELIGIBLE result set (every retrieved
   // candidate was resale/rental/a category page/unknown-lifecycle, so the
@@ -1371,7 +1440,10 @@ function RankedResults({ result, onAnalyse }) {
   return (
     <div style={{ marginBottom: 20 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {props.map((p, i) => <PropertyCard key={p.id || i} p={p} i={i} onAnalyse={onAnalyse} allProperties={props} />)}
+        {props.map((p, i) => (
+          <PropertyCard key={p.id || i} p={p} i={i} onAnalyse={onAnalyse} allProperties={props}
+            selectMode={selectMode} selected={selectedIds?.has(p.id || i)} onToggle={onToggleSelect} />
+        ))}
       </div>
     </div>
   )
@@ -1399,6 +1471,28 @@ function PipelineLabel({ pipeline }) {
 function AnalystReport({ result, onAnalyse, onResultChange }) {
   const [moreLoading, setMoreLoading] = useState(false)
   const [moreErr, setMoreErr] = useState(null)
+  // Item 6 — AI Search's own checkbox + bulk "Analyse Selected" flow,
+  // matching Property Search's existing checkbox/BriefBar pattern (reuses
+  // the same BriefBar component, just with different action copy) instead
+  // of the old instant per-card navigation. Selection keys mirror
+  // PropertyCard's own React key (p.id || index) — scoped to this report
+  // instance, so switching searches/tabs naturally clears it.
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState(new Set())
+  const toggleSelect = (id) => setSelectedIds(prev => {
+    const next = new Set(prev)
+    next.has(id) ? next.delete(id) : next.add(id)
+    return next
+  })
+  const clearAiSelection = () => setSelectedIds(new Set())
+  const props = result.properties || []
+  const analyseSelected = () => {
+    const chosen = props
+      .map((p, i) => ({ p, i, key: p.id || i }))
+      .filter(({ key }) => selectedIds.has(key))
+      .map(({ p, i }) => toAnalysableProject(p, i, props))
+    if (chosen.length && onAnalyse) onAnalyse(chosen)
+  }
 
   const loadMore = () => {
     if (moreLoading || !result.reportId) return
@@ -1435,7 +1529,29 @@ function AnalystReport({ result, onAnalyse, onResultChange }) {
           <span>{result.warning}</span>
         </div>
       )}
-      <RankedResults result={result} onAnalyse={onAnalyse} />
+      {props.length > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+          <button
+            onClick={() => { setSelectMode(v => !v); if (selectMode) clearAiSelection() }}
+            style={{ background: 'none', border: 'none', color: selectMode ? '#D64545' : '#0E0E52', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', padding: 0 }}
+          >
+            {selectMode ? '✕ Done selecting' : '+ Select multiple to analyse'}
+          </button>
+        </div>
+      )}
+      <RankedResults result={result} onAnalyse={onAnalyse} selectMode={selectMode} selectedIds={selectedIds} onToggleSelect={toggleSelect} />
+      {selectMode && selectedIds.size > 0 && (
+        <BriefBar
+          count={selectedIds.size}
+          onClear={clearAiSelection}
+          onAction={analyseSelected}
+          subtitle="Ready for Project Intelligence"
+          actionLabel="Analyse Selected"
+          actionTitle="Open Project Intelligence for the selected projects"
+          actionIcon={ArrowRight}
+          actionColor="#0E0E52"
+        />
+      )}
       {result.properties?.length > 0 && (
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
           <button onClick={loadMore} disabled={moreLoading}
@@ -1628,6 +1744,15 @@ export default function ProjectSelection({ onAnalyse }) {
   const [aiResult, setAiResult]   = useState(sessionMemory.aiResult)
   const [aiLoading, setAiLoading] = useState(false)
   const [researchStage, setResearchStage] = useState(0)
+  // Real elapsed time since the request went out (Part: agent-primary wait
+  // time) — the agent is now the FIRST thing every search waits on and
+  // typically takes 35-140+ seconds (was near-instant when Places-direct
+  // answered first), so a spinner + a stage label alone stop reading as
+  // reassuring well before a real response arrives. A ticking "Xs elapsed"
+  // is the clearest honest signal that the wait is real and ongoing, not
+  // hung — reused as-is by any pipeline that happens to answer, since the
+  // caller has no way to know in advance which one will.
+  const [elapsedSec, setElapsedSec] = useState(0)
   const [aiError, setAiError]     = useState(null)
   // Which market AI Search runs against — India (RERA, our scraped dataset,
   // Filter Search) or Dubai/UAE (Bayut, Property Finder, DLD). Filter Search
@@ -1712,14 +1837,30 @@ export default function ProjectSelection({ onAnalyse }) {
     // search OR a market switch bumps searchGenerationRef past this value,
     // which is how a late India response is told apart from a current one.
     const myGeneration = ++searchGenerationRef.current
-    setAiLoading(true); setAiError(null); setAiResult(null); setResearchStage(0)
+    setAiLoading(true); setAiError(null); setAiResult(null); setResearchStage(0); setElapsedSec(0)
     // Cycles through RESEARCH_STAGES while the single request/response call
-    // below is in flight — stops advancing at the last stage rather than
-    // looping, so it never implies a phase repeated.
+    // below is in flight. The agent is now tried FIRST for every search and
+    // typically takes 35-140+ seconds (previously an occasional slow path;
+    // now the default) — at the OLD 1100ms/stage rate all 5 stages burned
+    // through in ~4.4s, then froze on "Ranking matching properties…" for
+    // the remaining ~30-135s, which both reads as stuck and misrepresents
+    // what's actually still happening (deep research/verification, not
+    // ranking). Slowed down, and LOOPS instead of freezing at the last
+    // stage — for a wait this long, cycling back through the same honest
+    // phrases is a truer signal than parking on one that implies
+    // near-completion for two minutes.
     const stageTimer = setInterval(() => {
       if (searchGenerationRef.current !== myGeneration) return
-      setResearchStage(s => Math.min(s + 1, RESEARCH_STAGES.length - 1))
-    }, 1100)
+      setResearchStage(s => (s + 1) % RESEARCH_STAGES.length)
+    }, 4500)
+    // Real elapsed time, ticked every second — see elapsedSec's own comment
+    // for why this exists (a spinner + a static stage label stop reading as
+    // reassuring well before a real response arrives at this pipeline's
+    // normal wait length).
+    const elapsedTimer = setInterval(() => {
+      if (searchGenerationRef.current !== myGeneration) return
+      setElapsedSec(s => s + 1)
+    }, 1000)
     try {
       const res = await fetch(`${API}/api/ai-search`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1737,6 +1878,7 @@ export default function ProjectSelection({ onAnalyse }) {
       if (searchGenerationRef.current === myGeneration) setAiError(e.message)
     } finally {
       clearInterval(stageTimer)
+      clearInterval(elapsedTimer)
       if (searchGenerationRef.current === myGeneration) setAiLoading(false)
     }
   }
@@ -2081,6 +2223,15 @@ export default function ProjectSelection({ onAnalyse }) {
                   }} />
                 ))}
               </div>
+              {/* Real elapsed time — the clearest honest "still working, not
+                  hung" signal for a wait that's now typically 35-140+
+                  seconds (the agent is tried first for every search). Shown
+                  from the start; the "can take up to..." context only kicks
+                  in past ~10s so a fast Places-direct/Node-fallback answer
+                  never even shows it. */}
+              <div style={{ fontSize: 11.5, color: '#ABA9B5', marginTop: 10 }}>
+                {elapsedSec}s elapsed{elapsedSec > 10 ? ' — a full research pass can take up to 2 minutes' : ''}
+              </div>
             </div>
           )}
           {aiError && (
@@ -2203,7 +2354,7 @@ export default function ProjectSelection({ onAnalyse }) {
         <BriefBar
           count={selectedCount}
           onClear={clearSelection}
-          onBrief={handleGenerateBrief}
+          onAction={handleGenerateBrief}
         />
       )}
 

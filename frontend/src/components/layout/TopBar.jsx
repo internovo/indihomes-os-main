@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { Search, ChevronDown, Plus, Bell, Sparkles } from 'lucide-react'
 
 const LABELS = {
   command:'Command Center', select:'Project Selection', project:'Project Intelligence',
@@ -9,25 +10,78 @@ const LABELS = {
   analytics:'AI Analytics', recommend:'AI Recommendations', users:'User Management',
 }
 
+const iconBtn = {
+  width: 38, height: 38, flexShrink: 0, background: 'var(--pg-surface)',
+  border: '1px solid var(--pg-border)', borderRadius: 'var(--pg-r-lg)',
+  display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+  color: 'var(--pg-ink-2)', position: 'relative',
+}
+
 export default function TopBar({ view, breadcrumbExtra }) {
   const [search, setSearch] = useState('')
   return (
-    <div style={{ height:56, background:'#fff', borderBottom:'1px solid #E9E7E0', display:'flex', alignItems:'center', padding:'0 24px', gap:16, flexShrink:0, position:'sticky', top:0, zIndex:50 }}>
-      <div style={{ flex:1 }}>
-        <span style={{ fontFamily:"'IBM Plex Mono',monospace", fontSize:11, color:'#8A8896', letterSpacing:'0.06em' }}>
-          IndiHomes OS / {LABELS[view] || view}{breadcrumbExtra ? ` / ${breadcrumbExtra}` : ''}
+    <div style={{
+      height: 'var(--pg-topbar-h)', background: 'var(--pg-surface)', borderBottom: '1px solid var(--pg-border)',
+      display: 'flex', alignItems: 'center', padding: '0 24px', gap: 10, flexShrink: 0,
+      position: 'sticky', top: 0, zIndex: 50,
+    }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ fontFamily: 'var(--pg-font-mono)', fontSize: 10.5, color: 'var(--pg-ink-3)', letterSpacing: '1px' }}>
+          propOG / {LABELS[view] || view}{breadcrumbExtra ? ` / ${breadcrumbExtra}` : ''}
         </span>
       </div>
-      <input
-        value={search} onChange={e=>setSearch(e.target.value)}
-        placeholder="Search projects, leads…"
-        style={{ padding:'6px 14px', border:'1px solid #E9E7E0', borderRadius:8, fontSize:13, color:'#1B1B3A', outline:'none', width:220, fontFamily:"'Plus Jakarta Sans',sans-serif", background:'#F6F5F1' }}
-      />
-      <button style={{ background:'none', border:'none', cursor:'pointer', fontSize:20, padding:'0 4px', color:'#75737F' }} title="Notifications">🔔</button>
-      <div style={{ width:32, height:32, borderRadius:'50%', background:'#0E0E52', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:700, color:'#fff', cursor:'pointer' }}>A</div>
-      <div style={{ display:'flex', alignItems:'center', gap:6, padding:'4px 10px', border:'1px solid #E9E7E0', borderRadius:20, cursor:'pointer' }}>
-        <span style={{ fontSize:11, color:'#75737F', fontWeight:500 }}>☀ Light</span>
+
+      {/* Search — icon inset left */}
+      <div style={{ position: 'relative', flexShrink: 0 }}>
+        <Search size={15} color="var(--pg-ink-4)" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+        <input
+          value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="Search projects, leads, campaigns, agents…"
+          style={{
+            height: 38, background: 'var(--pg-shell)', border: '1px solid var(--pg-border)',
+            borderRadius: 'var(--pg-r-xl)', padding: '0 14px 0 36px', fontSize: 13, width: 260,
+            color: 'var(--pg-ink)', outline: 'none', fontFamily: 'var(--pg-font)',
+          }}
+          onFocus={e => { e.target.style.borderColor = 'var(--pg-gold)'; e.target.style.boxShadow = 'var(--pg-ring-gold)' }}
+          onBlur={e => { e.target.style.borderColor = 'var(--pg-border)'; e.target.style.boxShadow = 'none' }}
+        />
       </div>
+
+      {/* Builder filter */}
+      <button style={{
+        height: 38, background: 'var(--pg-surface)', border: '1px solid var(--pg-border)',
+        borderRadius: 'var(--pg-r-lg)', padding: '0 12px', display: 'flex', alignItems: 'center', gap: 7,
+        fontSize: 12.5, fontWeight: 600, color: 'var(--pg-ink)', cursor: 'pointer', flexShrink: 0,
+        fontFamily: 'var(--pg-font)', whiteSpace: 'nowrap',
+      }}>
+        <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--pg-gold)', flexShrink: 0 }} />
+        All Builders
+        <ChevronDown size={13} color="var(--pg-ink-3)" />
+      </button>
+
+      <button style={iconBtn} title="Add">
+        <Plus size={17} />
+      </button>
+
+      <button style={iconBtn} title="Notifications">
+        <Bell size={16} />
+        <span style={{ position: 'absolute', top: 8, right: 9, width: 6, height: 6, borderRadius: '50%', background: 'var(--pg-gold)' }} />
+      </button>
+
+      <button style={{
+        height: 38, background: 'var(--pg-surface-dark)', color: 'var(--pg-on-dark)', border: 'none',
+        borderRadius: 'var(--pg-r-lg)', padding: '0 15px', display: 'flex', alignItems: 'center', gap: 8,
+        fontSize: 12.5, fontWeight: 600, cursor: 'pointer', flexShrink: 0, fontFamily: 'var(--pg-font)', whiteSpace: 'nowrap',
+      }}>
+        <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--pg-green)', flexShrink: 0 }} />
+        Ask propOG AI
+      </button>
+
+      <div style={{
+        width: 32, height: 32, borderRadius: '50%', background: 'var(--pg-surface-dark)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700,
+        color: 'var(--pg-on-dark)', cursor: 'pointer', flexShrink: 0, fontFamily: 'var(--pg-font)',
+      }}>A</div>
     </div>
   )
 }

@@ -16,8 +16,11 @@ export default function WhatsAppAgent() {
         subtitle="2,140 messages sent today · 78% response rate · Auto-books site visits"
       />
       <div style={{ display:'grid', gridTemplateColumns:'330px 1fr', gap:20 }}>
-        {/* Chat preview */}
-        <div style={{ borderRadius:16, overflow:'hidden', border:'1px solid #E9E7E0', boxShadow:'0 4px 20px rgba(0,0,0,0.08)' }}>
+        {/* Chat preview — a faithful WhatsApp-look mockup, so its header/
+            bubble colors and subtle bubble shadows deliberately stay
+            WhatsApp's own real palette rather than the propOG tokens (same
+            treatment as a channel brand color) */}
+        <div style={{ borderRadius:16, overflow:'hidden', border:'1px solid var(--pg-border)' }}>
           {/* WA header */}
           <div style={{ background:'#075E54', padding:'14px 16px', display:'flex', alignItems:'center', gap:10 }}>
             <div style={{ width:36, height:36, borderRadius:'50%', background:'#25D366', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, color:'#fff' }}>A</div>
@@ -34,7 +37,7 @@ export default function WhatsAppAgent() {
             <div style={{ alignSelf:'flex-start', background:'#fff', borderRadius:'8px', padding:'10px 12px', maxWidth:'85%', fontSize:12, lineHeight:1.5, boxShadow:'0 1px 2px rgba(0,0,0,0.1)' }}>
               <div style={{ marginBottom:6 }}>Here are your resources for Lodha Amara 3 BHK:</div>
               {['📄 Brochure.pdf','📐 Floor plan · 2BHK & 3BHK','💰 Price sheet · June 2026','📍 Location map · Thane West'].map(r=>(
-                <div key={r} style={{ color:'#0E0E52', fontWeight:600, marginBottom:3 }}>{r}</div>
+                <div key={r} style={{ color:'var(--pg-surface-dark)', fontWeight:600, marginBottom:3 }}>{r}</div>
               ))}
             </div>
             <div style={{ alignSelf:'flex-end', background:'#DCF8C6', borderRadius:'8px 0 8px 8px', padding:'10px 12px', maxWidth:'85%', fontSize:12, lineHeight:1.5, boxShadow:'0 1px 2px rgba(0,0,0,0.1)' }}>
@@ -57,28 +60,28 @@ export default function WhatsAppAgent() {
         {/* Stats + convo list */}
         <div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12, marginBottom:20 }}>
-            {[['Messages Today','2,140','#0E0E52'],['Response Rate','78%','#2E9E4F'],['Visits Booked','43','#F7941D']].map(([l,v,c])=>(
-              <div key={l} style={{ background:'#fff', border:'1px solid #E9E7E0', borderRadius:12, padding:'16px 18px', borderTop:`3px solid ${c}` }}>
-                <div style={{ fontSize:11, color:'#8A8896', fontFamily:"'IBM Plex Mono',monospace", marginBottom:4 }}>{l}</div>
-                <div style={{ fontSize:26, fontWeight:800, color:'#1B1B3A' }}>{v}</div>
+            {[['Messages Today','2,140','var(--pg-surface-dark)'],['Response Rate','78%','var(--pg-green)'],['Visits Booked','43','var(--pg-gold)']].map(([l,v,c])=>(
+              <div key={l} style={{ background:'var(--pg-surface)', border:'1px solid var(--pg-border)', borderRadius:'var(--pg-r-xl)', padding:'16px 18px', borderTop:`3px solid ${c}` }}>
+                <div style={{ fontSize:11, color:'var(--pg-ink-3)', fontFamily:'var(--pg-font-mono)', marginBottom:4 }}>{l}</div>
+                <div style={{ fontSize:26, fontWeight:800, color:'var(--pg-ink)' }}>{v}</div>
               </div>
             ))}
           </div>
-          <div style={{ background:'#fff', border:'1px solid #E9E7E0', borderRadius:12, overflow:'hidden' }}>
-            <div style={{ padding:'14px 18px', borderBottom:'1px solid #E9E7E0', fontWeight:700, fontSize:14 }}>Recent Conversations</div>
+          <div style={{ background:'var(--pg-surface)', border:'1px solid var(--pg-border)', borderRadius:'var(--pg-r-xl)', overflow:'hidden' }}>
+            <div style={{ padding:'14px 18px', borderBottom:'1px solid var(--pg-border)', fontWeight:700, fontSize:14 }}>Recent Conversations</div>
             {CONVOS.map((c,i)=>(
-              <div key={i} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 18px', borderBottom:'1px solid #E9E7E0', cursor:'pointer' }}
-                onMouseEnter={e=>e.currentTarget.style.background='#F6F5F1'}
-                onMouseLeave={e=>e.currentTarget.style.background='#fff'}
+              <div key={i} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 18px', borderBottom:'1px solid var(--pg-border)', cursor:'pointer' }}
+                onMouseEnter={e=>e.currentTarget.style.background='var(--pg-shell)'}
+                onMouseLeave={e=>e.currentTarget.style.background='var(--pg-surface)'}
               >
                 <div style={{ width:40, height:40, borderRadius:'50%', background:'#25D36622', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, color:'#075E54', flexShrink:0 }}>{c.name[0]}</div>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ display:'flex', justifyContent:'space-between' }}>
                     <span style={{ fontWeight:600, fontSize:13 }}>{c.name}</span>
-                    <span style={{ fontSize:11, color:'#8A8896' }}>{c.time}</span>
+                    <span style={{ fontSize:11, color:'var(--pg-ink-3)' }}>{c.time}</span>
                   </div>
-                  <div style={{ fontSize:11, color:'#75737F', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.last}</div>
-                  <div style={{ fontSize:10, color:'#2E9E4F', fontWeight:600, marginTop:2 }}>{c.project} · {c.status}</div>
+                  <div style={{ fontSize:11, color:'var(--pg-ink-2)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.last}</div>
+                  <div style={{ fontSize:10, color:'var(--pg-green)', fontWeight:600, marginTop:2 }}>{c.project} · {c.status}</div>
                 </div>
               </div>
             ))}

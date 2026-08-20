@@ -16,53 +16,53 @@ export default function CallerDashboard() {
     <div style={{ padding:'28px 32px', maxWidth:1280 }}>
       <ModuleHeader title="Caller Dashboard" subtitle="6 executive callers · live productivity tracking"
         rightContent={<>
-          <button style={{ padding:'8px 16px', border:'1px solid #E9E7E0', borderRadius:8, background:'#fff', fontSize:13, cursor:'pointer' }}>Today ⌄</button>
-          <button style={{ padding:'8px 16px', background:'#FECF55', color:'#0E0E52', border:'none', borderRadius:8, fontSize:13, fontWeight:700, cursor:'pointer' }}>⬇ Generate report</button>
+          <button style={{ padding:'8px 16px', border:'1px solid var(--pg-border)', borderRadius:'var(--pg-r-md)', background:'var(--pg-surface)', fontSize:13, cursor:'pointer' }}>Today ⌄</button>
+          <button style={{ padding:'8px 16px', background:'var(--pg-gold)', color:'var(--pg-on-gold)', border:'none', borderRadius:'var(--pg-r-md)', fontSize:13, fontWeight:700, cursor:'pointer' }}>⬇ Generate report</button>
         </>}
       />
       <div style={{ display:'grid', gridTemplateColumns:'repeat(6,1fr)', gap:12, marginBottom:28 }}>
-        <StatCard label="Total Calls" value="728" trend="▲ 12% vs yesterday" trendDir="up" accent="#0E0E52" />
-        <StatCard label="Connects" value="670" trend="▲ 8%" trendDir="up" accent="#2E9E4F" />
-        <StatCard label="Qualified" value="340" trend="▲ 15%" trendDir="up" accent="#F7941D" />
-        <StatCard label="Visits Booked" value="67" trend="▲ 22%" trendDir="up" accent="#8B8BD6" />
-        <StatCard label="Avg Call Time" value="4m 12s" trend="vs 3m 58s avg" trendDir="up" accent="#185FA5" />
-        <StatCard label="Connect Rate" value="92%" trend="▲ Portfolio best" trendDir="up" accent="#2E9E4F" />
+        <StatCard label="Total Calls" value="728" trend="▲ 12% vs yesterday" trendDir="up" accent="var(--pg-surface-dark)" />
+        <StatCard label="Connects" value="670" trend="▲ 8%" trendDir="up" accent="var(--pg-green)" />
+        <StatCard label="Qualified" value="340" trend="▲ 15%" trendDir="up" accent="var(--pg-gold)" />
+        <StatCard label="Visits Booked" value="67" trend="▲ 22%" trendDir="up" accent="var(--pg-indigo-light)" />
+        <StatCard label="Avg Call Time" value="4m 12s" trend="vs 3m 58s avg" trendDir="up" accent="var(--pg-indigo)" />
+        <StatCard label="Connect Rate" value="92%" trend="▲ Portfolio best" trendDir="up" accent="var(--pg-green)" />
       </div>
-      <div style={{ background:'#fff', border:'1px solid #E9E7E0', borderRadius:12, overflow:'hidden' }}>
-        <div style={{ padding:'14px 20px', borderBottom:'1px solid #E9E7E0', fontWeight:700, fontSize:15 }}>Caller Performance — Today</div>
+      <div style={{ background:'var(--pg-surface)', border:'1px solid var(--pg-border)', borderRadius:'var(--pg-r-xl)', overflow:'hidden' }}>
+        <div style={{ padding:'14px 20px', borderBottom:'1px solid var(--pg-border)', fontWeight:700, fontSize:15 }}>Caller Performance — Today</div>
         <table style={{ width:'100%', borderCollapse:'collapse' }}>
           <thead>
-            <tr style={{ background:'#F6F5F1' }}>
+            <tr style={{ background:'var(--pg-shell)' }}>
               {['Caller','Calls Today','Connected','Qualified','Visits','Avg Score','Status'].map(h=>(
-                <th key={h} style={{ padding:'10px 16px', textAlign:'left', fontSize:11, color:'#8A8896', fontWeight:600, letterSpacing:'0.05em', textTransform:'uppercase', fontFamily:"'IBM Plex Mono',monospace" }}>{h}</th>
+                <th key={h} style={{ padding:'10px 16px', textAlign:'left', fontSize:11.5, color:'var(--pg-ink-3)', fontWeight:600, letterSpacing:'0.05em', textTransform:'uppercase', fontFamily:'var(--pg-font)' }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {CALLERS.map((c,i)=>(
-              <tr key={c.name} style={{ borderTop:'1px solid #E9E7E0', background:i%2===0?'#fff':'#fafaf8' }}>
+              <tr key={c.name} style={{ borderTop:'1px solid var(--pg-border)', background:i%2===0?'var(--pg-surface)':'var(--pg-shell)' }}>
                 <td style={{ padding:'12px 16px' }}>
                   <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                    <div style={{ width:32, height:32, borderRadius:'50%', background:'#0E0E5218', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontSize:13, color:'#0E0E52' }}>{c.name[0]}</div>
+                    <div style={{ width:32, height:32, borderRadius:'50%', background:'color-mix(in srgb, var(--pg-surface-dark) 15%, transparent)', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontSize:13, color:'var(--pg-surface-dark)' }}>{c.name[0]}</div>
                     <span style={{ fontWeight:600, fontSize:13 }}>{c.name}</span>
                   </div>
                 </td>
                 <td style={{ padding:'12px 16px', fontSize:13, fontWeight:600 }}>{c.calls}</td>
                 <td style={{ padding:'12px 16px', fontSize:13 }}>{c.connected}</td>
-                <td style={{ padding:'12px 16px', fontSize:13, fontWeight:600, color:'#F7941D' }}>{c.qualified}</td>
-                <td style={{ padding:'12px 16px', fontSize:13, fontWeight:700, color:'#2E9E4F' }}>{c.visits}</td>
+                <td style={{ padding:'12px 16px', fontSize:13, fontWeight:600, color:'var(--pg-gold)' }}>{c.qualified}</td>
+                <td style={{ padding:'12px 16px', fontSize:13, fontWeight:700, color:'var(--pg-green)' }}>{c.visits}</td>
                 <td style={{ padding:'12px 16px' }}>
                   <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                    <div style={{ flex:1, height:6, background:'#F0EEEB', borderRadius:3, overflow:'hidden' }}>
-                      <div style={{ width:`${c.score}%`, height:'100%', background:c.score>=75?'#2E9E4F':c.score>=60?'#F7941D':'#8B8BD6', borderRadius:3 }} />
+                    <div style={{ flex:1, height:6, background:'var(--pg-surface-sunken)', borderRadius:3, overflow:'hidden' }}>
+                      <div style={{ width:`${c.score}%`, height:'100%', background:c.score>=75?'var(--pg-green)':c.score>=60?'var(--pg-gold)':'var(--pg-indigo-light)', borderRadius:3 }} />
                     </div>
-                    <span style={{ fontSize:12, fontWeight:700, minWidth:24, color:c.score>=75?'#2E9E4F':c.score>=60?'#F7941D':'#8B8BD6' }}>{c.score}</span>
+                    <span style={{ fontSize:12, fontWeight:700, minWidth:24, color:c.score>=75?'var(--pg-green)':c.score>=60?'var(--pg-gold)':'var(--pg-indigo-light)' }}>{c.score}</span>
                   </div>
                 </td>
                 <td style={{ padding:'12px 16px' }}>
                   <span style={{ display:'flex', alignItems:'center', gap:5 }}>
-                    <span style={{ width:8, height:8, borderRadius:'50%', background:c.status==='active'?'#2E9E4F':'#F7941D', display:'inline-block' }} />
-                    <span style={{ fontSize:12, fontWeight:600, color:c.status==='active'?'#2E9E4F':'#F7941D', textTransform:'capitalize' }}>{c.status}</span>
+                    <span style={{ width:8, height:8, borderRadius:'50%', background:c.status==='active'?'var(--pg-green)':'var(--pg-gold)', display:'inline-block' }} />
+                    <span style={{ fontSize:12, fontWeight:600, color:c.status==='active'?'var(--pg-green)':'var(--pg-gold-deep)', textTransform:'capitalize' }}>{c.status}</span>
                   </span>
                 </td>
               </tr>

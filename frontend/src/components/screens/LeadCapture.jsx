@@ -27,17 +27,17 @@ async function readCrmResponse(response) {
 // StatusEditor, and falls back to a neutral color rather than erroring.
 const STATUS_OPTIONS = ['New', 'Contacted', 'Qualified', 'Follow-up', 'Site Visit Scheduled', 'Site Visit Completed', 'Negotiation', 'Won', 'Lost']
 const STATUS_COLOR = {
-  New: '#0E0E52', Contacted: '#F7941D', Qualified: '#0E5FBF', 'Follow-up': '#6B4FBB',
-  'Site Visit Scheduled': '#0E9CBF', 'Site Visit Completed': '#156B35', Negotiation: '#C77D19',
-  Won: '#0B8043', Lost: '#D64545',
+  New: 'var(--pg-surface-dark)', Contacted: 'var(--pg-gold)', Qualified: 'var(--pg-indigo)', 'Follow-up': 'var(--pg-indigo)',
+  'Site Visit Scheduled': 'var(--pg-indigo)', 'Site Visit Completed': 'var(--pg-green)', Negotiation: 'var(--pg-gold-deep)',
+  Won: 'var(--pg-green)', Lost: 'var(--pg-red)',
 }
-const SOURCE_LABEL = { housing: 'Housing.com', meta: 'Meta Ad', website: 'IndiHomes Website', manual: 'IndiHomes OS', '99acres': '99acres', magicbricks: 'MagicBricks', referral: 'CP Referral', walkin: 'Walk-in' }
+const SOURCE_LABEL = { housing: 'Housing.com', meta: 'Meta Ad', website: 'propOG Website', manual: 'propOG OS', '99acres': '99acres', magicbricks: 'MagicBricks', referral: 'CP Referral', walkin: 'Walk-in' }
 // A small color-coded dot beats a full pill for a field that appears on
 // every row — enough to scan a column by color without the visual weight of
 // a badge per row (the table already has Status + CRM as real pills; a
 // third pill column would be the "unnecessary pills everywhere" the spec
 // warns against).
-const SOURCE_COLOR = { housing:'#8B1A1A', meta:'#0E5FBF', website:'#2E9E4F', manual:'#8A8896', '99acres':'#156B35', magicbricks:'#BE1E2D', referral:'#6B4FBB', walkin:'#F7941D' }
+const SOURCE_COLOR = { housing:'var(--pg-red)', meta:'var(--pg-indigo)', website:'var(--pg-green)', manual:'var(--pg-ink-3)', '99acres':'var(--pg-green)', magicbricks:'var(--pg-red)', referral:'var(--pg-indigo)', walkin:'var(--pg-gold)' }
 
 // Qualification sub-status taxonomy — MUST stay in sync with
 // backend/qualification.cjs's TAXONOMY (same dual-copy convention already
@@ -67,7 +67,7 @@ function timeAgo(ts) {
   return `${Math.floor(s / 86400)}d ago`
 }
 
-// Manual lead-entry form — the "IndiHomes OS" source: a CP/agent capturing a
+// Manual lead-entry form — the "propOG OS" source: a CP/agent capturing a
 // walk-in or phone enquiry directly, rather than a Meta/Housing.com sync.
 const ADD_LEAD_FIELDS = [
   { key: 'name', label: 'Name', ph: 'Full name' },
@@ -98,28 +98,28 @@ function AddLeadModal({ onClose, onSubmit }) {
 
   return (
     <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(14,14,40,0.45)', zIndex:200, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
-      <div onClick={e => e.stopPropagation()} style={{ background:'#fff', borderRadius:16, width:520, maxWidth:'100%', maxHeight:'90vh', overflowY:'auto', padding:'26px 30px', boxShadow:'0 24px 64px rgba(0,0,0,0.25)' }}>
+      <div onClick={e => e.stopPropagation()} style={{ background:'var(--pg-surface)', border:'1px solid var(--pg-border)', borderRadius:16, width:520, maxWidth:'100%', maxHeight:'90vh', overflowY:'auto', padding:'26px 30px' }}>
         <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:16 }}>
           <div>
-            <div style={{ fontSize:17, fontWeight:800, color:'#1B1B3A' }}>＋ Add Lead</div>
-            <div style={{ fontSize:12.5, color:'#75737F', marginTop:2 }}>Captured directly in IndiHomes OS — labeled source "IndiHomes OS".</div>
+            <div style={{ fontSize:17, fontWeight:800, color:'var(--pg-ink)' }}>＋ Add Lead</div>
+            <div style={{ fontSize:12.5, color:'var(--pg-ink-2)', marginTop:2 }}>Captured directly in propOG OS — labeled source "propOG OS".</div>
           </div>
-          <button onClick={onClose} style={{ background:'none', border:'none', fontSize:20, color:'#8A8896', cursor:'pointer', lineHeight:1 }}>×</button>
+          <button onClick={onClose} style={{ background:'none', border:'none', fontSize:20, color:'var(--pg-ink-3)', cursor:'pointer', lineHeight:1 }}>×</button>
         </div>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
           {ADD_LEAD_FIELDS.map(field => (
             <div key={field.key}>
-              <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#4A4A63', marginBottom:5 }}>{field.label}</label>
+              <label style={{ display:'block', fontSize:12, fontWeight:600, color:'var(--pg-ink-2)', marginBottom:5 }}>{field.label}</label>
               <input value={f[field.key] || ''} onChange={e => set(field.key, e.target.value)} placeholder={field.ph}
-                style={{ width:'100%', padding:'9px 12px', border:'1px solid #E9E7E0', borderRadius:8, fontSize:13, fontFamily:"'Plus Jakarta Sans',sans-serif", outline:'none', boxSizing:'border-box' }} />
+                style={{ width:'100%', padding:'9px 12px', border:'1px solid var(--pg-border)', borderRadius:8, fontSize:13, fontFamily:'var(--pg-font)', outline:'none', boxSizing:'border-box' }} />
             </div>
           ))}
         </div>
-        {err && <div style={{ marginTop:12, fontSize:12.5, color:'#D64545' }}>{err}</div>}
+        {err && <div style={{ marginTop:12, fontSize:12.5, color:'var(--pg-red)' }}>{err}</div>}
         <div style={{ marginTop:20, display:'flex', gap:10, justifyContent:'flex-end' }}>
-          <button onClick={onClose} style={{ padding:'9px 18px', background:'#F6F5F1', color:'#4A4A63', border:'none', borderRadius:8, fontSize:13, fontWeight:600, cursor:'pointer' }}>Cancel</button>
+          <button onClick={onClose} style={{ padding:'9px 18px', background:'var(--pg-shell)', color:'var(--pg-ink-2)', border:'none', borderRadius:8, fontSize:13, fontWeight:600, cursor:'pointer' }}>Cancel</button>
           <button onClick={submit} disabled={!canSubmit || submitting}
-            style={{ padding:'9px 20px', background: canSubmit ? '#0E0E52' : '#ccc', color:'#fff', border:'none', borderRadius:8, fontSize:13, fontWeight:700, cursor: canSubmit && !submitting ? 'pointer' : 'not-allowed' }}>
+            style={{ padding:'9px 20px', background: canSubmit ? 'var(--pg-surface-dark)' : 'var(--pg-border-strong)', color:'var(--pg-surface)', border:'none', borderRadius:8, fontSize:13, fontWeight:700, cursor: canSubmit && !submitting ? 'pointer' : 'not-allowed' }}>
             {submitting ? '⟳ Saving…' : 'Add lead'}
           </button>
         </div>
@@ -140,7 +140,7 @@ function dayLabel(ts) {
   return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined })
 }
 
-const TOUCH_SOURCE_LABEL = { ...SOURCE_LABEL, manual: 'IndiHomes OS' }
+const TOUCH_SOURCE_LABEL = { ...SOURCE_LABEL, manual: 'propOG OS' }
 const EDIT_FIELD_LABEL = { project:'Project', budget:'Budget', configuration:'Configuration', location:'Location', email:'Email', possession_date:'Possession date', amenities:'Amenities', notes:'Notes', status:'Status', sub_status:'Sub-status', qualification:'Meta qualification' }
 function fmtEditValue(v) { return v == null || v === '' ? '(empty)' : v }
 
@@ -164,10 +164,10 @@ function ActivityFeed({ touches, edits }) {
   const items = [
     ...touches.map(t => ({ at: t.received_at, node: (
       <div style={{ display:'flex', gap:10, alignItems:'flex-start', fontSize:13 }}>
-        <ActivityDot color={t.is_duplicate ? '#C8C6D0' : '#2E9E4F'} />
+        <ActivityDot color={t.is_duplicate ? 'var(--pg-ink-4)' : 'var(--pg-green)'} />
         <div>
-          <span style={{ color:'#1B1B3A', fontWeight:600 }}>{t.is_duplicate ? 'Repeat enquiry' : 'New lead captured'} via {TOUCH_SOURCE_LABEL[t.source] || t.source}</span>
-          <span style={{ color:'#8A8896' }}> · {timeOf(t.received_at)}</span>
+          <span style={{ color:'var(--pg-ink)', fontWeight:600 }}>{t.is_duplicate ? 'Repeat enquiry' : 'New lead captured'} via {TOUCH_SOURCE_LABEL[t.source] || t.source}</span>
+          <span style={{ color:'var(--pg-ink-3)' }}> · {timeOf(t.received_at)}</span>
         </div>
       </div>
     ) })),
@@ -180,11 +180,11 @@ function ActivityFeed({ touches, edits }) {
       if (e.field === 'follow_up') {
         return { at: e.edited_at, node: (
           <div style={{ display:'flex', gap:10, alignItems:'flex-start', fontSize:13 }}>
-            <ActivityDot color="#F7941D" />
+            <ActivityDot color="var(--pg-gold)" />
             <div>
-              <span style={{ color:'#1B1B3A', fontWeight:600 }}>Follow-up added</span>
-              <span style={{ color:'#8A8896' }}> · {timeOf(e.edited_at)}</span>
-              <div style={{ color:'#4A4A63', marginTop:2, background:'#FBFAF7', border:'1px solid #EEEBE3', borderRadius:6, padding:'6px 9px' }}>{e.new_value}</div>
+              <span style={{ color:'var(--pg-ink)', fontWeight:600 }}>Follow-up added</span>
+              <span style={{ color:'var(--pg-ink-3)' }}> · {timeOf(e.edited_at)}</span>
+              <div style={{ color:'var(--pg-ink-2)', marginTop:2, background:'var(--pg-shell)', border:'1px solid var(--pg-border)', borderRadius:6, padding:'6px 9px' }}>{e.new_value}</div>
             </div>
           </div>
         ) }
@@ -192,28 +192,28 @@ function ActivityFeed({ touches, edits }) {
       if (e.field === 'status') {
         return { at: e.edited_at, node: (
           <div style={{ display:'flex', gap:10, alignItems:'flex-start', fontSize:13 }}>
-            <ActivityDot color={STATUS_COLOR[e.new_value] || '#6B4FBB'} />
+            <ActivityDot color={STATUS_COLOR[e.new_value] || 'var(--pg-indigo)'} />
             <div>
-              <span style={{ color:'#1B1B3A', fontWeight:600 }}>Status changed to {fmtEditValue(e.new_value)}</span>
-              {e.old_value && <span style={{ color:'#8A8896' }}> from {e.old_value}</span>}
-              <span style={{ color:'#8A8896' }}> · {timeOf(e.edited_at)}</span>
+              <span style={{ color:'var(--pg-ink)', fontWeight:600 }}>Status changed to {fmtEditValue(e.new_value)}</span>
+              {e.old_value && <span style={{ color:'var(--pg-ink-3)' }}> from {e.old_value}</span>}
+              <span style={{ color:'var(--pg-ink-3)' }}> · {timeOf(e.edited_at)}</span>
             </div>
           </div>
         ) }
       }
       return { at: e.edited_at, node: (
         <div style={{ display:'flex', gap:10, alignItems:'flex-start', fontSize:13 }}>
-          <ActivityDot color="#6B4FBB" />
+          <ActivityDot color="var(--pg-indigo)" />
           <div>
-            <span style={{ color:'#1B1B3A', fontWeight:600 }}>{EDIT_FIELD_LABEL[e.field] || e.field} updated</span>
-            <span style={{ color:'#8A8896' }}> — {fmtEditValue(e.old_value)} → {fmtEditValue(e.new_value)} · {timeOf(e.edited_at)}</span>
+            <span style={{ color:'var(--pg-ink)', fontWeight:600 }}>{EDIT_FIELD_LABEL[e.field] || e.field} updated</span>
+            <span style={{ color:'var(--pg-ink-3)' }}> — {fmtEditValue(e.old_value)} → {fmtEditValue(e.new_value)} · {timeOf(e.edited_at)}</span>
           </div>
         </div>
       ) }
     }),
   ].sort((a, b) => b.at - a.at)
 
-  if (!items.length) return <div style={{ fontSize:13, color:'#8A8896' }}>No activity recorded yet.</div>
+  if (!items.length) return <div style={{ fontSize:13, color:'var(--pg-ink-3)' }}>No activity recorded yet.</div>
 
   const groups = []
   for (const it of items) {
@@ -226,7 +226,7 @@ function ActivityFeed({ touches, edits }) {
     <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
       {groups.map(g => (
         <div key={g.label}>
-          <div style={{ fontSize:10.5, fontWeight:700, color:'#8A8896', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:8 }}>{g.label}</div>
+          <div style={{ fontSize:10.5, fontWeight:700, color:'var(--pg-ink-3)', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:8 }}>{g.label}</div>
           <div style={{ display:'flex', flexDirection:'column', gap:9 }}>
             {g.items.map((it, i) => <React.Fragment key={i}>{it.node}</React.Fragment>)}
           </div>
@@ -263,18 +263,18 @@ function ConversationCard({ title, icon: Icon, summary, summaryAt, leadId, endpo
   }
 
   return (
-    <div style={{ background:'#fff', border:'1px solid #E9E7E0', borderRadius:10, padding:'14px 16px' }}>
+    <div style={{ background:'var(--pg-surface)', border:'1px solid var(--pg-border)', borderRadius:10, padding:'14px 16px' }}>
       <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>
-        <Icon size={15} color="#0E0E52" strokeWidth={2} />
-        <div style={{ fontSize:11, fontWeight:700, color:'#1B1B3A', textTransform:'uppercase', letterSpacing:'0.05em' }}>{title}</div>
+        <Icon size={15} color="var(--pg-surface-dark)" strokeWidth={2} />
+        <div style={{ fontSize:11, fontWeight:700, color:'var(--pg-ink)', textTransform:'uppercase', letterSpacing:'0.05em' }}>{title}</div>
       </div>
       {hasSummary ? (
         <>
-          <div style={{ fontSize:13, color:'#1B1B3A', lineHeight:1.6, marginBottom:4 }}>{summary}</div>
-          {summaryAt && <div style={{ fontSize:11, color:'#8A8896', marginBottom:12 }}>{timeAgo(summaryAt)}</div>}
+          <div style={{ fontSize:13, color:'var(--pg-ink)', lineHeight:1.6, marginBottom:4 }}>{summary}</div>
+          {summaryAt && <div style={{ fontSize:11, color:'var(--pg-ink-3)', marginBottom:12 }}>{timeAgo(summaryAt)}</div>}
         </>
       ) : (
-        <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 0 14px', color:'#8A8896', fontSize:12.5 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 0 14px', color:'var(--pg-ink-3)', fontSize:12.5 }}>
           <span style={{ fontSize:15, opacity:0.6 }}>—</span>
           <span>Not connected — no activity recorded for this lead yet.</span>
         </div>
@@ -284,35 +284,35 @@ function ConversationCard({ title, icon: Icon, summary, summaryAt, leadId, endpo
         style={{
           display:'inline-flex', alignItems:'center', gap:6,
           padding:'6px 13px', borderRadius:7, fontSize:12, fontWeight:700, cursor:'pointer',
-          fontFamily:"'Plus Jakarta Sans',sans-serif",
-          border: '1px solid', borderColor: open || hasSummary ? '#0E0E52' : '#E9E7E0',
-          background: open ? '#0E0E52' : hasSummary ? (hover ? '#1A1A6E' : '#0E0E52') : (hover ? '#F6F5F1' : '#fff'),
-          color: open || hasSummary ? '#fff' : '#4A4A63',
+          fontFamily:'var(--pg-font)',
+          border: '1px solid', borderColor: open || hasSummary ? 'var(--pg-surface-dark)' : 'var(--pg-border)',
+          background: open ? 'var(--pg-surface-dark)' : hasSummary ? (hover ? 'var(--pg-surface-dark-2)' : 'var(--pg-surface-dark)') : (hover ? 'var(--pg-shell)' : 'var(--pg-surface)'),
+          color: open || hasSummary ? 'var(--pg-surface)' : 'var(--pg-ink-2)',
           transition:'background-color 0.12s ease',
         }}>
         {open ? 'Hide Details' : 'View Details'}
         <ExternalLink size={12} strokeWidth={2.4} style={{ opacity:0.85 }} />
       </button>
       {open && (
-        <div style={{ marginTop:10, background:'#F9F8F6', borderRadius:8, padding:'10px 12px' }}>
+        <div style={{ marginTop:10, background:'var(--pg-shell)', borderRadius:8, padding:'10px 12px' }}>
           {loading ? (
-            <div style={{ fontSize:12, color:'#8A8896' }}>Loading…</div>
+            <div style={{ fontSize:12, color:'var(--pg-ink-3)' }}>Loading…</div>
           ) : data?.connected ? (
             kind === 'whatsapp' ? (
               <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
                 {(data.messages || []).map((m, i) => (
-                  <div key={i} style={{ fontSize:12, color:'#1B1B3A' }}><b>{m.direction === 'out' ? 'Bot' : 'Lead'}:</b> {m.text}</div>
+                  <div key={i} style={{ fontSize:12, color:'var(--pg-ink)' }}><b>{m.direction === 'out' ? 'Bot' : 'Lead'}:</b> {m.text}</div>
                 ))}
               </div>
             ) : (
               <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
                 {(data.transcript || []).map((t, i) => (
-                  <div key={i} style={{ fontSize:12, color:'#1B1B3A' }}><b>{t.speaker === 'agent' ? 'Agent' : 'Lead'}:</b> {t.text}</div>
+                  <div key={i} style={{ fontSize:12, color:'var(--pg-ink)' }}><b>{t.speaker === 'agent' ? 'Agent' : 'Lead'}:</b> {t.text}</div>
                 ))}
               </div>
             )
           ) : (
-            <div style={{ fontSize:12, color:'#8A8896' }}>Conversation history isn't connected yet.</div>
+            <div style={{ fontSize:12, color:'var(--pg-ink-3)' }}>Conversation history isn't connected yet.</div>
           )}
         </div>
       )}
@@ -335,19 +335,19 @@ function ConversationCard({ title, icon: Icon, summary, summaryAt, leadId, endpo
 // THREE states, not a boolean — a missing tick and a confirmed failure are
 // different operational facts (see this task's design conversation).
 function MascotTick({ Icon, bg, state, label }) {
-  const badgeColor = state === 'ok' ? '#2E9E4F' : state === 'failed' ? '#D64545' : '#C8C6D0'
+  const badgeColor = state === 'ok' ? 'var(--pg-green)' : state === 'failed' ? 'var(--pg-red)' : 'var(--pg-ink-4)'
   const BadgeIcon = state === 'ok' ? Check : state === 'failed' ? X : null
   return (
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
       <div style={{ position:'relative', width:44, height:44 }}>
         <div style={{ width:44, height:44, borderRadius:'50%', background:bg, display:'flex', alignItems:'center', justifyContent:'center' }}>
-          <Icon size={20} color="#fff" strokeWidth={2} />
+          <Icon size={20} color="var(--pg-surface)" strokeWidth={2} />
         </div>
-        <div style={{ position:'absolute', bottom:-2, right:-2, width:18, height:18, borderRadius:'50%', background:'#fff', border:`2px solid ${badgeColor}`, display:'flex', alignItems:'center', justifyContent:'center' }}>
+        <div style={{ position:'absolute', bottom:-2, right:-2, width:18, height:18, borderRadius:'50%', background:'var(--pg-surface)', border:`2px solid ${badgeColor}`, display:'flex', alignItems:'center', justifyContent:'center' }}>
           {BadgeIcon ? <BadgeIcon size={10} color={badgeColor} strokeWidth={3} /> : <span style={{ width:4, height:4, borderRadius:'50%', background:badgeColor }} />}
         </div>
       </div>
-      <div style={{ fontSize:11, fontWeight:600, color:'#4A4A63', whiteSpace:'nowrap' }}>{label}</div>
+      <div style={{ fontSize:11, fontWeight:600, color:'var(--pg-ink-2)', whiteSpace:'nowrap' }}>{label}</div>
     </div>
   )
 }
@@ -373,8 +373,8 @@ function QualificationBadge({ lead }) {
       <span title={lead.qualification_source === 'human' ? 'Set by a human — locked against auto-changes' : 'Set automatically'}
         style={{
           fontSize:10.5, fontWeight:700, padding:'2px 8px', borderRadius:20,
-          color: qualified ? '#156B35' : '#B02020',
-          background: qualified ? '#2E9E4F18' : '#D6454518',
+          color: qualified ? 'var(--pg-green)' : 'var(--pg-red)',
+          background: qualified ? 'var(--pg-green)18' : 'var(--pg-red)18',
         }}>
         {qualified ? '✓ Qualified for Meta' : '✕ Disqualified for Meta'}
       </span>
@@ -382,7 +382,7 @@ function QualificationBadge({ lead }) {
   }
   return (
     <span title="Status hasn't reached a qualifying or disqualifying stage yet"
-      style={{ fontSize:10.5, fontWeight:700, padding:'2px 8px', borderRadius:20, color:'#75737F', background:'#F0EEE8' }}>
+      style={{ fontSize:10.5, fontWeight:700, padding:'2px 8px', borderRadius:20, color:'var(--pg-ink-2)', background:'var(--pg-border)' }}>
       ○ Not yet classified
     </span>
   )
@@ -413,7 +413,7 @@ function SubStatusEditor({ lead, onSaved }) {
   const options = QUALIFICATION_TAXONOMY[lead.status] || []
   const hasOptions = options.length > 0
   const label = lead.sub_status || 'Not yet classified'
-  const color = lead.sub_status ? '#0E0E52' : '#8B8BD6'
+  const color = lead.sub_status ? 'var(--pg-surface-dark)' : 'var(--pg-indigo-light)'
 
   const choose = async (next) => {
     if (next === lead.sub_status) { setOpen(false); return }
@@ -440,20 +440,20 @@ function SubStatusEditor({ lead, onSaved }) {
         {hasOptions && <ChevronDown size={13} strokeWidth={2.5} color={color} style={{ opacity:0.75 }} />}
       </button>
       {open && hasOptions && (
-        <div style={{ position:'absolute', top:'120%', left:0, zIndex:40, background:'#fff', border:'1px solid #E9E7E0', borderRadius:9, boxShadow:'0 10px 28px rgba(16,24,40,0.14)', padding:5, minWidth:200 }}>
+        <div style={{ position:'absolute', top:'120%', left:0, zIndex:40, background:'var(--pg-surface)', border:'1px solid var(--pg-border)', borderRadius:9, padding:5, minWidth:200 }}>
           {options.map(opt => {
             const active = opt === lead.sub_status
             return (
               <div key={opt} onClick={() => choose(opt)}
-                style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 10px', borderRadius:6, fontSize:12.5, fontWeight:600, cursor:'pointer', color: active ? '#0E0E52' : '#4A4A63', background: active ? '#0E0E5212' : 'transparent' }}>
-                <span style={{ width:7, height:7, borderRadius:'50%', background:'#0E0E52', flexShrink:0 }} />
+                style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 10px', borderRadius:6, fontSize:12.5, fontWeight:600, cursor:'pointer', color: active ? 'var(--pg-surface-dark)' : 'var(--pg-ink-2)', background: active ? 'var(--pg-surface-dark)12' : 'transparent' }}>
+                <span style={{ width:7, height:7, borderRadius:'50%', background:'var(--pg-surface-dark)', flexShrink:0 }} />
                 {opt}
               </div>
             )
           })}
         </div>
       )}
-      {err && <div style={{ position:'absolute', top:'100%', left:0, marginTop:4, fontSize:11, color:'#D64545', whiteSpace:'nowrap' }}>{err}</div>}
+      {err && <div style={{ position:'absolute', top:'100%', left:0, marginTop:4, fontSize:11, color:'var(--pg-red)', whiteSpace:'nowrap' }}>{err}</div>}
     </div>
   )
 }
@@ -470,11 +470,11 @@ function QualificationStrip({ lead, onSaved }) {
     <div>
       <div style={{ display:'flex', alignItems:'flex-start', gap:28, flexWrap:'wrap' }}>
         <div>
-          <div style={{ fontSize:11, fontWeight:700, color:'#8A8896', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:5 }}>Status</div>
+          <div style={{ fontSize:11, fontWeight:700, color:'var(--pg-ink-3)', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:5 }}>Status</div>
           <StatusEditor lead={lead} onSaved={onSaved} />
         </div>
         <div>
-          <div style={{ fontSize:11, fontWeight:700, color:'#8A8896', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:5 }}>Sub Status</div>
+          <div style={{ fontSize:11, fontWeight:700, color:'var(--pg-ink-3)', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:5 }}>Sub Status</div>
           <SubStatusEditor lead={lead} onSaved={onSaved} />
         </div>
         <div style={{ paddingTop:2 }}>
@@ -511,8 +511,8 @@ function AiActivityCard({ lead, onQualificationSaved }) {
     <>
       <div style={{ display:'flex', gap:28, marginBottom:20, alignItems:'center' }}>
         <MascotTick Icon={MessageCircle} bg="#25D366" state={waState} label="WhatsApp bot" />
-        <MascotTick Icon={Phone} bg="#0E0E52" state={voiceState} label="AI voice agent" />
-        {loading && <span style={{ fontSize:12, color:'#8A8896' }}>Loading…</span>}
+        <MascotTick Icon={Phone} bg="var(--pg-surface-dark)" state={voiceState} label="AI voice agent" />
+        {loading && <span style={{ fontSize:12, color:'var(--pg-ink-3)' }}>Loading…</span>}
       </div>
       <QualificationStrip lead={lead} onSaved={onQualificationSaved} />
     </>
@@ -540,7 +540,7 @@ function formatPayloadValue(v) {
 }
 function PayloadPopover({ payload }) {
   const entries = Object.entries(payload || {})
-  if (!entries.length) return <div style={{ fontSize:12, color:'#8A8896', fontStyle:'italic' }}>Payload not available</div>
+  if (!entries.length) return <div style={{ fontSize:12, color:'var(--pg-ink-3)', fontStyle:'italic' }}>Payload not available</div>
   return (
     <div style={{ maxHeight:220, overflowY:'auto', display:'flex', flexDirection:'column', gap:7 }}>
       {entries.map(([k, v]) => {
@@ -548,14 +548,14 @@ function PayloadPopover({ payload }) {
         const inline = redacted ? '[redacted]' : formatPayloadValue(v)
         return (
           <div key={k} style={{ fontSize:12 }}>
-            <div style={{ fontWeight:700, color:'#8A8896', textTransform:'uppercase', fontSize:10, letterSpacing:'0.04em', marginBottom:2 }}>{formatPayloadKey(k)}</div>
+            <div style={{ fontWeight:700, color:'var(--pg-ink-3)', textTransform:'uppercase', fontSize:10, letterSpacing:'0.04em', marginBottom:2 }}>{formatPayloadKey(k)}</div>
             {inline !== null ? (
-              <div style={{ color:'#1B1B3A', lineHeight:1.5, wordBreak:'break-word' }}>{inline}</div>
+              <div style={{ color:'var(--pg-ink)', lineHeight:1.5, wordBreak:'break-word' }}>{inline}</div>
             ) : (
-              <div style={{ paddingLeft:10, borderLeft:'2px solid #EEEBE3', display:'flex', flexDirection:'column', gap:3 }}>
+              <div style={{ paddingLeft:10, borderLeft:'2px solid var(--pg-border)', display:'flex', flexDirection:'column', gap:3 }}>
                 {Object.entries(v).map(([nk, nv]) => (
-                  <div key={nk} style={{ fontSize:11.5, color:'#4A4A63' }}>
-                    <b style={{ color:'#75737F' }}>{formatPayloadKey(nk)}:</b> {REDACTED_KEY_RE.test(nk) ? '[redacted]' : formatPayloadValue(nv)}
+                  <div key={nk} style={{ fontSize:11.5, color:'var(--pg-ink-2)' }}>
+                    <b style={{ color:'var(--pg-ink-2)' }}>{formatPayloadKey(nk)}:</b> {REDACTED_KEY_RE.test(nk) ? '[redacted]' : formatPayloadValue(nv)}
                   </div>
                 ))}
               </div>
@@ -594,35 +594,35 @@ function JourneyStep({ step, channelColor, isLast }) {
       <div style={{ display:'flex', flexDirection:'column', alignItems:'center', paddingTop:2, alignSelf:'stretch' }}>
         {step.reached ? (
           <span style={{ width:18, height:18, borderRadius:'50%', background:channelColor, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-            <Check size={11} strokeWidth={3} color="#fff" />
+            <Check size={11} strokeWidth={3} color="var(--pg-surface)" />
           </span>
         ) : (
-          <span style={{ width:18, height:18, borderRadius:'50%', background:'#fff', border:'2px solid #D3D1C7', flexShrink:0 }} />
+          <span style={{ width:18, height:18, borderRadius:'50%', background:'var(--pg-surface)', border:'2px solid var(--pg-border-strong)', flexShrink:0 }} />
         )}
         {!isLast && (
-          <span style={{ flex:1, width:2, minHeight:18, marginTop:2, background: step.reached ? channelColor : 'repeating-linear-gradient(to bottom, #D3D1C7 0, #D3D1C7 3px, transparent 3px, transparent 6px)' }} />
+          <span style={{ flex:1, width:2, minHeight:18, marginTop:2, background: step.reached ? channelColor : 'repeating-linear-gradient(to bottom, var(--pg-border-strong) 0, var(--pg-border-strong) 3px, transparent 3px, transparent 6px)' }} />
         )}
       </div>
       <div style={{ flex:1, paddingBottom:18, minWidth:0 }}>
         <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
-          <span style={{ fontSize:13, fontWeight: step.reached ? 700 : 500, color: step.reached ? '#1B1B3A' : '#B0AEB8' }}>{step.label}</span>
+          <span style={{ fontSize:13, fontWeight: step.reached ? 700 : 500, color: step.reached ? 'var(--pg-ink)' : 'var(--pg-ink-4)' }}>{step.label}</span>
           {showInfo && (
             <div style={{ position:'relative', display:'flex' }} onMouseEnter={openNow} onMouseLeave={closeSoon}>
               <button onClick={() => setOpen(o => !o)} title="Show details" aria-label={`Show details for ${step.label}`}
-                style={{ background:'none', border:'none', cursor:'pointer', padding:0, display:'flex', color: open ? '#0E0E52' : '#8A8896' }}>
+                style={{ background:'none', border:'none', cursor:'pointer', padding:0, display:'flex', color: open ? 'var(--pg-surface-dark)' : 'var(--pg-ink-3)' }}>
                 <Info size={13} strokeWidth={2.2} />
               </button>
               {open && (
                 <div onMouseEnter={openNow} onMouseLeave={closeSoon}
-                  style={{ position:'absolute', top:'130%', left:0, zIndex:50, background:'#fff', border:'1px solid #E9E7E0', borderRadius:9, boxShadow:'0 10px 28px rgba(16,24,40,0.14)', padding:'10px 12px', minWidth:220, maxWidth:300 }}>
-                  <div style={{ fontSize:10.5, fontWeight:700, color:'#8A8896', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:8 }}>Payload</div>
+                  style={{ position:'absolute', top:'130%', left:0, zIndex:50, background:'var(--pg-surface)', border:'1px solid var(--pg-border)', borderRadius:9, padding:'10px 12px', minWidth:220, maxWidth:300 }}>
+                  <div style={{ fontSize:10.5, fontWeight:700, color:'var(--pg-ink-3)', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:8 }}>Payload</div>
                   <PayloadPopover payload={step.payload} />
                 </div>
               )}
             </div>
           )}
           {step.reached && step.occurredAt && (
-            <span style={{ fontSize:11, color:'#8A8896' }}>{new Date(step.occurredAt).toLocaleString('en-IN', { dateStyle:'medium', timeStyle:'short' })}</span>
+            <span style={{ fontSize:11, color:'var(--pg-ink-3)' }}>{new Date(step.occurredAt).toLocaleString('en-IN', { dateStyle:'medium', timeStyle:'short' })}</span>
           )}
         </div>
       </div>
@@ -651,11 +651,11 @@ function LeadJourneyTracker({ leadId }) {
     return () => { cancelled = true }
   }, [leadId])
 
-  if (loading) return <div style={{ fontSize:13, color:'#8A8896' }}>Loading…</div>
-  if (!journey) return <div style={{ fontSize:13, color:'#8A8896' }}>Journey tracker isn't connected yet.</div>
+  if (loading) return <div style={{ fontSize:13, color:'var(--pg-ink-3)' }}>Loading…</div>
+  if (!journey) return <div style={{ fontSize:13, color:'var(--pg-ink-3)' }}>Journey tracker isn't connected yet.</div>
 
   const steps = journey[tab] || []
-  const channelColor = tab === 'whatsapp' ? '#25D366' : '#0E0E52'
+  const channelColor = tab === 'whatsapp' ? '#25D366' : 'var(--pg-surface-dark)'
   const reachedCount = steps.filter(s => s.reached).length
 
   return (
@@ -664,14 +664,14 @@ function LeadJourneyTracker({ leadId }) {
         {['whatsapp', 'voice'].map(k => (
           <button key={k} onClick={() => setTab(k)}
             style={{ padding:'6px 14px', borderRadius:20, fontSize:12.5, fontWeight:700, cursor:'pointer', border:'1px solid',
-                     borderColor: tab === k ? '#0E0E52' : '#E9E7E0', background: tab === k ? '#0E0E52' : '#fff', color: tab === k ? '#fff' : '#4A4A63' }}>
+                     borderColor: tab === k ? 'var(--pg-surface-dark)' : 'var(--pg-border)', background: tab === k ? 'var(--pg-surface-dark)' : 'var(--pg-surface)', color: tab === k ? 'var(--pg-surface)' : 'var(--pg-ink-2)' }}>
             {k === 'whatsapp' ? 'WhatsApp' : 'Voice'}
           </button>
         ))}
-        <span style={{ fontSize:12, color:'#8A8896', alignSelf:'center', marginLeft:4 }}>{reachedCount} of {steps.length} reached</span>
+        <span style={{ fontSize:12, color:'var(--pg-ink-3)', alignSelf:'center', marginLeft:4 }}>{reachedCount} of {steps.length} reached</span>
       </div>
       {steps.length === 0 ? (
-        <div style={{ fontSize:13, color:'#8A8896' }}>No checkpoints defined for this channel.</div>
+        <div style={{ fontSize:13, color:'var(--pg-ink-3)' }}>No checkpoints defined for this channel.</div>
       ) : (
         <div>{steps.map((step, i) => <JourneyStep key={step.key} step={step} channelColor={channelColor} isLast={i === steps.length - 1} />)}</div>
       )}
@@ -701,7 +701,7 @@ function StatusEditor({ lead, onSaved }) {
     document.addEventListener('mousedown', h)
     return () => document.removeEventListener('mousedown', h)
   }, [])
-  const color = STATUS_COLOR[lead.status] || '#8B8BD6'
+  const color = STATUS_COLOR[lead.status] || 'var(--pg-indigo-light)'
 
   const choose = async (next) => {
     if (next === lead.status) { setOpen(false); return }
@@ -727,12 +727,12 @@ function StatusEditor({ lead, onSaved }) {
         <ChevronDown size={13} strokeWidth={2.5} color={color} style={{ opacity:0.75 }} />
       </button>
       {open && (
-        <div style={{ position:'absolute', top:'120%', left:0, zIndex:40, background:'#fff', border:'1px solid #E9E7E0', borderRadius:9, boxShadow:'0 10px 28px rgba(16,24,40,0.14)', padding:5, minWidth:200 }}>
+        <div style={{ position:'absolute', top:'120%', left:0, zIndex:40, background:'var(--pg-surface)', border:'1px solid var(--pg-border)', borderRadius:9, padding:5, minWidth:200 }}>
           {STATUS_OPTIONS.map(opt => {
             const active = opt === lead.status
             return (
               <div key={opt} onClick={() => choose(opt)}
-                style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 10px', borderRadius:6, fontSize:12.5, fontWeight:600, cursor:'pointer', color: active ? STATUS_COLOR[opt] : '#4A4A63', background: active ? `${STATUS_COLOR[opt]}12` : 'transparent' }}>
+                style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 10px', borderRadius:6, fontSize:12.5, fontWeight:600, cursor:'pointer', color: active ? STATUS_COLOR[opt] : 'var(--pg-ink-2)', background: active ? `${STATUS_COLOR[opt]}12` : 'transparent' }}>
                 <span style={{ width:7, height:7, borderRadius:'50%', background: STATUS_COLOR[opt], flexShrink:0 }} />
                 {opt}
               </div>
@@ -740,7 +740,7 @@ function StatusEditor({ lead, onSaved }) {
           })}
         </div>
       )}
-      {err && <div style={{ position:'absolute', top:'100%', left:0, marginTop:4, fontSize:11, color:'#D64545', whiteSpace:'nowrap' }}>{err}</div>}
+      {err && <div style={{ position:'absolute', top:'100%', left:0, marginTop:4, fontSize:11, color:'var(--pg-red)', whiteSpace:'nowrap' }}>{err}</div>}
     </div>
   )
 }
@@ -751,7 +751,7 @@ function StatusEditor({ lead, onSaved }) {
 function FollowUpButton({ open, onClick }) {
   return (
     <button onClick={onClick}
-      style={{ display:'flex', alignItems:'center', gap:6, background: open ? '#0E0E52' : '#fff', color: open ? '#fff' : '#0E0E52', border:'1px solid', borderColor: open ? '#0E0E52' : '#E9E7E0', borderRadius:7, padding:'6px 13px', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
+      style={{ display:'flex', alignItems:'center', gap:6, background: open ? 'var(--pg-surface-dark)' : 'var(--pg-surface)', color: open ? 'var(--pg-surface)' : 'var(--pg-surface-dark)', border:'1px solid', borderColor: open ? 'var(--pg-surface-dark)' : 'var(--pg-border)', borderRadius:7, padding:'6px 13px', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'var(--pg-font)' }}>
       <MessageSquarePlus size={13} strokeWidth={2.2} /> Follow-up
     </button>
   )
@@ -784,19 +784,19 @@ function FollowUpComposer({ leadId, onSaved, onClose }) {
   }
 
   return (
-    <div style={{ background:'#F9F8F6', border:'1px solid #E9E7E0', borderRadius:9, padding:12, marginBottom:16 }}>
+    <div style={{ background:'var(--pg-shell)', border:'1px solid var(--pg-border)', borderRadius:9, padding:12, marginBottom:16 }}>
       <textarea autoFocus value={note} disabled={saving} onChange={e => setNote(e.target.value)}
         placeholder="Add a follow-up note… e.g. “Call tomorrow regarding 2 BHK availability.”"
         rows={3}
-        style={{ width:'100%', boxSizing:'border-box', border:'1px solid #E9E7E0', borderRadius:7, padding:'9px 11px', fontSize:13, fontFamily:"'Plus Jakarta Sans',sans-serif", outline:'none', resize:'vertical' }} />
-      {err && <div style={{ fontSize:11.5, color:'#D64545', marginTop:6 }}>{err}</div>}
+        style={{ width:'100%', boxSizing:'border-box', border:'1px solid var(--pg-border)', borderRadius:7, padding:'9px 11px', fontSize:13, fontFamily:'var(--pg-font)', outline:'none', resize:'vertical' }} />
+      {err && <div style={{ fontSize:11.5, color:'var(--pg-red)', marginTop:6 }}>{err}</div>}
       <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:9 }}>
         <button onClick={onClose} disabled={saving}
-          style={{ padding:'6px 14px', background:'#fff', color:'#75737F', border:'1px solid #E9E7E0', borderRadius:7, fontSize:12, fontWeight:600, cursor:'pointer' }}>
+          style={{ padding:'6px 14px', background:'var(--pg-surface)', color:'var(--pg-ink-2)', border:'1px solid var(--pg-border)', borderRadius:7, fontSize:12, fontWeight:600, cursor:'pointer' }}>
           Cancel
         </button>
         <button onClick={save} disabled={saving || !note.trim()}
-          style={{ padding:'6px 16px', background: note.trim() ? '#0E0E52' : '#ccc', color:'#fff', border:'none', borderRadius:7, fontSize:12, fontWeight:700, cursor: note.trim() && !saving ? 'pointer' : 'not-allowed' }}>
+          style={{ padding:'6px 16px', background: note.trim() ? 'var(--pg-surface-dark)' : 'var(--pg-border-strong)', color:'var(--pg-surface)', border:'none', borderRadius:7, fontSize:12, fontWeight:700, cursor: note.trim() && !saving ? 'pointer' : 'not-allowed' }}>
           {saving ? 'Saving…' : 'Save Follow-up'}
         </button>
       </div>
@@ -810,7 +810,7 @@ function initials(name) {
   return (parts[0][0] + (parts[1]?.[0] || '')).toUpperCase()
 }
 
-// CRM-sourced records are read-only here because they live in IndiHomes CRM,
+// CRM-sourced records are read-only here because they live in propOG CRM,
 // not the local lead database used by the editable inbox below.
 function pick(obj, keys) {
   for (const k of keys) if (obj?.[k] != null && obj[k] !== '') return obj[k]
@@ -820,7 +820,7 @@ function pick(obj, keys) {
 // `new Lead(leadId).get(["field_data", "created_time"])`):
 // [{ name: 'full_name', values: ['John Doe'] }, { name: 'phone_number', values: ['+91...'] }, ...].
 // Used as a fallback when the flat name/phone fields above aren't present
-// on the stored lead — IndiHomes' backend may or may not have flattened
+// on the stored lead — propOG's backend may or may not have flattened
 // these into top-level fields when it saved the lead.
 function fromFieldData(raw, ...nameCandidates) {
   const fd = raw?.field_data || raw?.fieldData
@@ -850,40 +850,40 @@ function CrmLeadsSection({ leads, loading, loadingMore, error, tab, onTabChange,
   const meta = leads.filter(lead => lead.classification === 'meta')
   const visible = tab === 'housing' ? housing : tab === 'meta' ? meta : leads
   return (
-    <div style={{ background:'#fff', border:'1px solid #E9E7E0', borderRadius:12, marginBottom:20, overflow:'hidden' }}>
+    <div style={{ background:'var(--pg-surface)', border:'1px solid var(--pg-border)', borderRadius:12, marginBottom:20, overflow:'hidden' }}>
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 18px' }}>
         <div>
-          <div style={{ fontSize:14, fontWeight:700, color:'#1B1B3A' }}>IndiHomes CRM Leads</div>
-          <div style={{ fontSize:11, color:'#8A8896', marginTop:2 }}>All CRM sources — read-only</div>
+          <div style={{ fontSize:14, fontWeight:700, color:'var(--pg-ink)' }}>propOG CRM Leads</div>
+          <div style={{ fontSize:11, color:'var(--pg-ink-3)', marginTop:2 }}>All CRM sources — read-only</div>
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-          <label style={{ fontSize:12, color:'#75737F' }}>Limit:</label>
-          <select value={limit} onChange={e => onLimitChange(Number(e.target.value))} disabled={loading || loadingMore} style={{ padding:'7px 9px', border:'1px solid #E9E7E0', borderRadius:7, color:'#1B1B3A', background:'#fff', fontSize:12, cursor:'pointer' }}>
+          <label style={{ fontSize:12, color:'var(--pg-ink-2)' }}>Limit:</label>
+          <select value={limit} onChange={e => onLimitChange(Number(e.target.value))} disabled={loading || loadingMore} style={{ padding:'7px 9px', border:'1px solid var(--pg-border)', borderRadius:7, color:'var(--pg-ink)', background:'var(--pg-surface)', fontSize:12, cursor:'pointer' }}>
             {[25, 50, 100].map(value => <option key={value} value={value}>{value}</option>)}
           </select>
-          <button onClick={onRefresh} disabled={loading} style={{ padding:'7px 12px', background:loading?'#ccc':'#0E0E52', color:'#fff', border:'none', borderRadius:7, fontSize:12, fontWeight:600, cursor:loading?'not-allowed':'pointer' }}>{loading ? '⟳ Syncing…' : '⟳ Sync CRM now'}</button>
+          <button onClick={onRefresh} disabled={loading} style={{ padding:'7px 12px', background:loading?'var(--pg-border-strong)':'var(--pg-surface-dark)', color:'var(--pg-surface)', border:'none', borderRadius:7, fontSize:12, fontWeight:600, cursor:loading?'not-allowed':'pointer' }}>{loading ? '⟳ Syncing…' : '⟳ Sync CRM now'}</button>
         </div>
       </div>
-      <div style={{ display:'flex', gap:8, padding:'0 18px 12px', borderBottom:'1px solid #E9E7E0' }}>
+      <div style={{ display:'flex', gap:8, padding:'0 18px 12px', borderBottom:'1px solid var(--pg-border)' }}>
         {[['all','All',total], ['housing','Housing.com',housingTotal ?? housing.length], ['meta','Meta Ad',metaTotal ?? meta.length]].map(([value, label, count]) => (
-          <button key={value} onClick={() => onTabChange(value)} style={{ padding:'6px 12px', border:'1px solid', borderColor:tab===value?'#0E0E52':'#E9E7E0', background:tab===value?'#0E0E52':'#fff', color:tab===value?'#fff':'#1B1B3A', borderRadius:20, fontSize:12, fontWeight:600, cursor:'pointer' }}>{label} {count}</button>
+          <button key={value} onClick={() => onTabChange(value)} style={{ padding:'6px 12px', border:'1px solid', borderColor:tab===value?'var(--pg-surface-dark)':'var(--pg-border)', background:tab===value?'var(--pg-surface-dark)':'var(--pg-surface)', color:tab===value?'var(--pg-surface)':'var(--pg-ink)', borderRadius:20, fontSize:12, fontWeight:600, cursor:'pointer' }}>{label} {count}</button>
         ))}
       </div>
       <div style={{ padding:'12px 18px 18px' }}>
-        {loading && <div style={{ fontSize:13, color:'#8A8896' }}>Loading CRM leads…</div>}
-        {error && <div style={{ fontSize:12.5, color:'#D64545' }}>Couldn't load CRM leads: {error}</div>}
-        {!loading && !error && visible.length === 0 && <div style={{ fontSize:13, color:'#8A8896' }}>No leads found in the CRM.</div>}
+        {loading && <div style={{ fontSize:13, color:'var(--pg-ink-3)' }}>Loading CRM leads…</div>}
+        {error && <div style={{ fontSize:12.5, color:'var(--pg-red)' }}>Couldn't load CRM leads: {error}</div>}
+        {!loading && !error && visible.length === 0 && <div style={{ fontSize:13, color:'var(--pg-ink-3)' }}>No leads found in the CRM.</div>}
         {!loading && !error && visible.length > 0 && <div style={{ display:'flex', flexDirection:'column', gap:6, maxHeight:360, overflowY:'auto' }}>
           {visible.map((raw, i) => {
             const f = metaCrmLeadFields(raw)
-            return <div key={raw.id ?? i} style={{ display:'flex', alignItems:'center', gap:14, padding:'9px 12px', background:'#F9F8F6', border:'1px solid #F0EEE8', borderRadius:8 }}>
-              <div style={{ width:34, height:34, borderRadius:'50%', background:raw.classification === 'housing' ? '#8B1A1A' : '#0E5FBF', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:800, flexShrink:0 }}>{initials(f.name)}</div>
-              <div style={{ flex:1, minWidth:0 }}><div style={{ fontSize:13, fontWeight:700, color:'#1B1B3A' }}>{f.name || <EmptyValue />}</div><div style={{ fontSize:11.5, color:'#75737F' }}>{f.phone || <EmptyValue />}{f.project ? ` · ${f.project}` : ''}</div></div>
-              {f.capturedAt && <div style={{ fontSize:11, color:'#8A8896', whiteSpace:'nowrap' }}>{timeAgo(new Date(f.capturedAt).getTime())}</div>}
+            return <div key={raw.id ?? i} style={{ display:'flex', alignItems:'center', gap:14, padding:'9px 12px', background:'var(--pg-shell)', border:'1px solid var(--pg-border)', borderRadius:8 }}>
+              <div style={{ width:34, height:34, borderRadius:'50%', background:raw.classification === 'housing' ? 'var(--pg-red)' : 'var(--pg-indigo)', color:'var(--pg-surface)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:800, flexShrink:0 }}>{initials(f.name)}</div>
+              <div style={{ flex:1, minWidth:0 }}><div style={{ fontSize:13, fontWeight:700, color:'var(--pg-ink)' }}>{f.name || <EmptyValue />}</div><div style={{ fontSize:11.5, color:'var(--pg-ink-2)' }}>{f.phone || <EmptyValue />}{f.project ? ` · ${f.project}` : ''}</div></div>
+              {f.capturedAt && <div style={{ fontSize:11, color:'var(--pg-ink-3)', whiteSpace:'nowrap' }}>{timeAgo(new Date(f.capturedAt).getTime())}</div>}
             </div>
           })}
         </div>}
-        {!loading && !error && hasMore && <button onClick={onLoadMore} disabled={loadingMore} style={{ marginTop:12, width:'100%', padding:'9px 12px', background:loadingMore?'#ccc':'#F6F5F1', color:'#0E0E52', border:'1px solid #E9E7E0', borderRadius:7, fontSize:12.5, fontWeight:700, cursor:loadingMore?'not-allowed':'pointer' }}>{loadingMore ? 'Loading more…' : `Load More (${leads.length} of ${total})`}</button>}
+        {!loading && !error && hasMore && <button onClick={onLoadMore} disabled={loadingMore} style={{ marginTop:12, width:'100%', padding:'9px 12px', background:loadingMore?'var(--pg-border-strong)':'var(--pg-shell)', color:'var(--pg-surface-dark)', border:'1px solid var(--pg-border)', borderRadius:7, fontSize:12.5, fontWeight:700, cursor:loadingMore?'not-allowed':'pointer' }}>{loadingMore ? 'Loading more…' : `Load More (${leads.length} of ${total})`}</button>}
       </div>
     </div>
   )
@@ -941,25 +941,25 @@ function LeadDetailView({ lead: initialLead, onClose }) {
 
   return (
     <div style={{ maxWidth:960 }}>
-      <button onClick={onClose} style={{ background:'#F6F5F1', border:'none', borderRadius:8, padding:'7px 14px', fontSize:12.5, fontWeight:700, color:'#0E0E52', cursor:'pointer', marginBottom:18 }}>← Back to leads</button>
+      <button onClick={onClose} style={{ background:'var(--pg-shell)', border:'none', borderRadius:8, padding:'7px 14px', fontSize:12.5, fontWeight:700, color:'var(--pg-surface-dark)', cursor:'pointer', marginBottom:18 }}>← Back to leads</button>
 
       {/* Header — avatar + name/status get real visual weight, matching the
           hero-card treatment ProjectIntelligence uses for its lead subject. */}
       <div style={{ display:'flex', alignItems:'center', gap:16, marginBottom:22 }}>
-        <div style={{ width:52, height:52, borderRadius:'50%', background:'#0E0E52', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, fontWeight:800, flexShrink:0 }}>
+        <div style={{ width:52, height:52, borderRadius:'50%', background:'var(--pg-surface-dark)', color:'var(--pg-surface)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, fontWeight:800, flexShrink:0 }}>
           {initials(lead.name)}
         </div>
         <div>
-          <div style={{ fontSize:26, fontWeight:800, color:'#0E0E52', lineHeight:1.15 }}>{lead.name || 'Unnamed lead'}</div>
+          <div style={{ fontSize:26, fontWeight:800, color:'var(--pg-surface-dark)', lineHeight:1.15 }}>{lead.name || 'Unnamed lead'}</div>
           <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:6 }}>
             <StatusEditor lead={lead} onSaved={onFieldSaved} />
-            <span style={{ fontSize:12.5, color:'#75737F' }}>{SOURCE_LABEL[lead.primary_source] || lead.primary_source}</span>
-            <span style={{ fontSize:12.5, color:'#8A8896' }}>· {timeAgo(lead.created_at)}</span>
+            <span style={{ fontSize:12.5, color:'var(--pg-ink-2)' }}>{SOURCE_LABEL[lead.primary_source] || lead.primary_source}</span>
+            <span style={{ fontSize:12.5, color:'var(--pg-ink-3)' }}>· {timeAgo(lead.created_at)}</span>
           </div>
         </div>
       </div>
 
-      <SectionCard title="Lead Overview" accent="#0E0E52" style={{ marginBottom:20 }}>
+      <SectionCard title="Lead Overview" accent="var(--pg-surface-dark)" style={{ marginBottom:20 }}>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:20 }}>
           <ProtectedField label="Name" value={lead.name} />
           <ProtectedField label="Phone" value={lead.phone ? (lead.phone.startsWith('+') ? lead.phone : `+91 ${lead.phone}`) : null} />
@@ -968,7 +968,7 @@ function LeadDetailView({ lead: initialLead, onClose }) {
           <EditableFieldShared label="Email" value={lead.email} onSave={saveField('email')} />
           {/* CRM status — locked, CRM-push-driven (see meta-capi.cjs's header
               comment: this app's only real "CRM status" is push-delivery
-              success/failed to IndiHomes' own createLead API, not a lead-
+              success/failed to propOG's own createLead API, not a lead-
               qualification signal — shown honestly as such, never overridden). */}
           <ProtectedField label="CRM Status" value={(
             <span style={{ display:'flex', alignItems:'center', gap:6 }}>
@@ -979,7 +979,7 @@ function LeadDetailView({ lead: initialLead, onClose }) {
         </div>
       </SectionCard>
 
-      <SectionCard title="Requirements" accent="#2E9E4F" style={{ marginBottom:20 }}>
+      <SectionCard title="Requirements" accent="var(--pg-green)" style={{ marginBottom:20 }}>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:20, marginBottom:18 }}>
           <EditableFieldShared label="Project" value={lead.project} onSave={saveField('project')} />
           <EditableFieldShared label="Configuration" value={lead.configuration} onSave={saveField('configuration')} />
@@ -996,11 +996,11 @@ function LeadDetailView({ lead: initialLead, onClose }) {
           drives the Meta CAPI qualified/disqualified dispatch. New in this
           pass — see backend/LEAD_EVENTS_INTEGRATION.md for the full
           pipeline this reads from. */}
-      <SectionCard title="AI Activity" accent="#0E5FBF" style={{ marginBottom:20 }}>
+      <SectionCard title="AI Activity" accent="var(--pg-indigo)" style={{ marginBottom:20 }}>
         <AiActivityCard lead={lead} onQualificationSaved={onFieldSaved} />
       </SectionCard>
 
-      <SectionCard title="Conversations" accent="#F7941D" style={{ marginBottom:20 }}>
+      <SectionCard title="Conversations" accent="var(--pg-gold)" style={{ marginBottom:20 }}>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
           <ConversationCard title="WhatsApp Bot" icon={MessageCircle} summary={lead.whatsapp_summary} summaryAt={lead.whatsapp_summary_at}
             leadId={lead.id} endpoint={`/api/leads/${lead.id}/whatsapp-conversation`} kind="whatsapp" />
@@ -1016,15 +1016,15 @@ function LeadDetailView({ lead: initialLead, onClose }) {
           intelligence -> Activity -> END. Previously sandwiched between
           Requirements and Conversations, which read as a large card
           floating between unrelated sections. */}
-      <SectionCard title="Lead Journey" accent="#6B4FBB" style={{ marginBottom:20 }}>
+      <SectionCard title="Lead Journey" accent="var(--pg-indigo)" style={{ marginBottom:20 }}>
         <LeadJourneyTracker leadId={lead.id} />
       </SectionCard>
 
-      <SectionCard title="Activity" accent="#6B4FBB" style={{ marginBottom:20 }} action={<FollowUpButton open={followUpOpen} onClick={() => setFollowUpOpen(o => !o)} />}>
+      <SectionCard title="Activity" accent="var(--pg-indigo)" style={{ marginBottom:20 }} action={<FollowUpButton open={followUpOpen} onClick={() => setFollowUpOpen(o => !o)} />}>
         {followUpOpen && (
           <FollowUpComposer leadId={lead.id} onSaved={refreshEdits} onClose={() => setFollowUpOpen(false)} />
         )}
-        {loadingActivity ? <div style={{ fontSize:13, color:'#8A8896' }}>Loading…</div> : <ActivityFeed touches={touches} edits={edits} />}
+        {loadingActivity ? <div style={{ fontSize:13, color:'var(--pg-ink-3)' }}>Loading…</div> : <ActivityFeed touches={touches} edits={edits} />}
       </SectionCard>
     </div>
   )
@@ -1044,7 +1044,7 @@ function LeadDetailView({ lead: initialLead, onClose }) {
 // this component's rendering was simplified.
 function SourceStatus({ label, status }) {
   if (!status) return null
-  const dot = !status.configured ? '#D64545' : status.lastFailure && (!status.lastSuccess || status.lastFailure.ran_at > status.lastSuccess.ran_at) ? '#F7941D' : status.lastSuccess ? '#2E9E4F' : '#8A8896'
+  const dot = !status.configured ? 'var(--pg-red)' : status.lastFailure && (!status.lastSuccess || status.lastFailure.ran_at > status.lastSuccess.ran_at) ? 'var(--pg-gold)' : status.lastSuccess ? 'var(--pg-green)' : 'var(--pg-ink-3)'
   const detail = !status.configured
     ? 'Not connected'
     : status.lastFailure && (!status.lastSuccess || status.lastFailure.ran_at > status.lastSuccess.ran_at)
@@ -1053,10 +1053,10 @@ function SourceStatus({ label, status }) {
     ? `Last synced ${timeAgo(status.lastSuccess.ran_at)} · ${status.lastSuccess.created ?? 0} new`
     : 'Not synced yet'
   return (
-    <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', background:'#fff', border:'1px solid #E9E7E0', borderRadius:10, fontSize:12 }}>
+    <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', background:'var(--pg-surface)', border:'1px solid var(--pg-border)', borderRadius:10, fontSize:12 }}>
       <span style={{ width:8, height:8, borderRadius:'50%', background:dot, flexShrink:0 }} />
-      <span style={{ fontWeight:700, color:'#1B1B3A' }}>{label}</span>
-      <span style={{ color:'#8A8896' }}>{detail}</span>
+      <span style={{ fontWeight:700, color:'var(--pg-ink)' }}>{label}</span>
+      <span style={{ color:'var(--pg-ink-3)' }}>{detail}</span>
     </div>
   )
 }
@@ -1073,14 +1073,14 @@ function SourceStatus({ label, status }) {
 // real boolean, hence the Number(...) coercion below.
 function MiniMascotDot({ Icon, bg, active, failed, label }) {
   const state = failed ? 'failed' : active ? 'ok' : 'none'
-  const badgeColor = state === 'ok' ? '#2E9E4F' : state === 'failed' ? '#D64545' : '#C8C6D0'
+  const badgeColor = state === 'ok' ? 'var(--pg-green)' : state === 'failed' ? 'var(--pg-red)' : 'var(--pg-ink-4)'
   return (
     <span title={`${label}: ${state === 'ok' ? 'reached' : state === 'failed' ? 'attempted, failed' : 'no activity yet'}`}
       style={{ position:'relative', width:20, height:20, display:'inline-flex', flexShrink:0 }}>
-      <span style={{ width:20, height:20, borderRadius:'50%', background: state === 'none' ? '#E9E7E0' : bg, display:'flex', alignItems:'center', justifyContent:'center' }}>
-        <Icon size={11} color={state === 'none' ? '#B8B6C0' : '#fff'} strokeWidth={2.2} />
+      <span style={{ width:20, height:20, borderRadius:'50%', background: state === 'none' ? 'var(--pg-border)' : bg, display:'flex', alignItems:'center', justifyContent:'center' }}>
+        <Icon size={11} color={state === 'none' ? 'var(--pg-ink-4)' : 'var(--pg-surface)'} strokeWidth={2.2} />
       </span>
-      <span style={{ position:'absolute', bottom:-2, right:-2, width:9, height:9, borderRadius:'50%', background:badgeColor, border:'1.5px solid #fff' }} />
+      <span style={{ position:'absolute', bottom:-2, right:-2, width:9, height:9, borderRadius:'50%', background:badgeColor, border:'1.5px solid var(--pg-surface)' }} />
     </span>
   )
 }
@@ -1088,17 +1088,17 @@ function AiActivityMini({ lead }) {
   return (
     <div style={{ display:'flex', alignItems:'center', gap:6 }}>
       <MiniMascotDot Icon={MessageCircle} bg="#25D366" active={!!Number(lead.ai_whatsapp_active)} failed={!!Number(lead.ai_whatsapp_failed)} label="WhatsApp bot" />
-      <MiniMascotDot Icon={Phone} bg="#0E0E52" active={!!Number(lead.ai_voice_active)} failed={!!Number(lead.ai_voice_failed)} label="AI voice agent" />
+      <MiniMascotDot Icon={Phone} bg="var(--pg-surface-dark)" active={!!Number(lead.ai_voice_active)} failed={!!Number(lead.ai_voice_failed)} label="AI voice agent" />
     </div>
   )
 }
 
 // Per-lead official-CRM push status. Distinct from the sync-health strip
 // above (that's about leads coming IN from Meta/Housing.com/website); this
-// is about whether THIS lead has gone OUT to IndiHomes' own createLead API.
+// is about whether THIS lead has gone OUT to propOG's own createLead API.
 function CrmBadge({ status, error }) {
-  if (status === 'success') return <span title="Pushed to the official IndiHomes CRM"><StatusPill label="✓ Synced" color="#156B35" size="sm" /></span>
-  if (status === 'failed') return <span title={error || 'CRM push failed'}><StatusPill label="✗ Failed" color="#B02020" size="sm" /></span>
+  if (status === 'success') return <span title="Pushed to the official propOG CRM"><StatusPill label="✓ Synced" color="var(--pg-green)" size="sm" /></span>
+  if (status === 'failed') return <span title={error || 'CRM push failed'}><StatusPill label="✗ Failed" color="var(--pg-red)" size="sm" /></span>
   return <EmptyValue />
 }
 
@@ -1242,28 +1242,28 @@ export default function LeadCapture({ onBreadcrumbExtra }) {
       <ModuleHeader module="MODULE 07" title="Unified Lead Inbox"
         subtitle={crmLoading ? 'Loading CRM leads…' : `${new Set(crmLeads.map(l => l.classification)).size} sources normalised · ${crmTotal} leads captured · ${crmLeads.length} loaded`}
         rightContent={
-          <button onClick={() => setAddLeadOpen(true)} style={{ padding:'9px 18px', background:'#FECF55', color:'#0E0E52', border:'none', borderRadius:8, fontSize:13, fontWeight:700, cursor:'pointer' }}>＋ Add Lead</button>
+          <button onClick={() => setAddLeadOpen(true)} style={{ padding:'9px 18px', background:'var(--pg-gold)', color:'var(--pg-surface-dark)', border:'none', borderRadius:8, fontSize:13, fontWeight:700, cursor:'pointer' }}>＋ Add Lead</button>
         } />
 
       {error && (
-        <div style={{ background:'#FEE8E8', border:'1px solid #D6454540', borderRadius:8, padding:'12px 14px', color:'#D64545', fontSize:13, marginBottom:16 }}>{error}</div>
+        <div style={{ background:'var(--pg-tint-red)', border:'1px solid var(--pg-red)40', borderRadius:8, padding:'12px 14px', color:'var(--pg-red)', fontSize:13, marginBottom:16 }}>{error}</div>
       )}
 
       {/* Connection/health status per source — always visible, not just on click */}
       <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
         <SourceStatus label="Housing.com" status={syncStatus?.housing} />
         <SourceStatus label="Meta" status={syncStatus?.meta} />
-        <SourceStatus label="IndiHomes Website" status={syncStatus?.website} />
+        <SourceStatus label="propOG Website" status={syncStatus?.website} />
       </div>
 
-      {/* Meta Ad Leads, sourced directly from IndiHomes' own CRM (Section 8) —
+      {/* Meta Ad Leads, sourced directly from propOG's own CRM (Section 8) —
           a separate, read-only, collapsible section, not merged into the
           editable unified-inbox table below (see MetaCrmLeadsSection's own
           header comment for why). Collapsed by default; loads on first
           expand. */}
       <CrmLeadsSection leads={crmLeads} loading={crmLoading} loadingMore={crmLoadingMore} error={crmError} tab={crmTab} onTabChange={setCrmTab} onRefresh={() => fetchCrmLeads(1, true)} onLoadMore={() => fetchCrmLeads(crmPage + 1)} hasMore={crmPage < crmTotalPages} total={crmTotal} housingTotal={crmHousingTotal} metaTotal={crmMetaTotal} limit={crmLimit} onLimitChange={nextLimit => { setCrmLimit(nextLimit); fetchCrmLeads(1, false, nextLimit) }} />
 
-      {/* NOTE: the "IndiHomes CRM push" status field (syncStatus.crm) was
+      {/* NOTE: the "propOG CRM push" status field (syncStatus.crm) was
           intentionally removed from this screen per a UI-only cleanup pass —
           the backend (INDIHOMES_LEAD_PUSH_ENABLED, indihomes-leads-client.cjs,
           crm_status/crm_push_log tracking, /api/leads/sync-status's `crm` key,
@@ -1274,69 +1274,69 @@ export default function LeadCapture({ onBreadcrumbExtra }) {
       {/* Source chips — live counts */}
       <div style={{ display:'flex', gap:10, marginBottom:20, flexWrap:'wrap', alignItems:'center' }}>
         {Object.entries(bySource).map(([s, n]) => (
-          <div key={s} style={{ padding:'6px 14px', background:'#fff', border:'1px solid #E9E7E0', borderRadius:20, fontSize:12, fontWeight:600, color:'#1B1B3A' }}>{s}: {n}</div>
+          <div key={s} style={{ padding:'6px 14px', background:'var(--pg-surface)', border:'1px solid var(--pg-border)', borderRadius:20, fontSize:12, fontWeight:600, color:'var(--pg-ink)' }}>{s}: {n}</div>
         ))}
         <div style={{ marginLeft:'auto', display:'flex', gap:8 }}>
           <button onClick={syncMeta} disabled={!!syncingSource}
-            style={{ padding:'7px 16px', background: syncingSource ? '#ccc' : '#0E0E52', color:'#fff', border:'none', borderRadius:8, fontSize:12.5, fontWeight:600, cursor: syncingSource ? 'not-allowed' : 'pointer' }}>
+            style={{ padding:'7px 16px', background: syncingSource ? 'var(--pg-border-strong)' : 'var(--pg-surface-dark)', color:'var(--pg-surface)', border:'none', borderRadius:8, fontSize:12.5, fontWeight:600, cursor: syncingSource ? 'not-allowed' : 'pointer' }}>
             {syncingSource === 'meta' ? '⟳ Syncing…' : '⟳ Sync Meta now'}
           </button>
           <button onClick={syncHousing} disabled={!!syncingSource}
-            style={{ padding:'7px 16px', background: syncingSource ? '#ccc' : '#0E0E52', color:'#fff', border:'none', borderRadius:8, fontSize:12.5, fontWeight:600, cursor: syncingSource ? 'not-allowed' : 'pointer' }}>
+            style={{ padding:'7px 16px', background: syncingSource ? 'var(--pg-border-strong)' : 'var(--pg-surface-dark)', color:'var(--pg-surface)', border:'none', borderRadius:8, fontSize:12.5, fontWeight:600, cursor: syncingSource ? 'not-allowed' : 'pointer' }}>
             {syncingSource === 'housing' ? '⟳ Syncing…' : '⟳ Sync Housing.com now'}
           </button>
         </div>
       </div>
-      {syncMsg && <div style={{ fontSize:12.5, color:'#2E9E4F', marginBottom:12, fontWeight:600 }}>{syncMsg}</div>}
+      {syncMsg && <div style={{ fontSize:12.5, color:'var(--pg-green)', marginBottom:12, fontWeight:600 }}>{syncMsg}</div>}
 
       {/* Source filter */}
       <div style={{ display:'flex', gap:8, marginBottom:16, flexWrap:'wrap' }}>
         {sources.map(f => (
-          <button key={f} onClick={() => setSourceFilter(f)} style={{ padding:'6px 16px', border:'1px solid', borderColor: sourceFilter===f?'#0E0E52':'#E9E7E0', background: sourceFilter===f?'#0E0E52':'#fff', color: sourceFilter===f?'#fff':'#1B1B3A', borderRadius:20, fontSize:13, fontWeight:500, cursor:'pointer' }}>{f}</button>
+          <button key={f} onClick={() => setSourceFilter(f)} style={{ padding:'6px 16px', border:'1px solid', borderColor: sourceFilter===f?'var(--pg-surface-dark)':'var(--pg-border)', background: sourceFilter===f?'var(--pg-surface-dark)':'var(--pg-surface)', color: sourceFilter===f?'var(--pg-surface)':'var(--pg-ink)', borderRadius:20, fontSize:13, fontWeight:500, cursor:'pointer' }}>{f}</button>
         ))}
-        <div style={{ marginLeft:'auto', fontSize:13, color:'#75737F', display:'flex', alignItems:'center' }}>{filtered.length} leads</div>
+        <div style={{ marginLeft:'auto', fontSize:13, color:'var(--pg-ink-2)', display:'flex', alignItems:'center' }}>{filtered.length} leads</div>
       </div>
 
       {/* Table — condensed to 7 columns (was 10): Lead folds in phone,
           Requirement folds in configuration/budget/location as one scannable
           line, matching how a real CRM list view groups secondary fields
           under the primary one instead of giving each its own column. */}
-      <div style={{ background:'#fff', border:'1px solid #E9E7E0', borderRadius:12, overflow:'hidden' }}>
+      <div style={{ background:'var(--pg-surface)', border:'1px solid var(--pg-border)', borderRadius:12, overflow:'hidden' }}>
         <div style={{ overflowX:'auto' }}>
         <table style={{ width:'100%', borderCollapse:'collapse', minWidth:820 }}>
           <thead>
-            <tr style={{ background:'#F6F5F1' }}>
+            <tr style={{ background:'var(--pg-shell)' }}>
               {['Lead','Project','Requirement','Source','Captured','Status','AI Activity'].map(h => (
-                <th key={h} style={{ padding:'9px 14px', textAlign:'left', fontSize:10.5, color:'#8A8896', fontWeight:700, letterSpacing:'0.06em', textTransform:'uppercase', fontFamily:"'IBM Plex Mono',monospace", borderBottom:'1px solid #E9E7E0' }}>{h}</th>
+                <th key={h} style={{ padding:'9px 14px', textAlign:'left', fontSize:10.5, color:'var(--pg-ink-3)', fontWeight:700, letterSpacing:'0.06em', textTransform:'uppercase', fontFamily:'var(--pg-font-mono)', borderBottom:'1px solid var(--pg-border)' }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {!loading && filtered.length === 0 && (
-              <tr><td colSpan={7} style={{ padding:'32px 14px', textAlign:'center', fontSize:13, color:'#8A8896' }}>
+              <tr><td colSpan={7} style={{ padding:'32px 14px', textAlign:'center', fontSize:13, color:'var(--pg-ink-3)' }}>
                 No leads yet — they'll appear here as Housing.com syncs (hourly), Meta leads arrive, or you add one directly.
               </td></tr>
             )}
             {filtered.map((l, i) => (
               <tr key={l.id} onClick={() => openLead(l)}
-                style={{ borderTop: i === 0 ? 'none' : '1px solid #F0EEE8', background: '#fff', cursor:'pointer', transition:'background 0.1s' }}
-                onMouseEnter={e => e.currentTarget.style.background = '#F6F6FB'}
-                onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
+                style={{ borderTop: i === 0 ? 'none' : '1px solid var(--pg-border)', background: 'var(--pg-surface)', cursor:'pointer', transition:'background 0.1s' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--pg-shell)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'var(--pg-surface)'}>
                 <td style={{ padding:'10px 14px' }}>
-                  <div style={{ fontWeight:700, fontSize:13, color:'#1B1B3A' }}>{l.name || <EmptyValue />}</div>
-                  <div style={{ fontSize:11.5, color:'#8A8896', fontFamily:"'IBM Plex Mono',monospace", marginTop:1 }}>{l.phone.startsWith('+') ? l.phone : `+91 ${l.phone}`}</div>
+                  <div style={{ fontWeight:700, fontSize:13, color:'var(--pg-ink)' }}>{l.name || <EmptyValue />}</div>
+                  <div style={{ fontSize:11.5, color:'var(--pg-ink-3)', fontFamily:'var(--pg-font-mono)', marginTop:1 }}>{l.phone.startsWith('+') ? l.phone : `+91 ${l.phone}`}</div>
                 </td>
-                <td style={{ padding:'10px 14px', fontSize:12.5, color:'#4A4A63' }}>{l.project || <EmptyValue />}</td>
-                <td style={{ padding:'10px 14px', fontSize:12, color:'#75737F' }}>
+                <td style={{ padding:'10px 14px', fontSize:12.5, color:'var(--pg-ink-2)' }}>{l.project || <EmptyValue />}</td>
+                <td style={{ padding:'10px 14px', fontSize:12, color:'var(--pg-ink-2)' }}>
                   {[l.configuration, l.budget, l.location].filter(Boolean).join(' · ') || <EmptyValue />}
                 </td>
-                <td style={{ padding:'10px 14px', fontSize:12, color:'#4A4A63', whiteSpace:'nowrap' }}>
-                  <span style={{ display:'inline-block', width:6, height:6, borderRadius:'50%', background: SOURCE_COLOR[l.primary_source] || '#8A8896', marginRight:6 }} />
+                <td style={{ padding:'10px 14px', fontSize:12, color:'var(--pg-ink-2)', whiteSpace:'nowrap' }}>
+                  <span style={{ display:'inline-block', width:6, height:6, borderRadius:'50%', background: SOURCE_COLOR[l.primary_source] || 'var(--pg-ink-3)', marginRight:6 }} />
                   {SOURCE_LABEL[l.primary_source] || l.primary_source}
                 </td>
-                <td style={{ padding:'10px 14px', fontSize:12, color:'#8A8896', whiteSpace:'nowrap' }}>{timeAgo(l.created_at)}</td>
+                <td style={{ padding:'10px 14px', fontSize:12, color:'var(--pg-ink-3)', whiteSpace:'nowrap' }}>{timeAgo(l.created_at)}</td>
                 <td style={{ padding:'10px 14px' }}>
-                  <StatusPill label={l.status} color={STATUS_COLOR[l.status] || '#8B8BD6'} size="sm" />
+                  <StatusPill label={l.status} color={STATUS_COLOR[l.status] || 'var(--pg-indigo-light)'} size="sm" />
                 </td>
                 <td style={{ padding:'10px 14px' }}><AiActivityMini lead={l} /></td>
               </tr>

@@ -232,7 +232,23 @@ router.post('/places-verify', async (req, res) => {
 // same "lightweight, dependency-free extraction" style as external-
 // search.cjs's own fact regexes.
 const FETCH_PAGE_TIMEOUT_MS = parseInt(process.env.AGENT_FETCH_PAGE_TIMEOUT_MS, 10) || 12000
-const FETCH_PAGE_MAX_CHARS = parseInt(process.env.AGENT_FETCH_PAGE_MAX_CHARS, 10) || 6000
+// Real live bug (Mahatre Wadi trace, this pass): 6000 was tight enough that
+// a real portal category page's own nav/header block (confirmed live on an
+// actual MagicBricks page — NOT wrapped in semantic <nav>/<header> tags on
+// this site, so the strip below doesn't remove it — ~7000 real characters
+// of genuine menu text: "Buy Popular Choices / Ready to Move / Budget
+// Homes / ... / Sell For Owner / +91 9870 260 930 / Login / Home
+// Interiors...") pushed the page's own real listing content (RERA numbers,
+// building names, prices) past the cap entirely — confirmed directly: the
+// real page's first RERA number sits at character ~7660 of its extracted
+// text, its 5th at ~24000. Raised to 24000, verified against this exact
+// real page to comfortably include all of them. Free to raise — the two
+// LLM-facing consumers of this text (classify_lifecycle_status,
+// llm_assist_extract) already self-limit to their own 4000-char budget
+// regardless of how much is passed in, so this only benefits the free,
+// regex-only deterministic extractors (deterministic_extract,
+// extract_sub_listings), never LLM token cost.
+const FETCH_PAGE_MAX_CHARS = parseInt(process.env.AGENT_FETCH_PAGE_MAX_CHARS, 10) || 24000
 const FETCH_PAGE_CACHE_TTL_MS = 20 * 60 * 1000
 const fetchPageCache = new Map() // normalized URL -> { data, ts }
 
@@ -270,15 +286,41 @@ function extractJsonLd(html) {
   }
   return blocks
 }
+// Real live bug (Mahatre Wadi trace, this pass): a real portal category
+// page's <nav>/<header> (site-wide menu — "Buy Popular Choices / Ready to
+// Move / Budget Homes / New Projects / Property Types / Flats in Mumbai /
+// House for sale in Mumbai / ...") appears EARLY in the DOM, so it was
+// consuming a large chunk of FETCH_PAGE_MAX_CHARS's fixed budget before the
+// page's own real listing content (further down, inside the actual body)
+// ever got a chance to be included — confirmed live: a real MagicBricks
+// category page's extracted text was menu chrome from end to end, zero
+// RERA numbers anywhere in it, even though the real page (verified by
+// fetching it directly) genuinely lists several real projects with real
+// RERA numbers further down. This silently degraded extraction quality
+// for EVERY fetch_page call, not just aggregator pages — any listing page
+// with a large nav/header block lost real content to the same crowding.
+// Stripped here, before the char cap, same "boilerplate never counts
+// against the budget" principle as the existing script/style/comment strip.
 function htmlToText(html) {
   const s = html
     .replace(/<script[\s\S]*?<\/script>/gi, ' ')
     .replace(/<style[\s\S]*?<\/style>/gi, ' ')
     .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<nav[\s\S]*?<\/nav>/gi, ' ')
+    .replace(/<header[\s\S]*?<\/header>/gi, ' ')
+    .replace(/<footer[\s\S]*?<\/footer>/gi, ' ')
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<\/(p|div|li|h[1-6]|tr)>/gi, '\n')
     .replace(/<[^>]+>/g, ' ')
-  return decodeHtmlEntities(s).replace(/[ \t]+/g, ' ').replace(/\n[ \t]*\n+/g, '\n').trim()
+  const decoded = decodeHtmlEntities(s).replace(/[ \t]+/g, ' ')
+  // Drop every blank/whitespace-only LINE outright, not just collapse
+  // consecutive newlines — a page's boilerplate markup (filter widgets,
+  // menu items each in their own block-level tag) turns into hundreds of
+  // near-empty single-character lines once tags are stripped; the old
+  // `\n[ \t]*\n+ -> \n` collapse didn't reliably catch all of them,
+  // letting them silently eat into FETCH_PAGE_MAX_CHARS's fixed budget
+  // before any real content appeared.
+  return decoded.split('\n').map(l => l.trim()).filter(Boolean).join('\n')
 }
 
 async function fetchPageHttp(url) {

@@ -492,4 +492,27 @@ function looksLikeInvalidName(name) {
   if (words.length <= 2 && words.every(w => GENERIC_NAME_WORDS.has(w))) return true
   return false
 }
-module.exports = { scoreIndiHomesProject, scoreExternalProject, filtersFromBuckets, filtersFromParams, labelFor, looksLikeUnrelatedCommerce, looksLikeInvalidName }
+
+// ── Single-reason "why" picker — a results CARD (as opposed to Project
+// Intelligence's fuller detail view, which still gets the whole
+// match_reasons list unchanged) needs ONE short, plain sentence, not every
+// reason concatenated with " · " (previously read as a long, technical
+// string — "Exact location match: X · 2 BHK available · Possession 2027
+// is within your requested window · Seen today"). Location and
+// configuration are what a buyer actually asked for, so they're preferred
+// over budget/possession/quality/freshness signals when both are present.
+// Shared across all three AI Search pipelines' response-building code
+// (server.cjs's agent-path adapter and Places-direct branch,
+// external-search.cjs's Node-fallback path) so the "pick one" rule can't
+// drift between them the way three separate ad-hoc joins would.
+const LOCATION_REASON_RE = /\blocation\b|\blocality\b|\blocated\b|area\)/i
+const CONFIG_REASON_RE = /\bBHK\b|\bconfiguration\b/i
+function pickPrimaryMatchReason(reasons) {
+  const list = (reasons || []).filter(Boolean)
+  if (!list.length) return null
+  return list.find(r => LOCATION_REASON_RE.test(r))
+    || list.find(r => CONFIG_REASON_RE.test(r))
+    || list[0]
+}
+
+module.exports = { scoreIndiHomesProject, scoreExternalProject, filtersFromBuckets, filtersFromParams, labelFor, looksLikeUnrelatedCommerce, looksLikeInvalidName, pickPrimaryMatchReason }

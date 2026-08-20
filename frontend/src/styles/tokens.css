@@ -1,0 +1,72 @@
+/* propOG design tokens — do not hardcode these values anywhere else */
+:root {
+  /* ── Surfaces ─────────────────────────────────────────── */
+  --pg-shell:            #F6F5F1;  /* app canvas behind everything */
+  --pg-surface:          #FFFFFF;  /* cards, topbar               */
+  --pg-surface-sunken:   #F0EEE8;  /* progress tracks, inset fills */
+  --pg-surface-dark:     #121212;  /* dark panels, primary buttons */
+  --pg-surface-dark-2:   #2B2B2B;  /* gradient end stop            */
+  --pg-sidebar-bg:       #FBF6E9;  /* sidebar — a very light, airy gold tint */
+  --pg-sidebar-hover:    #F5EAD0;  /* sidebar nav-item hover — one shade deeper */
+
+  /* ── Borders ──────────────────────────────────────────── */
+  --pg-border:           #E9E7E0;  /* the only border colour used  */
+  --pg-border-strong:    #D7D5CD;  /* toggle track (off), dividers */
+
+  /* ── Text ─────────────────────────────────────────────── */
+  --pg-ink:              #1B1B3A;  /* headings + body              */
+  --pg-ink-2:            #75737F;  /* secondary copy               */
+  --pg-ink-3:            #8A8896;  /* labels, eyebrows, table head */
+  --pg-ink-4:            #A6A4AE;  /* faint / disabled             */
+  --pg-on-dark:          #FFFFFF;
+  --pg-on-gold:          #121212;  /* text on gold — never white   */
+  --pg-nav-ink:          #4A4858;  /* resting sidebar nav-item text */
+
+  /* ── Brand + status ───────────────────────────────────── */
+  --pg-gold:             #C9972E;  /* primary accent               */
+  --pg-gold-deep:        #A97D2E;  /* gold text on light bg        */
+  --pg-gold-soft:        #B79A5A;
+  --pg-gold-tint:        rgba(201,151,46,0.14); /* active nav pill */
+  --pg-green:            #2E9E4F;
+  --pg-red:              #D64545;
+  --pg-indigo:           #3A3A9E;
+  --pg-indigo-light:     #8B8BD6;
+
+  /* ── Soft tint fills (badge + pill backgrounds) ───────── */
+  --pg-tint-indigo:      #F0EFFA;
+  --pg-tint-indigo-2:    #E7E7F5;
+  --pg-tint-green:       #E3F1E8;
+  --pg-tint-amber:       #FDF1E0;
+  --pg-tint-red:         #FBE6E6;
+
+  /* ── Data-series ramp (charts, funnels — in this order) ─ */
+  --pg-series-1: #121212;
+  --pg-series-2: #2B2B2B;
+  --pg-series-3: #3A3A9E;
+  --pg-series-4: #C9972E;
+  --pg-series-5: #A97D2E;
+  --pg-series-6: #2E9E4F;
+  --pg-series-7: #8B8BD6;
+  --pg-series-8: #A6A4AE;
+
+  /* ── Type ─────────────────────────────────────────────── */
+  --pg-font:      "Plus Jakarta Sans", system-ui, sans-serif;
+  --pg-font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  /* ── Radii ────────────────────────────────────────────── */
+  --pg-r-xs: 5px;   /* micro chips            */
+  --pg-r-sm: 6px;   /* badges, tag pills      */
+  --pg-r-md: 8px;   /* filter chips, buttons  */
+  --pg-r-lg: 9px;   /* nav items, topbar btns */
+  --pg-r-xl: 10px;  /* inputs                 */
+  --pg-r-2xl: 14px; /* cards                  */
+  --pg-r-3xl: 16px; /* feature panels         */
+
+  /* ── Layout ───────────────────────────────────────────── */
+  --pg-sidebar-w: 262px;
+  --pg-topbar-h:  60px;
+
+  /* ── Focus ring ───────────────────────────────────────── */
+  --pg-ring-green: 0 0 0 3px rgba(46,158,79,0.12);
+  --pg-ring-gold:  0 0 0 3px rgba(201,151,46,0.16);
+}

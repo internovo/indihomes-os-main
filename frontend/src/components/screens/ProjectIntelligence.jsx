@@ -177,7 +177,20 @@ function NearbyMap({ projectQuery, fallbackQuery, onPlaces, onGeo, mapsUrl, disp
       cancelled = true
       if (mapRef.current) { mapRef.current.remove(); mapRef.current = null }
     }
-  }, [projectQuery, fallbackQuery])
+  // knownGeo added (Part: Competitor Analysis regression investigation) —
+  // real gap found while investigating a live "Not connected" report: this
+  // effect reads `knownGeo` but never had it in its own dependency array,
+  // so if a candidate's placesLat/placesLon become available (or change)
+  // without projectQuery/fallbackQuery ALSO changing, the effect kept using
+  // whichever geo-resolution path (Places-direct coordinate vs. a Nominatim
+  // geocode) it happened to take on the LAST render those two strings
+  // changed — a real stale-closure risk, not just a lint nitpick. The
+  // live case actually investigated turned out to be a genuine "this
+  // candidate never had Places coordinates at all" case (see structure.md
+  // for the live API response confirming placesVerified/placesLat/placesLon
+  // were absent, not a wiring regression) rather than this exact bug, but
+  // it's still a real correctness gap worth closing regardless.
+  }, [projectQuery, fallbackQuery, knownGeo?.lat, knownGeo?.lon])
 
   // Part 5 — nearby COMPARABLE PROJECTS (Competitor Analysis's own real
   // Google Places data, never invented) as their own distinct marker
@@ -329,8 +342,15 @@ function projectImageUrl(project) {
 }
 
 const RANK_COLOR = { PRIMARY:'#2E9E4F', SECONDARY:'#F7941D', TERTIARY:'#8B8BD6' }
-const MOVE_COLOR = { Fast:'#2E9E4F', Steady:'#F7941D', Slow:'#D64545' }
 const FIT_COLOR  = { High:'#2E9E4F', Medium:'#F7941D', Low:'#9CA3AF' }
+const MOVE_COLOR = { Fast:'#2E9E4F', Steady:'#F7941D', Slow:'#D64545' }
+// Derive movement indicator from available/total — null when we genuinely
+// don't have the underlying counts, never a guessed default.
+function movement(avail, total) {
+  if (!avail || !total) return null
+  const pct = (total - avail) / total
+  return pct > 0.7 ? 'Fast' : pct > 0.4 ? 'Steady' : 'Slow'
+}
 // Display-order only (deriveAudience's actual scoring is untouched) — the
 // strongest recommendations group first; a stable sort preserves
 // deriveAudience's existing relative order within the same tier.
@@ -428,14 +448,6 @@ function deriveAudience({ description, amenities, rera, budgetMin, budgetMax, co
   })
 
   return all
-}
-
-// ── Derive movement indicator from available/total — null when we genuinely
-// don't have the underlying counts, never a guessed default ─────────────────
-function movement(avail, total) {
-  if (!avail || !total) return null
-  const pct = (total - avail) / total
-  return pct > 0.7 ? 'Fast' : pct > 0.4 ? 'Steady' : 'Slow'
 }
 
 // ── USP extraction — deterministic keyword pass over whatever description +
@@ -645,123 +657,6 @@ function SectionLabel({ children, source }) {
 //  - ai:         an AI-derived interpretation/synthesis built FROM real scraped facts
 //                (e.g. audience fit scoring, narrative summary) — never a standalone fact
 //  - unverified: nothing was found — shown instead of guessing or fabricating a value
-
-// ── Lightweight markdown renderer for official/researched project
-// descriptions — IndiHomes' own description field arrives as markdown prose
-// (headers, **bold**, bullet lists), not plain text; without this it rendered
-// as a wall of text with literal ** and # characters. Deliberately a local
-// copy of the same pattern already built for AI Search's analyst report
-// (ProjectSelection.jsx) rather than a shared import, matching this
-// codebase's existing convention of small independent duplicates over
-// cross-file coupling for presentation-only helpers.
-function mdInline(text, keyBase) {
-  const parts = []
-  let rest = String(text), k = 0
-  const re = /\*\*(.+?)\*\*/g
-  let last = 0, m
-  while ((m = re.exec(rest)) !== null) {
-    if (m.index > last) parts.push(<span key={`${keyBase}-${k++}`}>{rest.slice(last, m.index)}</span>)
-    parts.push(<b key={`${keyBase}-${k++}`} style={{ color:'#1B1B3A' }}>{m[1]}</b>)
-    last = m.index + m[0].length
-  }
-  if (last < rest.length) parts.push(<span key={`${keyBase}-${k++}`}>{rest.slice(last)}</span>)
-  return parts
-}
-
-function DescriptionMarkdown({ text }) {
-  // Root cause of the underlying bug was actually server-side (indihomes-
-  // client.cjs's old clean() collapsed real \n's in the description field —
-  // fixed there via cleanDescription()), so official IndiHomes descriptions
-  // now arrive with real line breaks and this preprocessing is a no-op for
-  // them. Kept as a fallback for any OTHER text source that might still
-  // arrive as one flattened line with "### "/"* " markers stuck mid-sentence
-  // (e.g. a scraped portal description) — without it, the line-based parser
-  // below would see one line starting with "# " and render the entire blob
-  // as a single giant H1.
-  //
-  // IMPORTANT: `[^\n]` matches ANY non-newline character — including "#"
-  // itself. An earlier version of this regex used `([^\n])(#{1,3}\s)` and
-  // consumed-then-replayed the preceding character; on real text that
-  // already had "\n\n### Heading", the engine could start its match AT the
-  // first "#" (matching it as the "preceding char"), then match the
-  // remaining "## " as the header group — splitting "### Heading" into a
-  // stray lone "#" on its own line followed by "## Heading". Caught live:
-  // Chaitanya Ethics Orovia's real description rendered a bare "#" line
-  // right before "Configuration & Pricing". Lookbehind instead of a
-  // consumed capture group avoids this self-overlap entirely — it can
-  // never match INSIDE a hash run or right after one, only before the
-  // start of a genuinely un-separated marker.
-  const withBreaks = String(text || '')
-    .replace(/(?<![\n#])(#{1,3}\s)/g, '\n$1')                 // "...spaces.### Heading" -> break before ###, never mid-run
-    .replace(/(?<![\n*])\*(?!\*)(\s+)(?=[A-Z*])/g, '\n*$1')    // "...text.* Bulleted Item" -> break before * (heuristic: asterisk+space before a capital letter or a bold "**" run) — never matches inside/right after a "**" bold pair
-  const lines = withBreaks.split('\n')
-  const out = []
-  let i = 0, key = 0
-  while (i < lines.length) {
-    const line = lines[i]
-    const hm = line.match(/^(#{1,3})\s+(.*)/)
-    if (hm) {
-      const lvl = hm[1].length
-      out.push(<div key={key++} style={{ fontWeight:800, color:'#0E0E52', fontSize: lvl===1?17:lvl===2?15:13.5, margin: i===0 ? '0 0 8px' : '14px 0 6px', overflowWrap:'break-word', wordBreak:'break-word' }}>{mdInline(hm[2].replace(/\*\*/g,''), `h${key}`)}</div>)
-      i++; continue
-    }
-    if (/^\s*([-*]|\d+\.)\s+/.test(line)) {
-      const items = []
-      while (i < lines.length && /^\s*([-*]|\d+\.)\s+/.test(lines[i])) { items.push(lines[i].replace(/^\s*([-*]|\d+\.)\s+/, '')); i++ }
-      out.push(
-        <ul key={key++} style={{ margin:'4px 0 10px', paddingLeft:20 }}>
-          {items.map((it,j) => <li key={j} style={{ fontSize:13, color:'#1B1B3A', lineHeight:1.7, marginBottom:2, overflowWrap:'break-word', wordBreak:'break-word' }}>{mdInline(it, `li${key}-${j}`)}</li>)}
-        </ul>
-      )
-      continue
-    }
-    if (!line.trim()) { i++; continue }
-    const para = [line]
-    i++
-    while (i < lines.length && lines[i].trim() && !/^(#{1,3})\s|^\s*([-*]|\d+\.)\s/.test(lines[i])) { para.push(lines[i]); i++ }
-    out.push(<p key={key++} style={{ fontSize:13, color:'#1B1B3A', lineHeight:1.75, margin:'0 0 10px', overflowWrap:'break-word', wordBreak:'break-word' }}>{mdInline(para.join(' '), `p${key}`)}</p>)
-  }
-  return <div style={{ minWidth:0, maxWidth:'100%' }}>{out}</div>
-}
-
-// ── Clamp-with-toggle wrapper — caps visible height to ~7-8 lines by default
-// with a REAL, clickable "Read more"/"Show less" toggle. A CSS max-height +
-// overflow clamp (not a hard string truncation) so markdown formatting never
-// breaks mid-element when collapsed — the full DOM renders underneath, only
-// its visible box height changes. Measures real content height after render
-// so the toggle only appears when the content actually overflows the clamp;
-// short descriptions render exactly as before, with no button at all.
-//
-// Previously this only showed a fade-gradient overlay with NO actual button
-// underneath it — a description that overflowed the clamp had no way to
-// ever be read in full; the gradient implied "there's more" with no control
-// to reach it. Now a real toggle button expands/collapses the clamp.
-function DescriptionSummary({ maxHeight = 150, children }) {
-  const [overflowing, setOverflowing] = useState(false)
-  const [expanded, setExpanded] = useState(false)
-  const ref = React.useRef(null)
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    setOverflowing(el.scrollHeight > maxHeight + 4)
-  }, [children, maxHeight])
-  return (
-    <div>
-      <div style={{ maxHeight: expanded ? 'none' : maxHeight, overflow: 'hidden', position: 'relative', minWidth: 0, maxWidth: '100%' }}>
-        <div ref={ref} style={{ minWidth: 0, maxWidth: '100%' }}>{children}</div>
-        {overflowing && !expanded && (
-          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 32, background: 'linear-gradient(to bottom, rgba(255,255,255,0), #fff)', pointerEvents: 'none' }} />
-        )}
-      </div>
-      {overflowing && (
-        <button onClick={() => setExpanded(v => !v)}
-          style={{ marginTop: 8, background: 'none', border: 'none', color: '#0E0E52', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
-          {expanded ? '▲ Show less' : '▼ Read more'}
-        </button>
-      )}
-    </div>
-  )
-}
 
 // Unified empty/unavailable state — see src/components/ui/EmptyState.jsx
 // (imported above) for the shared EmptyState/EmptyValue components used
@@ -1301,14 +1196,31 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
   // description prose when the API's own flatInventory array was empty) —
   // the two need different provenance badges, never both labeled the same.
   const configsExtracted = officialConfigs.length > 0 && officialConfigs.every(c => c._extracted)
-  const displayConfigs = ((officialConfigs.length ? officialConfigs : live?.configs?.length ? live.configs : research?.configs) || []).map(c => ({
+  // AI Search-sourced properties carry `configuration_evidence` — a dict
+  // keyed by configuration string (e.g. "2 BHK") — instead of a flat
+  // flatInventory array: real per-configuration facts from either the
+  // agent's own deep research (agent/agent/state.py's configuration_evidence
+  // field) or, for a Places-direct result, server.cjs's bounded per-result
+  // enrichment (item 3) — same field name/shape either way, so this table
+  // reads it identically regardless of which pipeline the property came
+  // from. Only used as a fallback when there's no official/current
+  // flatInventory (a catalog project already has richer structured data).
+  const configEvidenceRows = Object.entries(current?.configuration_evidence || {})
+    .map(([type, bucket]) => ({ type, carpet: bucket?.carpet_area || null, price: bucket?.price || null }))
+  const displayConfigs = ((officialConfigs.length ? officialConfigs : configEvidenceRows.length ? configEvidenceRows : live?.configs?.length ? live.configs : research?.configs) || []).map(c => ({
     type:      c.type,
-    carpet:    c.carpet || '—',
-    total:     c.total  ?? '—',
+    carpet:    c.carpet    || '—',
+    total:     c.total     ?? '—',
     available: c.available ?? '—',
-    price:     c.price  || '—',
+    price:     c.price     || '—',
     movement:  c.movement || movement(c.available, c.total),
   }))
+  // Inventory movement flag — first config genuinely selling slower than the
+  // rest of this project's own mix (never a cross-project/market comparison,
+  // since no township-average feed exists here — only this listing's own
+  // total/available counts are real). Surfaced as a footer note inside the
+  // Inventory card, not a fabricated percentage.
+  const movementFlag = displayConfigs.find(c => c.movement === 'Slow')
 
   const displayAmenities   = (official?.amenities?.length ? official.amenities : current?.amenities?.length ? current.amenities : live?.amenities?.length ? live.amenities : research?.amenities) || []
   // Official-sourced USPs (derived from the official description/amenities +
@@ -1372,11 +1284,25 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
   // comparable projects were sitting right there in the same search's own
   // results the whole time. Only shown when there's at least one real
   // sibling with a real field to compare (never an empty placeholder list).
-  const siblingCompetitors = (current?.aiSearchSiblings || []).map(s => ({
-    name: s.name, address: s.location, config: s.config, price: s.price,
-    possession: s.possession, lat: s.lat, lon: s.lon,
-    mapsUrl: (s.lat != null && s.lon != null) ? `https://www.google.com/maps/search/?api=1&query=${s.lat},${s.lon}` : null,
-  }))
+  // Item 5 — Competitor Analysis only shows CONFIRMED-eligible competitors
+  // (NEW_LAUNCH/UNDER_CONSTRUCTION/NEAR_POSSESSION/PRE_LAUNCH), never an
+  // "unknown status" one — deliberately stricter than the main AI Search
+  // results list (ProjectSelection.jsx's PropertyCard), which shows an
+  // honest "Status unknown" label instead of excluding. A sibling with no
+  // lifecycleStatus at all (an older response, or one from before this
+  // pass) is treated the same as an explicit "UNKNOWN" — excluded here,
+  // never assumed eligible. Applied uniformly regardless of which pipeline
+  // originally found the sibling — Places-direct results now carry a real
+  // lifecycle signal too (server.cjs's per-result enrichment), so this no
+  // longer needs to special-case by source.
+  const COMPETITOR_ELIGIBLE_STATUSES = new Set(['NEW_LAUNCH', 'PRE_LAUNCH', 'UNDER_CONSTRUCTION', 'NEAR_POSSESSION'])
+  const siblingCompetitors = (current?.aiSearchSiblings || [])
+    .filter(s => COMPETITOR_ELIGIBLE_STATUSES.has(s.lifecycleStatus))
+    .map(s => ({
+      name: s.name, address: s.location, config: s.config, price: s.price,
+      possession: s.possession, lat: s.lat, lon: s.lon,
+      mapsUrl: (s.lat != null && s.lon != null) ? `https://www.google.com/maps/search/?api=1&query=${s.lat},${s.lon}` : null,
+    }))
   const displayCompetitors = siblingCompetitors.length
     ? siblingCompetitors
     : realCompetitors.competitors.length
@@ -1454,10 +1380,6 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
                    || research?.possession || current?.possession || 'TBD'
   const sold        = live?.sold ?? current?.sold ?? null
   const units       = live?.units ?? current?.units ?? null
-  const unsold      = units ? Math.round(units * (1 - (sold||0)/100)) : null
-
-  // Inventory movement flag: find first "Slow" config
-  const movementFlag = displayConfigs.find(c => c.movement === 'Slow')
 
   // RERA trust tier, location quality score, and sales velocity — all
   // deterministic, computed straight from data already on screen (never
@@ -1656,73 +1578,25 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
               shown honestly as "Not calculated", when there was no active
               search (e.g. onboarded directly rather than analysed from a
               result list). Neither ever falls back to the other's number. */}
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:14, marginBottom:24 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:14, marginBottom:24, maxWidth:520 }}>
             <StatCard label="IndiHomes Score"  value={current?.score != null ? `${current.score}/100` : '—'}
               trend={current?.score != null ? `${scoreTierLabel(current.score)} · listing quality` : 'Not yet scored'} trendDir="up" accent="#2E9E4F"
               title="Deterministic completeness/quality score for this listing (RERA, media, description, developer info, possession date on file) — not dependent on any search." />
             <StatCard label="AI Match"         value={current?.matchScore != null ? `${current.matchScore}%` : '—'}
               trend={current?.matchScore != null ? `${scoreTierLabel(current.matchScore)} match for your search` : 'Open from a search result to see a match score'} trendDir="up" accent="#0E0E52"
               title="How well this project matched the Property Search/AI Search query you opened it from — a different calculation from IndiHomes Score." />
-            <StatCard
-              label="Inventory Risk"
-              value={sold != null ? (sold >= 70 ? 'LOW' : sold >= 40 ? 'MEDIUM' : 'HIGH') : '—'}
-              trend={unsold ? `${unsold} unsold units (from ${sold}% sold)` : 'No sold% found'}
-              trendDir="up" accent="#F7941D" />
-            <StatCard
-              label="Demand Trend"
-              value={live?.searchTrend ? (live.searchTrend.direction === 'up' ? '▲ UP' : live.searchTrend.direction === 'down' ? '▼ DOWN' : '→ FLAT') : '—'}
-              trend={live?.searchTrend ? `${live.searchTrend.label} (Google Trends)` : (live ? 'No Google Trends data for this search term' : 'Not yet fetched')}
-              trendDir={live?.searchTrend?.direction === 'down' ? 'down' : 'up'} accent="#8B8BD6" />
           </div>
 
-          {/* Inventory Movement Flag (PI-FR-11) — moved inline into the
-              Inventory & Unit Configurations card below (as a footer note)
-              instead of its own full-width banner; same movementFlag data/
-              copy, no functionality lost (the old "Launch campaign" button
-              had no onClick handler — purely decorative). */}
-
-          {/* ── Project Description (PI-FR-08) — full width (was paired with
-              Inventory below); content/behavior unchanged, just no longer
-              sharing a row. ────────────────────────────────────────────── */}
-          <div style={{ marginBottom:16 }}>
-            <SectionCard accent="#0E0E52" title="Project Description" debugId="PI-FR-08"
-              action={(
-                <button style={{ fontSize:12, color:'#0E0E52', background:'none', border:'1px solid #E9E7E0', borderRadius:6, padding:'5px 12px', cursor:'pointer', fontWeight:600, fontFamily:"'Plus Jakarta Sans',sans-serif", flexShrink:0 }}>
-                  ↺ Regenerate
-                </button>
-              )}>
-              {displayDescription ? (
-                <DescriptionSummary maxHeight={150}>
-                  <DescriptionMarkdown text={displayDescription} />
-                </DescriptionSummary>
-              ) : (
-                <EmptyState reason="No description found on the listing." />
-              )}
-              {displayUSPs.length > 0 && (
-                <div style={{ marginTop:14, paddingTop:12, borderTop:'1px solid #E9E7E0' }}>
-                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
-                    <div style={{ fontSize:11, color:'#8A8896' }}>DRISHTI AI SIGNALS — synthesized from the real facts above</div>
-                    <FieldBadge kind="ai" />
-                  </div>
-                  <ul style={{ listStyle:'none', margin:0, padding:0, display:'flex', flexDirection:'column', gap:8 }}>
-                    {[`${displayUSPs[0]} identified as primary demand driver`,
-                      `${displayConfigs[0]?.type || '2 BHK'} segment showing strongest inquiry conversion`,
-                      reraCode ? `RERA ${reraCode} found on listing — reduces buyer hesitation` : 'No RERA number found on listing — verify before marketing'
-                    ].map((txt,i) => (
-                      <li key={i} style={{ display:'flex', gap:8, fontSize:13, color:'#1B1B3A', lineHeight:1.6 }}>
-                        <span style={{ color:'#6B4FBB', fontWeight:700, flexShrink:0 }}>✦</span>{txt}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {/* Source footer removed per explicit instruction — provenance
-                  string ("IndiHomes Website"/"AI Search Agent research"/
-                  "Drishti AI web research") stays computed in
-                  descriptionSourceLabel for any future internal/debug use,
-                  just never rendered as its own row here. */}
-            </SectionCard>
-          </div>
+          {/* Project Description card removed (Part: unit config table +
+              Project Description removal) — confirmed the AI Project
+              Summary tile (aiSummaryText, above) already carries real
+              content for any project that has a description anywhere
+              (official/current/research), so nothing here was uniquely
+              lost. The card's own markdown renderer (mdInline/
+              DescriptionMarkdown/DescriptionSummary) was deleted along with
+              it — no other reader left; displayUSPs (the DRISHTI AI SIGNALS
+              list this card also carried) is still used elsewhere in this
+              file (Target Audience card), so it stays. */}
 
           {/* ── Row: Inventory & Unit Configurations + [RERA & Compliance,
               Location Score] ──────────────────────────────────────────── */}
@@ -1739,7 +1613,13 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
                 : live?.configs?.length ? <SourceTag source={live._sources?.primary} compact />
                 : research?.configs?.length ? <FieldBadge kind="ai" />
                 : <FieldBadge kind="unverified" />}>
+              {/* Total/Available/Movement columns show a real value when the
+                  source has one (official IndiHomes flatInventory carries
+                  totalUnits/availableUnits) and an honest empty dash when it
+                  doesn't (Places-direct/agent-sourced properties have no
+                  unit-count feed at all) — never a fabricated count. */}
               {displayConfigs.length > 0 ? (
+                <>
                 <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
                   <thead>
                     <tr style={{ borderBottom:'2px solid #E9E7E0' }}>
@@ -1769,25 +1649,14 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
                     ))}
                   </tbody>
                 </table>
+                {movementFlag && (
+                  <div style={{ marginTop:14, background:'#FEF3E4', border:'1px solid #F7941D40', borderRadius:8, padding:'10px 14px', fontSize:12.5, color:'#8A5A0F', lineHeight:1.6 }}>
+                    <b>Drishti flags:</b> {movementFlag.type} inventory moving slower than the rest of this project's own mix — {movementFlag.available} units still unsold. Consider a dedicated campaign or CP incentive.
+                  </div>
+                )}
+                </>
               ) : (
                 <EmptyState reason="No unit configuration data found for this project." />
-              )}
-              <div style={{ marginTop:10, fontSize:11, color:'#8A8896' }}>
-                <span
-                  title="▲ Fast = selling above township pace · ▼ Slow = below pace. 99acres doesn't publish total/available unit counts, so movement can't be computed for most projects."
-                  style={{ textDecoration:'underline dotted', textUnderlineOffset:2, cursor:'help' }}>
-                  Movement: hover for what ▲/▼ mean and why it's often unavailable ⓘ
-                </span>
-                {intel && !intel._error && ' · Source: 99acres live data'}
-              </div>
-              {/* Inventory Movement Flag (PI-FR-11) — same movementFlag data/
-                  copy as before, now an in-card note instead of its own
-                  full-width banner (that banner's "Launch campaign" button
-                  had no onClick handler — purely decorative, nothing lost). */}
-              {movementFlag && (
-                <div style={{ marginTop:14, background:'#FEF3E4', border:'1px solid #F7941D40', borderRadius:8, padding:'10px 14px', fontSize:12, color:'#1B1B3A', lineHeight:1.6 }}>
-                  <b>Drishti flags:</b> {movementFlag.type} inventory moving slower than the rest — {movementFlag.available} units unsold, pricing above micro-market average. Recommend a dedicated campaign & CP incentive.
-                </div>
               )}
             </SectionCard>
 
@@ -1906,64 +1775,38 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
             </div>
           </div>
 
-          {/* ── Sales Velocity (PI-FR-12) — real sold%/unit counts only. Shows
-              "Not connected" instead of a fabricated pace whenever those
-              numbers aren't available from any source, since 99acres/
-              IndiHomes rarely publish live per-unit sales data. ────────────── */}
-          <SectionCard style={{ marginBottom: 20 }} title="Sales Velocity" debugId="PI-FR-12"
-            badge={velocity ? <FieldBadge kind="verified" /> : <FieldBadge kind="unverified" />}>
-            {velocity ? (
-              <div style={{ display:'flex', alignItems:'center', gap:24, flexWrap:'wrap' }}>
-                <div>
-                  <span style={{ background:`${velocity.color}18`, color:velocity.color, padding:'4px 12px', borderRadius:6, fontSize:13, fontWeight:800 }}>
-                    {velocity.pace}
-                  </span>
-                </div>
-                <div style={{ fontSize:13, color:'#1B1B3A' }}><b>{velocity.sold}%</b> sold</div>
-                <div style={{ fontSize:13, color:'#1B1B3A' }}><b>{velocity.units}</b> total units</div>
-                <div style={{ fontSize:13, color:'#1B1B3A' }}><b>{velocity.unsold}</b> unsold units remaining</div>
-              </div>
-            ) : (
-              <EmptyState reason="Not connected."
-                detail="No live sales/inventory feed reports sold% or total unit counts for this project — this section intentionally shows no pace estimate rather than a fabricated one. Unit-level detail is in Inventory & Unit Configurations above (from official IndiHomes data where available)." />
-            )}
-          </SectionCard>
-
           {/* ── Row 2: AI Project Summary + USPs + Target Audience ──────────── */}
-          {/* alignItems: 'start' here (NOT the stretch default used by every
-              other paired row on this page) — Target Audience routinely
-              renders 7 rows while USP Extraction, when empty, is a single
-              centered line; stretching USP Extraction's card to match
-              Target Audience's full height turned an honest empty state
-              into a visually oversized blank box. Every OTHER paired row on
-              this page keeps the stretch default (their content heights are
-              close enough that stretch reads as intentional alignment, not
-              a blown-up empty card) — this is the one specific pairing
-              where the mismatch is large and visible. */}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:16, marginBottom:16, alignItems:'start' }}>
+          {/* alignItems: 'start' — AI Project Summary and USP Extraction are
+              deliberately short/compact (per explicit instruction); Target
+              Audience routinely renders 7 rows and is allowed to be taller,
+              so the row can't use the stretch default without forcing the
+              two short cards to blow up to match it. */}
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(3, minmax(0, 1fr))', gap:16, marginBottom:16, alignItems:'stretch' }}>
 
             {/* AI Project Summary — a short, already-sourced paragraph
                 (Drishti's own research summary, or the listing description
-                as a fallback — see aiSummaryText above); the FULL
-                description with the "DRISHTI AI SIGNALS" bullets and
-                Regenerate button still lives in its own full-width Project
-                Description card above, unchanged — this tile is a compact
-                companion to it, not a replacement. */}
-            <div style={{ background:'#0E0E52', borderRadius:14, padding:'16px 18px' }}>
+                as a fallback — see aiSummaryText above), clamped to ~4 lines
+                so this tile stays compact; the FULL description with the
+                "DRISHTI AI SIGNALS" bullets and Regenerate button still
+                lives in its own full-width Project Description card above,
+                unchanged. */}
+            <div style={{ background:'#0E0E52', borderRadius:14, padding:'16px 18px', boxSizing:'border-box', height:'100%', minWidth:0 }}>
               <div style={{ fontSize:11, fontFamily:"'IBM Plex Mono',monospace", color:'rgba(255,255,255,0.55)', letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:12 }}>
                 ✦ AI Project Summary
               </div>
               {aiSummaryText ? (
-                <div style={{ fontSize:13, lineHeight:1.7, color:'rgba(255,255,255,0.92)' }}>{aiSummaryText}</div>
+                <div style={{ fontSize:13, lineHeight:1.7, color:'rgba(255,255,255,0.92)', display:'-webkit-box', WebkitLineClamp:4, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{aiSummaryText}</div>
               ) : (
                 <div style={{ fontSize:12.5, color:'rgba(255,255,255,0.5)', fontStyle:'italic' }}>No AI-researched summary available yet for this project.</div>
               )}
             </div>
 
-            {/* USP Extraction (PI-FR-09) — compact padding (style override,
-                not a change to SectionCard's shared default) per explicit
-                instruction to make this box smaller; every other card on
-                this page keeps the standard 16px/20px padding. */}
+            {/* USP Extraction (PI-FR-09) — compact padding, and trimmed down
+                to just the core USP chips + footer count (the "ALL
+                AMENITIES"/"UNIT FEATURES" sub-sections were dropped per
+                explicit instruction to shorten this box — that detail is
+                still available in Project Description's amenities coverage
+                above, nothing here was the only place it existed). */}
             <SectionCard title="USP Extraction" debugId="PI-FR-09" style={{ padding: '12px 16px' }}
               badge={live?.usps?.length ? <SourceTag source={live._sources?.primary} compact /> : displayUSPs.length ? <FieldBadge kind="ai" /> : <FieldBadge kind="unverified" />}
               action={(
@@ -1973,7 +1816,7 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
               )}>
               {displayUSPs.length > 0 ? (
                 <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
-                  {displayUSPs.map(usp => (
+                  {displayUSPs.slice(0,6).map(usp => (
                     <span key={usp} style={{ background:'#0E0E5210', color:'#0E0E52', padding:'6px 12px', borderRadius:20, fontSize:12, fontWeight:600, border:'1px solid #0E0E5220', cursor:'pointer' }}>
                       {usp}
                     </span>
@@ -1981,49 +1824,6 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
                 </div>
               ) : (
                 <EmptyState reason="No USPs found for this project." />
-              )}
-              {displayAmenities.length > 0 && (
-                <div style={{ marginTop:14, paddingTop:12, borderTop:'1px solid #E9E7E0' }}>
-                  <div style={{ fontSize:11, color:'#8A8896', marginBottom:8 }}>ALL AMENITIES ({displayAmenities.length})</div>
-                  <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
-                    {displayAmenities.slice(0,16).map(a => (
-                      <span key={a} style={{ background:'#F6F5F1', color:'#75737F', padding:'4px 9px', borderRadius:6, fontSize:11 }}>{a}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {/* Part P1.11 — unit-level vs project-level feature evidence
-                  (deck/balcony/parking). "Eco deck on 10th floor" must
-                  never read as "this unit has a deck" — shown explicitly,
-                  never folded into the plain amenities list above. */}
-              {(research?.features || []).filter(f => ['deck', 'balcony', 'parking'].includes(f.feature)).length > 0 && (
-                <div style={{ marginTop:14, paddingTop:12, borderTop:'1px solid #E9E7E0' }}>
-                  <div style={{ fontSize:11, color:'#8A8896', marginBottom:8 }}>UNIT FEATURES — SCOPE-VERIFIED</div>
-                  <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                    {['deck', 'balcony', 'parking'].map(feature => {
-                      const entries = (research?.features || []).filter(f => f.feature === feature)
-                      if (!entries.length) return null
-                      const unitEntry = entries.find(f => f.scope === 'unit')
-                      return (
-                        <div key={feature} style={{ display:'flex', alignItems:'center', gap:8, fontSize:12.5 }}>
-                          {unitEntry ? (
-                            <>
-                              <span style={{ color:'#2E9E4F', fontWeight:700 }}>✓</span>
-                              <span style={{ color:'#1B1B3A' }}>{feature.charAt(0).toUpperCase() + feature.slice(1)} confirmed for the unit{unitEntry.configuration ? ` (${unitEntry.configuration})` : ''}</span>
-                            </>
-                          ) : (
-                            <>
-                              <span style={{ color:'#B45309', fontWeight:700 }}>△</span>
-                              <span style={{ color:'#75737F' }} title={entries[0]?.evidence_text}>
-                                {feature.charAt(0).toUpperCase() + feature.slice(1)} mentioned at {entries[0]?.scope || 'unknown'} scope — not confirmed for the unit itself
-                              </span>
-                            </>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
               )}
               <div style={{ marginTop:12, fontSize:12, color:'#8A8896' }}>
                 {displayUSPs.length} selling points · Click to include in campaign brief
@@ -2039,14 +1839,14 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
                   Hand off to Campaign →
                 </button>
               )}>
-              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-                {displayAudience.map(a => (
-                  <div key={a.segment} style={{ display:'flex', alignItems:'flex-start', gap:12, padding:'10px 12px', background:'#F9F8F6', borderRadius:8 }}>
-                    <span style={{ flexShrink:0, padding:'3px 8px', borderRadius:4, fontSize:11, fontWeight:700, background:`${FIT_COLOR[a.fit]||'#8A8896'}18`, color:FIT_COLOR[a.fit]||'#8A8896' }}>{a.fit}</span>
-                    <div>
-                      <div style={{ fontSize:13, fontWeight:600, color:'#1B1B3A' }}>{a.segment}</div>
-                      <div style={{ fontSize:11, color:'#75737F', marginTop:2 }}>{a.reason}</div>
+              <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                {displayAudience.slice(0,4).map(a => (
+                  <div key={a.segment} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, padding:'7px 10px', background:'#F9F8F6', borderRadius:8, minHeight:34 }}>
+                    <div style={{ minWidth:0 }}>
+                      <div style={{ fontSize:12.5, fontWeight:600, color:'#1B1B3A' }}>{a.segment}</div>
+                      <div style={{ fontSize:10.5, color:'#75737F', marginTop:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{a.reason}</div>
                     </div>
+                    <span style={{ flexShrink:0, fontSize:11, fontWeight:700, color:FIT_COLOR[a.fit]||'#8A8896' }}>{a.fit} fit</span>
                   </div>
                 ))}
               </div>
@@ -2072,12 +1872,12 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
                 row with real coordinates selects/pans to its marker on the
                 Location Map below (and vice versa, via selectedCompetitorId
                 lifted to this component). */}
-            <SectionCard title="Competitor Analysis" debugId="PI-FR-07"
+            <SectionCard title="Competitor Analysis" debugId="PI-FR-07" style={{ maxHeight: 380 }}
               badge={realCompetitors.competitors.length ? <FieldBadge kind="places" />
                 : live?.competitors?.length ? <SourceTag source={live._sources?.competitors || live._sources?.primary} compact />
                 : research?.competitors?.length ? <FieldBadge kind="ai" /> : <FieldBadge kind="unverified" />}>
               {displayCompetitors.length > 0 ? (
-                <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                <div style={{ display:'flex', flexDirection:'column', gap:6, maxHeight:270, overflowY:'auto', paddingRight:4 }}>
                   {displayCompetitors.map((comp,i) => {
                     const hasMarker = comp.lat != null && comp.lon != null
                     const selected = selectedCompetitorId === i
@@ -2090,7 +1890,7 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
                       <div key={i}
                         onClick={() => hasMarker && setSelectedCompetitorId(i)}
                         style={{
-                          background: selected ? '#F1EDFB' : '#F9F8F6', borderRadius:10, padding:'10px 12px',
+                          background: selected ? '#F1EDFB' : '#F9F8F6', borderRadius:8, padding:'8px 10px',
                           border: selected ? '1px solid #6B4FBB' : '1px solid transparent',
                           cursor: hasMarker ? 'pointer' : 'default', transition:'background .15s, border-color .15s',
                         }}>
@@ -2108,7 +1908,7 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
                           ) : null}
                         </div>
                         {hasOverlapRow && (
-                          <div style={{ display:'flex', flexWrap:'wrap', gap:'2px 12px', fontSize:11, marginTop:6, paddingTop:6, borderTop:'1px solid #E9E7E0' }}>
+                            <div style={{ display:'flex', flexWrap:'wrap', gap:'2px 12px', fontSize:10.5, marginTop:5, paddingTop:5, borderTop:'1px solid #E9E7E0' }}>
                             {compConfig && (
                               <span>
                                 <span style={{ color:'#8A8896' }}>Config: </span>
@@ -2126,7 +1926,7 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
                         )}
                         {comp.mapsUrl && (
                           <a href={comp.mapsUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
-                            style={{ fontSize:10.5, color:'#0E0E52', textDecoration:'underline', fontWeight:600, marginTop:6, display:'inline-block' }}>
+                            style={{ fontSize:10.5, color:'#0E0E52', textDecoration:'underline', fontWeight:600, marginTop:5, display:'inline-block' }}>
                             ↗ Maps
                           </a>
                         )}
@@ -2149,7 +1949,7 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
               ) : (
                 <EmptyState reason="Not connected — waiting for the Location Map below to resolve real coordinates for this project." />
               )}
-              <div style={{ marginTop:12, fontSize:12, color:'#8A8896' }}>
+              <div style={{ marginTop:8, fontSize:11.5, color:'#8A8896' }}>
                 Within {realCompetitors.radiusKm || 3} km of this project's real coordinates
                 {projectGeo?.approx && ' (locality-level location — not the exact project coordinates)'}
               </div>
@@ -2172,7 +1972,17 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
                 single-point embed. */}
             {(() => {
               const locality = live?.location || current?.location
-              const mapQuery = [current?.name, locality, current?.city].filter(Boolean).join(', ')
+              // Item 5 (Competitor Analysis "Not connected" investigation) —
+              // real, live-confirmed finding: `current.name` can be the
+              // LLM curator's REWRITTEN display_name (e.g. "2 BHK Apartment,
+              // Liberty Garden — ₹1,95,00,000 (Ready to Move)"), which bakes
+              // a price/possession parenthetical into what's supposed to be
+              // a geocodable place name — a real risk of failing Nominatim
+              // resolution that `current.projectName` (curator.py's own
+              // `"projectName": p["name"]` — the RAW, never-rewritten
+              // scraped name, threaded through unchanged by
+              // toAnalysableProject/adaptAgentProperty) doesn't have.
+              const mapQuery = [current?.projectName || current?.name, locality, current?.city].filter(Boolean).join(', ')
               // Locality+city only, no project name — a far more geocodable
               // query for a brand-new/under-construction tower name that
               // OpenStreetMap has never indexed. Only used when the full

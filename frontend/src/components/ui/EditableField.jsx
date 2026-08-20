@@ -41,7 +41,7 @@ export default function EditableField({ label, value, emptyLabel = 'Not captured
           onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
           style={{ ...fieldValueStyle, color: value ? colors.navyText : colors.mutedLight, fontStyle: value ? 'normal' : 'italic', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
           {value || emptyLabel}
-          <Pencil size={12} color={hover ? colors.navy : '#C8C6D0'} strokeWidth={2.2} style={{ opacity: hover ? 1 : 0.6, transition: 'opacity 0.15s ease, color 0.15s ease', flexShrink: 0 }} />
+          <Pencil size={12} color={hover ? colors.navy : colors.mutedLight} strokeWidth={2.2} style={{ opacity: hover ? 1 : 0.6, transition: 'opacity 0.15s ease, color 0.15s ease', flexShrink: 0 }} />
         </div>
       </div>
     )
@@ -53,7 +53,7 @@ export default function EditableField({ label, value, emptyLabel = 'Not captured
         <input autoFocus value={draft} disabled={saving}
           onChange={e => setDraft(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') cancel() }}
-          style={{ flex: 1, minWidth: 0, padding: '6px 9px', border: `1.5px solid ${colors.navy}`, borderRadius: 6, fontSize: 14, outline: 'none', fontFamily: "'Plus Jakarta Sans',sans-serif" }} />
+          style={{ flex: 1, minWidth: 0, padding: '6px 9px', border: `1.5px solid ${colors.navy}`, borderRadius: 6, fontSize: 14, outline: 'none', fontFamily: 'var(--pg-font)' }} />
         <button onClick={save} disabled={saving} style={{ background: colors.navy, color: '#fff', border: 'none', borderRadius: 5, width: 26, height: 26, cursor: 'pointer', fontSize: 12 }}>✓</button>
         <button onClick={cancel} disabled={saving} style={{ background: colors.bg, color: colors.textSecondary, border: 'none', borderRadius: 5, width: 26, height: 26, cursor: 'pointer', fontSize: 12 }}>✕</button>
       </div>

@@ -5,12 +5,12 @@ export default function Chip({ label, active, onClick }) {
     <button
       onClick={onClick}
       style={{
-        padding:'6px 14px', borderRadius:20, fontSize:13, fontWeight:500, cursor:'pointer', border:'1px solid',
-        background: active ? '#0E0E52' : '#fff',
-        color: active ? '#fff' : '#1B1B3A',
-        borderColor: active ? '#0E0E52' : '#E9E7E0',
-        transition:'all 0.15s',
-        fontFamily:"'Plus Jakarta Sans',sans-serif",
+        padding: '7px 13px', borderRadius: 'var(--pg-r-md)', fontSize: 12, fontWeight: 600, cursor: 'pointer', border: '1px solid',
+        background: active ? 'var(--pg-surface-dark)' : 'var(--pg-surface)',
+        color: active ? 'var(--pg-on-dark)' : 'var(--pg-ink)',
+        borderColor: active ? 'var(--pg-surface-dark)' : 'var(--pg-border)',
+        transition: 'all 0.15s',
+        fontFamily: 'var(--pg-font)',
       }}
     >{label}</button>
   )

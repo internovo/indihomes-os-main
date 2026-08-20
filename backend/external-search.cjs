@@ -426,8 +426,12 @@ async function queryExternal(query, filters = {}, market = 'india', { skip = 0, 
         // to pure array-position labeling for every Node-fallback result.
         // See scoreExternalProject's own comment in scoring.cjs.
         match_tier: tier,
-        why: allReasons.length ? `${allReasons.join(' · ')} · ${freshnessLabel}` : `${confidence}% source confidence · ${freshnessLabel}`,
-        matchReason: allReasons.join(' · ') || null,
+        // ONE short reason, not every reason joined with " · " (see
+        // scoring.pickPrimaryMatchReason's own comment) — freshnessLabel is
+        // separate data-quality metadata, not a "why this matches" reason,
+        // so it's no longer folded into this string either.
+        why: scoring.pickPrimaryMatchReason(allReasons) || `${confidence}% source confidence`,
+        matchReason: scoring.pickPrimaryMatchReason(allReasons) || null,
         // "External market listing" — distinguishes this from an official
         // IndiHomes-catalog project everywhere the frontend needs to (see
         // ProjectSelection.jsx's toAnalysableProject: code stays null here).

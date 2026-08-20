@@ -3,11 +3,11 @@ import ModuleHeader from '../shared/ModuleHeader.jsx'
 import { LEADS } from '../../data/leads.js'
 
 const FACTORS = [
-  { label:'Budget alignment', weight:28, color:'#0E0E52' },
-  { label:'Engagement level', weight:22, color:'#2E9E4F' },
-  { label:'Location match', weight:18, color:'#F7941D' },
-  { label:'Intent signals', weight:17, color:'#8B8BD6' },
-  { label:'Profile quality', weight:15, color:'#D64545' },
+  { label:'Budget alignment', weight:28, color:'var(--pg-surface-dark)' },
+  { label:'Engagement level', weight:22, color:'var(--pg-green)' },
+  { label:'Location match', weight:18, color:'var(--pg-gold)' },
+  { label:'Intent signals', weight:17, color:'var(--pg-indigo-light)' },
+  { label:'Profile quality', weight:15, color:'var(--pg-red)' },
 ]
 
 const SCORED = [
@@ -21,7 +21,7 @@ const SCORED = [
   { name:'Kavita Joshi', project:'Kalpataru Vista', score:38, temp:'cold' },
 ]
 
-const SCORE_COLOR = s => s>=75?'#2E9E4F': s>=45?'#F7941D':'#8B8BD6'
+const SCORE_COLOR = s => s>=75?'var(--pg-green)': s>=45?'var(--pg-gold)':'var(--pg-indigo-light)'
 
 export default function LeadScoring() {
   return (
@@ -29,42 +29,42 @@ export default function LeadScoring() {
       <ModuleHeader module="MODULE 08" title="Lead Scoring" subtitle="AI scores every lead on 5 factors in real-time" />
       {/* Buckets */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:16, marginBottom:28 }}>
-        {[['🔥 HOT','1,840','score ≥ 75','#FDEAEA','#D64545'],['🌤 WARM','4,300','score 45–74','#FEF3E4','#F7941D'],['❄ COLD','6,340','score < 45','#F0EEF8','#8B8BD6']].map(([label,count,range,bg,color])=>(
-          <div key={label} style={{ background:bg, border:`1px solid ${color}44`, borderRadius:12, padding:'22px', textAlign:'center' }}>
+        {[['🔥 HOT','1,840','score ≥ 75','var(--pg-tint-red)','var(--pg-red)'],['🌤 WARM','4,300','score 45–74','var(--pg-tint-amber)','var(--pg-gold)'],['❄ COLD','6,340','score < 45','var(--pg-tint-indigo-2)','var(--pg-indigo-light)']].map(([label,count,range,bg,color])=>(
+          <div key={label} style={{ background:bg, border:`1px solid ${color}`, borderRadius:'var(--pg-r-xl)', padding:'22px', textAlign:'center' }}>
             <div style={{ fontSize:20, fontWeight:800, color, marginBottom:4 }}>{label}</div>
-            <div style={{ fontSize:36, fontWeight:800, color:'#1B1B3A' }}>{count}</div>
-            <div style={{ fontSize:12, color:'#75737F' }}>{range}</div>
+            <div style={{ fontSize:36, fontWeight:800, color:'var(--pg-ink)' }}>{count}</div>
+            <div style={{ fontSize:12, color:'var(--pg-ink-2)' }}>{range}</div>
           </div>
         ))}
       </div>
       {/* Two cols */}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 320px', gap:20 }}>
         {/* Scored leads */}
-        <div style={{ background:'#fff', border:'1px solid #E9E7E0', borderRadius:12, overflow:'hidden' }}>
-          <div style={{ padding:'14px 20px', borderBottom:'1px solid #E9E7E0', fontWeight:700, fontSize:15 }}>Lead Score List</div>
+        <div style={{ background:'var(--pg-surface)', border:'1px solid var(--pg-border)', borderRadius:'var(--pg-r-xl)', overflow:'hidden' }}>
+          <div style={{ padding:'14px 20px', borderBottom:'1px solid var(--pg-border)', fontWeight:700, fontSize:15 }}>Lead Score List</div>
           {SCORED.map((l,i)=>(
-            <div key={l.name} style={{ display:'flex', alignItems:'center', gap:14, padding:'12px 20px', borderBottom:'1px solid #E9E7E0' }}>
-              <div style={{ width:36, height:36, borderRadius:'50%', background:`${SCORE_COLOR(l.score)}22`, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontSize:14, color:SCORE_COLOR(l.score), flexShrink:0 }}>{l.score}</div>
+            <div key={l.name} style={{ display:'flex', alignItems:'center', gap:14, padding:'12px 20px', borderBottom:'1px solid var(--pg-border)' }}>
+              <div style={{ width:36, height:36, borderRadius:'50%', background:`color-mix(in srgb, ${SCORE_COLOR(l.score)} 13%, transparent)`, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontSize:14, color:SCORE_COLOR(l.score), flexShrink:0 }}>{l.score}</div>
               <div style={{ flex:1 }}>
                 <div style={{ fontWeight:600, fontSize:13 }}>{l.name}</div>
-                <div style={{ fontSize:11, color:'#75737F' }}>{l.project}</div>
+                <div style={{ fontSize:11, color:'var(--pg-ink-2)' }}>{l.project}</div>
               </div>
               <div style={{ flex:2 }}>
-                <div style={{ height:8, background:'#F0EEEB', borderRadius:4, overflow:'hidden' }}>
+                <div style={{ height:8, background:'var(--pg-surface-sunken)', borderRadius:4, overflow:'hidden' }}>
                   <div style={{ width:`${l.score}%`, height:'100%', background:SCORE_COLOR(l.score), borderRadius:4 }} />
                 </div>
               </div>
               <div style={{ width:60, textAlign:'right' }}>
-                <span style={{ fontSize:11, fontWeight:600, color:SCORE_COLOR(l.score), background:`${SCORE_COLOR(l.score)}18`, padding:'3px 8px', borderRadius:20 }}>{l.temp}</span>
+                <span style={{ fontSize:11, fontWeight:600, color:SCORE_COLOR(l.score), background:`color-mix(in srgb, ${SCORE_COLOR(l.score)} 15%, transparent)`, padding:'3px 8px', borderRadius:20 }}>{l.temp}</span>
               </div>
             </div>
           ))}
         </div>
         {/* Model breakdown */}
         <div>
-          <div style={{ background:'#fff', border:'1px solid #E9E7E0', borderRadius:12, padding:'20px', marginBottom:16 }}>
+          <div style={{ background:'var(--pg-surface)', border:'1px solid var(--pg-border)', borderRadius:'var(--pg-r-xl)', padding:'20px', marginBottom:16 }}>
             <div style={{ fontWeight:700, fontSize:14, marginBottom:16 }}>Scoring Model</div>
-            <div style={{ width:'100%', height:140, display:'flex', alignItems:'center', justifyContent:'center', background:'#F6F5F1', borderRadius:10, marginBottom:16, position:'relative' }}>
+            <div style={{ width:'100%', height:140, display:'flex', alignItems:'center', justifyContent:'center', background:'var(--pg-shell)', borderRadius:10, marginBottom:16, position:'relative' }}>
               <div style={{ position:'relative', width:100, height:100 }}>
                 <svg viewBox="0 0 100 100" style={{ width:100, height:100, transform:'rotate(-90deg)' }}>
                   {FACTORS.reduce((acc,f,i)=>{
@@ -86,8 +86,8 @@ export default function LeadScoring() {
             {FACTORS.map(f=>(
               <div key={f.label} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
                 <div style={{ width:10, height:10, borderRadius:2, background:f.color, flexShrink:0 }} />
-                <span style={{ fontSize:12, flex:1, color:'#75737F' }}>{f.label}</span>
-                <span style={{ fontSize:12, fontWeight:700, fontFamily:"'IBM Plex Mono',monospace" }}>{f.weight}%</span>
+                <span style={{ fontSize:12, flex:1, color:'var(--pg-ink-2)' }}>{f.label}</span>
+                <span style={{ fontSize:12, fontWeight:700, fontFamily:'var(--pg-font-mono)' }}>{f.weight}%</span>
               </div>
             ))}
           </div>

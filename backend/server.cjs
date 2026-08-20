@@ -1992,6 +1992,77 @@ async function queryAgent(query, market) {
   return res.json()
 }
 
+// Places-direct's bounded per-result enrichment (Places has no price or
+// lifecycle-status data at all) — a real web search + page fetch per
+// result, via the agent's lightweight /agent/enrich-property endpoint
+// (agent/agent/tools.py's enrich_property, reusing the SAME extraction/
+// classification machinery deep_research uses, never a second pipeline).
+// A SEPARATE, much shorter timeout than AGENT_TIMEOUT_MS above — this is
+// one bounded search, not the full multi-tool research pass — and bounded
+// to PLACES_ENRICH_MAX_RESULTS candidates (never all 20), so Places-direct
+// stays meaningfully faster than a full agent-path search while gaining
+// none of its actual research depth, per explicit instruction.
+const PLACES_ENRICH_TIMEOUT_MS = parseInt(process.env.PLACES_ENRICH_TIMEOUT_MS, 10) || 25000
+const PLACES_ENRICH_MAX_RESULTS = parseInt(process.env.PLACES_ENRICH_MAX_RESULTS, 10) || 12
+// Lifecycle stages that get a candidate hard-excluded from Places-direct
+// results outright (the "no old properties" requirement) — mirrors the
+// agent path's own ALLOWED_LIFECYCLE_STATUSES exclusion set exactly (see
+// agent/agent/normalize.py), just enforced here instead of graph.py since
+// Places-direct has no separate eligibility-filter node of its own.
+const PLACES_ENRICH_EXCLUDE_STATUSES = new Set(['RESALE', 'RENTAL', 'READY_TO_MOVE'])
+
+async function enrichOnePlacesResult(name, { locality, city, configuration, market }) {
+  try {
+    const res = await fetch(`${AGENT_SERVICE_URL}/agent/enrich-property`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, locality, city, configuration, market }),
+      signal: AbortSignal.timeout(PLACES_ENRICH_TIMEOUT_MS),
+    })
+    if (!res.ok) return null
+    return res.json()
+  } catch (e) {
+    // Agent unreachable/timed out for this one lookup — degrade exactly
+    // like every other agent-dependent route in this file: the result
+    // keeps its existing null price / no lifecycle badge, never a hard
+    // failure of the whole Places-direct response over one enrichment call.
+    return null
+  }
+}
+
+// Runs enrichOnePlacesResult for the top PLACES_ENRICH_MAX_RESULTS
+// properties (Places' own relevance order — array position, not a second
+// re-rank), in parallel, and folds each real result back in:
+//   - a real price found -> shown; none found -> stays null ("Price not
+//     available" on the card, never fabricated).
+//   - RESALE/RENTAL/READY_TO_MOVE -> EXCLUDED from the result set entirely.
+//   - genuinely inconclusive (checked, no signal either way) -> kept,
+//     lifecycleStatus: 'UNKNOWN' (PropertyCard's own "Status unknown" label).
+// Properties past the bound are returned unchanged — never checked, same
+// honest-empty-state behavior this path always had.
+async function enrichPlacesResults(properties, { locality, city, configuration, market }) {
+  const toCheck = properties.slice(0, PLACES_ENRICH_MAX_RESULTS)
+  const rest = properties.slice(PLACES_ENRICH_MAX_RESULTS)
+  const settled = await Promise.allSettled(
+    toCheck.map(p => enrichOnePlacesResult(p.name, { locality, city, configuration, market }))
+  )
+  const enriched = []
+  toCheck.forEach((p, i) => {
+    const r = settled[i].status === 'fulfilled' ? settled[i].value : null
+    if (!r) { enriched.push(p); return }
+    const status = r.lifecycle_status || 'UNKNOWN'
+    if (PLACES_ENRICH_EXCLUDE_STATUSES.has(status)) return
+    enriched.push({
+      ...p,
+      price: r.price || p.price,
+      rera: r.rera || p.rera,
+      lifecycleStatus: status,
+      lifecycleEvidence: r.lifecycle_evidence_text || null,
+      configuration_evidence: r.configuration_evidence || {},
+    })
+  })
+  return [...enriched, ...rest]
+}
+
 // Section 5 fix (RERA enrichment) — proxies to the agent's own scoped
 // /agent/rera-lookup route, same connection pattern/timeout/degrade-
 // gracefully discipline as queryAgent above. A shorter timeout than the
@@ -2039,7 +2110,15 @@ function adaptAgentProperty(p) {
     rera: p.rera, rera_verified: null,
     sourceName: p.sources?.[0]?.name || null, sourceUrl: p.sources?.[0]?.url || null,
     sources: p.sources || [],
-    match_score: p.match_score, why: (p.match_reasons || []).join(' · ') || p.key_match || '',
+    // `why` is ONE short reason for the compact search-result card.
+    // `key_match` (curator.py) is now a genuine, grounded one-sentence LLM
+    // explanation per property (Part: real "why" via LLM) — preferred here
+    // since it reads as an actual sentence, not a raw regex-derived
+    // fragment; `pickPrimaryMatchReason` is still the fallback for the rare
+    // case key_match is itself empty. `match_reasons` (the full list) is
+    // untouched, still passed through below for Project Intelligence's
+    // fuller detail view.
+    match_score: p.match_score, why: p.key_match || scoring.pickPrimaryMatchReason(p.match_reasons) || '',
     match_tier: p.match_tier, match_reasons: p.match_reasons, key_match: p.key_match,
     limitations: p.limitations, project_intelligence: p.project_intelligence,
     // ── Deep-research pipeline additions — additive only, every field
@@ -2086,82 +2165,34 @@ app.post('/api/ai-search', async (req, res) => {
   const market = req.body?.market === 'dubai' ? 'dubai' : 'india'
   if (!query) return res.status(400).json({ error: 'query required' })
 
-  // Places-direct discovery (Section: "make AI Search work like a direct
-  // Maps search") — tried FIRST, before the LangGraph/legacy pipelines
-  // below. Confirmed live: the multi-stage lifecycle-classification
-  // pipeline was rejecting almost every real candidate ("20 candidates
-  // reviewed... 0 eligible"), while a direct Google Places text search for
-  // the same query returned 7+ real, well-named, real-address residential
-  // buildings immediately. Google Places itself has no lifecycle-status
-  // concept at all, so nothing here can be "rejected as not-new-launch" —
-  // this deliberately doesn't attempt that classification; it shows real,
-  // existing buildings matching the location + configuration, honestly.
-  // Falls through to the existing pipelines below (unchanged) when Places
-  // isn't configured, the market is Dubai (India-gazetteer-tuned for now),
-  // or it genuinely returns nothing — never a hard dependency, same
-  // "additive, never make things worse" discipline as every other
-  // integration in this app.
-  if (market === 'india' && placesClient.isPlacesConfigured()) {
-    try {
-      const filters = queryParser.parseExternalQuery(query, market)
-      // Deliberately passes something close to the RAW query text to Places
-      // (not just the extracted location) — Places' own text understanding
-      // handles landmark phrases ("near aarey metro") that this app's own
-      // regex-based extractLocations() has no way to capture, and the live
-      // reference example this was built from relied on exactly that.
-      const placesQuery = /apartment|residential|flat|housing|condo|society/i.test(query)
-        ? query : `residential apartments ${query}`
-      const { configured, places } = await placesClient.searchResidentialPlaces(placesQuery, { maxResultCount: 20 })
-      if (configured && places.length) {
-        const properties = places.map((p, i) => {
-          // Rank purely by Places' own result order (already relevance-
-          // ranked by Google) — rating/review count are fetched (see
-          // places-client.cjs) but deliberately NOT surfaced in the UI or
-          // used for scoring here, per explicit instruction to keep this
-          // looking like a normal project card, not a Maps listing.
-          const matchScore = Math.max(40, 95 - i * 4)
-          const tier = matchScore >= 80 ? 'PRIMARY' : matchScore >= 60 ? 'SECONDARY' : 'TERTIARY'
-          return {
-            id: `places:${p.placeId}`,
-            name: p.name,
-            developer: null,
-            location: p.address || (filters.locations || []).join(', ') || null,
-            city: null,
-            config: filters.configuration || null,
-            price: null, possession: null,
-            rera: null, rera_verified: null,
-            match_score: matchScore, match_tier: tier,
-            match_reasons: [`Real building found near ${(filters.locations || []).join(', ') || 'your search'}`],
-            why: `Found via Google Places near ${(filters.locations || []).join(', ') || 'your search'}`,
-            sourceUrl: p.mapsUrl, sourceName: null,
-            placesVerified: true, placesLat: p.lat, placesLon: p.lon,
-            placesPlaceId: p.placeId, placesAddress: p.address,
-          }
-        })
-        const reportId = cacheSearchContext(query, filters, market)
-        const ctx = searchReportCache.get(reportId)
-        ctx.skip = properties.length
-        try { db.logSearch({ mode: 'ai-search-places', query, filters, resultCount: properties.length }) }
-        catch (e) { console.error('[ai-search] history log failed:', e.message) }
-        return res.json({
-          filters, reportId, market, configured: true, enabled: true,
-          properties, sources: [], warning: null,
-          _source: 'places-direct',
-          // Which of the three /api/ai-search branches actually answered
-          // this request — was previously only inferable from `_source`/
-          // `_agent` (inconsistent between branches), which made debugging
-          // "did my fix even run" unnecessarily confusing. Explicit and
-          // consistent across all three branches below.
-          pipeline: 'places-direct',
-        })
-      }
-    } catch (e) {
-      console.error('[ai-search] Places-direct discovery failed, falling back to the existing pipeline:', e.message)
-      // No error surfaced to the client — fall through exactly as if this
-      // path didn't exist, same discipline as the LangGraph fallback below.
-    }
+  // AI Search query defense — applied ONCE here, before any of the three
+  // pipelines below ever sees this query, not duplicated per branch. A
+  // cheap, deterministic check (queryParser.isPropertySearchQuery — see
+  // its own comment): if the query has no recognizable property-search
+  // shape at all (no locality/configuration/budget/possession/amenity,
+  // and not even a generic real-estate noun), it's almost certainly not a
+  // genuine search — an off-topic question or an instruction-injection
+  // attempt — and gets a fixed, honest refusal instead of being handed to
+  // an LLM-backed pipeline. No LLM call spent per query just to make this
+  // call.
+  const searchDefenseFilters = queryParser.parseExternalQuery(query, market)
+  if (!queryParser.isPropertySearchQuery(query, searchDefenseFilters)) {
+    return res.json({
+      filters: {}, market, configured: true, enabled: true,
+      properties: [], sources: [],
+      warning: 'This search only works for property queries — try something like "2 BHK in Malad West".',
+      pipeline: 'blocked',
+    })
   }
 
+  // The LangGraph agent (System B) is now the PRIMARY path for every AI
+  // Search request — tried FIRST, ahead of Places-direct, per explicit
+  // instruction: this is a deliberate architecture choice, not a
+  // performance optimization. The agent takes real time (tens of seconds
+  // to 2+ minutes, observed 35-140s+ in prior testing) where Places-direct
+  // was near-instant — that tradeoff is accepted, not a regression to fix.
+  // Places-direct (below) is now the FALLBACK, only reached when this flag
+  // is off, or the agent is unreachable/times out/throws.
   if (process.env.LANGGRAPH_ENABLED === 'true') {
     try {
       const agentResult = await queryAgent(query, market)
@@ -2193,9 +2224,104 @@ app.post('/api/ai-search', async (req, res) => {
         pipeline: 'agent',
       })
     } catch (e) {
-      console.error('[ai-search] agent service unavailable, falling back to external-search.cjs:', e.message)
+      console.error('[ai-search] agent service unavailable, falling back to Places-direct/external-search.cjs:', e.message)
       // Deliberately no error surfaced to the client here — fall through to
-      // the existing path below exactly as if LANGGRAPH_ENABLED were unset.
+      // the Places-direct path below exactly as if LANGGRAPH_ENABLED were
+      // unset.
+    }
+  }
+
+  // Places-direct discovery (Section: "make AI Search work like a direct
+  // Maps search") — now the FALLBACK, reached only when the agent above is
+  // disabled/unreachable/times out/throws. Confirmed live: the multi-stage
+  // lifecycle-classification pipeline was rejecting almost every real
+  // candidate ("20 candidates reviewed... 0 eligible"), while a direct
+  // Google Places text search for the same query returned 7+ real,
+  // well-named, real-address residential buildings immediately. Google
+  // Places itself has no lifecycle-status concept at all, so nothing here
+  // can be "rejected as not-new-launch" — this deliberately doesn't
+  // attempt that classification; it shows real, existing buildings
+  // matching the location + configuration, honestly. Falls through to the
+  // Node fallback below (unchanged) when Places isn't configured, the
+  // market is Dubai (India-gazetteer-tuned for now), or it genuinely
+  // returns nothing — never a hard dependency, same "additive, never make
+  // things worse" discipline as every other integration in this app.
+  if (market === 'india' && placesClient.isPlacesConfigured()) {
+    try {
+      const filters = queryParser.parseExternalQuery(query, market)
+      // Deliberately passes something close to the RAW query text to Places
+      // (not just the extracted location) — Places' own text understanding
+      // handles landmark phrases ("near aarey metro") that this app's own
+      // regex-based extractLocations() has no way to capture, and the live
+      // reference example this was built from relied on exactly that.
+      const placesQuery = /apartment|residential|flat|housing|condo|society/i.test(query)
+        ? query : `residential apartments ${query}`
+      // Item 4 — booking/rental/travel platforms (booking.com, Airbnb,
+      // MakeMyTrip, OYO, hotels...) are already excluded here, deterministically,
+      // before any per-result search below ever runs (see places-client.cjs's
+      // isBookingOrRentalPlatform for the exact name/type list checked).
+      const { configured, places } = await placesClient.searchResidentialPlaces(placesQuery, { maxResultCount: 20 })
+      if (configured && places.length) {
+        let properties = places.map((p, i) => {
+          // Rank purely by Places' own result order (already relevance-
+          // ranked by Google) — rating/review count are fetched (see
+          // places-client.cjs) but deliberately NOT surfaced in the UI or
+          // used for scoring here, per explicit instruction to keep this
+          // looking like a normal project card, not a Maps listing.
+          const matchScore = Math.max(40, 95 - i * 4)
+          const tier = matchScore >= 80 ? 'PRIMARY' : matchScore >= 60 ? 'SECONDARY' : 'TERTIARY'
+          const whyReason = `Real building found near ${(filters.locations || []).join(', ') || 'your search'}`
+          return {
+            id: `places:${p.placeId}`,
+            name: p.name,
+            developer: null,
+            location: p.address || (filters.locations || []).join(', ') || null,
+            city: null,
+            config: filters.configuration || null,
+            // Overwritten by enrichPlacesResults below for the bounded top
+            // slice — stays null (honest "Price not available") for
+            // anything outside that bound, or if enrichment found nothing.
+            price: null, possession: null,
+            rera: null, rera_verified: null,
+            match_score: matchScore, match_tier: tier,
+            match_reasons: [whyReason],
+            why: whyReason,
+            sourceUrl: p.mapsUrl, sourceName: null,
+            placesVerified: true, placesLat: p.lat, placesLon: p.lon,
+            placesPlaceId: p.placeId, placesAddress: p.address,
+          }
+        })
+        // Item 3 — real per-result price + lifecycle/exclusion check,
+        // bounded to the top slice by Places' own relevance rank. See
+        // enrichPlacesResults' own comment for the full design (single
+        // search per result, graceful degrade when the agent's unreachable,
+        // hard-exclude RESALE/RENTAL/READY_TO_MOVE).
+        properties = await enrichPlacesResults(properties, {
+          locality: (filters.locations || [])[0] || null,
+          configuration: filters.configuration || null,
+          market,
+        })
+        const reportId = cacheSearchContext(query, filters, market)
+        const ctx = searchReportCache.get(reportId)
+        ctx.skip = properties.length
+        try { db.logSearch({ mode: 'ai-search-places', query, filters, resultCount: properties.length }) }
+        catch (e) { console.error('[ai-search] history log failed:', e.message) }
+        return res.json({
+          filters, reportId, market, configured: true, enabled: true,
+          properties, sources: [], warning: null,
+          _source: 'places-direct',
+          // Which of the three /api/ai-search branches actually answered
+          // this request — was previously only inferable from `_source`/
+          // `_agent` (inconsistent between branches), which made debugging
+          // "did my fix even run" unnecessarily confusing. Explicit and
+          // consistent across all three branches below.
+          pipeline: 'places-direct',
+        })
+      }
+    } catch (e) {
+      console.error('[ai-search] Places-direct discovery failed, falling back to the Node fallback pipeline:', e.message)
+      // No error surfaced to the client — fall through exactly as if this
+      // path didn't exist, same discipline as the agent fallback above.
     }
   }
 

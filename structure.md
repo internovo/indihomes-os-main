@@ -1678,3 +1678,655 @@ recorded into every response's `research_metadata.metrics`.
   of a misnomer — most of what it tested is gone — but wasn't renamed, to
   avoid a same-pass rename-plus-content-change diff; a future pass touching
   this file again should rename it to something like `test_search_fallback.cjs`.
+
+  ---
+
+  ## Strict eligibility (no escape hatches) + honest result cards
+  ## (why/price/RERA never blank)
+
+  A follow-up pass, four items: close a real gap the previous "Reduction
+  pass" left open (the agent's own eligibility filter still had two escape
+  hatches accepting old/unconfirmed properties instead of rejecting them),
+  plus three result-card honesty fixes.
+
+  **1. Confirmed `ALLOWED_LIFECYCLE_STATUSES`, then removed the two escape
+  hatches that undermined it (`agent/agent/normalize.py`,
+  `agent/agent/graph.py`).** `ALLOWED_LIFECYCLE_STATUSES` in
+  `normalize.py` was already exactly `{UNDER_CONSTRUCTION, NEAR_POSSESSION,
+  NEW_LAUNCH, PRE_LAUNCH}` — verified against the live file before assuming
+  a change was needed, per the task's own instruction; no change required
+  there. The real gap: `graph.py`'s `_apply_hard_eligibility_filter()`,
+  on the FINAL pass, had two escape hatches that ACCEPTED a candidate
+  outside this allowed set anyway — a Places-verified acceptance ("a real,
+  existing building shouldn't be discarded just because Places doesn't
+  track construction status") and a broader "any UNKNOWN lifecycle + a
+  valid-looking name" acceptance (Part 1d from an earlier pass, "absence of
+  evidence is not itself disqualifying evidence") — both capped the score
+  to TERTIARY-max and attached an honest "status not confirmed" reason
+  rather than rejecting outright. Per explicit instruction ("should not
+  show old properties," "strictly show properties only"), both were
+  deleted, not weakened — a candidate whose status is READY_TO_MOVE,
+  RESALE, RENTAL, or stays UNKNOWN even after deep research had its full
+  chance is now rejected on the final pass, full stop, no capped/labeled
+  middle ground. The `_accept_unverified()` helper and the
+  `_unverified_lifecycle` flag it set are gone entirely (grepped the whole
+  repo afterward — nothing else referenced them; the one remaining mention
+  is a comment documenting what USED to happen, for context). Rejection
+  reason text updated to be accurate post-change (the old code had a
+  latent bug here too: the generic "still outside the allowed set" branch
+  used the reason string "Could not verify this is a real project name"
+  for a plain UNKNOWN status, which was actually the WRONG reason — that
+  exact string belongs to the separate, independent name-validity gate a
+  few lines below, which still exists and still fires on its own merits).
+
+  **Real behavior change, confirmed live**: querying the agent directly
+  (`POST http://localhost:8008/agent/ai-search`, bypassing Places-direct)
+  with "2 BHK with deck in Liberty Garden near Malad West" — a query with
+  real history in this same document — returned `retrieval_metrics:
+  {"total_candidates":47,...,"unknown_candidates":20,...,"eligible_candidates":4,
+  "rejected_candidates":44}` and exactly 3 final properties, EVERY one
+  UNDER_CONSTRUCTION with real evidence — none UNKNOWN, none Places-verified-
+  but-unconfirmed. Under the old escape-hatch behavior, a meaningful chunk
+  of those 20 UNKNOWN candidates would have surfaced capped-and-labeled;
+  now they correctly don't appear at all.
+
+  **The Node fallback — deliberately left untouched, per the user's own
+  explicit decision this session.** The task asked to mirror both the
+  `ALLOWED_LIFECYCLE_STATUSES` constant and this rejection behavior into
+  `backend/scoring.cjs`/`backend/external-search.cjs` — but the previous
+  "Reduction pass" (immediately above in this document) had already
+  deleted `classifyLifecycleStatus`/`ALLOWED_LIFECYCLE_STATUSES`/
+  `isAggregatorTitle` from the Node side entirely, on the reasoning that
+  the agent (now reliably kept up by the supervisor) makes that
+  duplication unnecessary. Surfaced this conflict directly instead of
+  silently either skipping the instruction or silently reintroducing the
+  deleted logic; asked, and the user chose to leave the Node fallback
+  as-is — it stays a bare, unclassified "show what a connector returned"
+  path with no lifecycle concept at all, consistent with the prior pass.
+
+  **2. A real, short "why" on every card (`backend/scoring.cjs`,
+  `backend/server.cjs`, `backend/external-search.cjs`,
+  `frontend/.../ProjectSelection.jsx`).** The match-reason line had
+  previously been removed from `PropertyCard` entirely for reading as a
+  long, technical, "·"-joined string (e.g. "Exact location match: X · 2
+  BHK available · Possession 2027 is within your requested window · Seen
+  today"). New `scoring.pickPrimaryMatchReason(reasons)` — shared by all
+  three `/api/ai-search` response-building code paths, not reimplemented
+  three times — picks ONE reason: a location-match reason first (a buyer's
+  actual stated location is what matters most), then a configuration-match
+  reason, then whatever's first in the list as a last resort. `why` on
+  each pipeline's response now carries just this one reason (the full
+  `match_reasons` LIST is untouched everywhere it's used for other
+  purposes, e.g. Project Intelligence's fuller detail view — only the
+  compact card's single-line summary changed). `PropertyCard` renders it
+  back as a small line under the property name, truncated to ~60
+  characters with an ellipsis for the rare longer reason.
+
+  Live-verified on all three pipelines with real requests against a
+  running backend: Places-direct → `"Real building found near Borivali
+  East"` (36 chars); Node-fallback (Dubai-market query, agent stopped) →
+  `"Exact location match: Dubai Marina"` (34 chars, previously would have
+  been `"Exact location match: Dubai Marina · Seen today"` with a
+  freshness-label suffix folded in — that suffix is gone from `why` now,
+  freshness stays available as its own separate field); agent path (real
+  `match_reasons` from a live agent response, run through the actual
+  `pickPrimaryMatchReason()`) → `"Exact location match: Liberty Garden"`
+  (37 chars) and `"Located in Malad West; Liberty Garden not independently
+  verified"` (67 chars — the one case that actually hits the frontend's
+  60-char truncation, confirmed to still degrade gracefully with an
+  ellipsis rather than breaking).
+
+  **3. Price — option (b) implemented, not (a), and why
+  (`frontend/.../ProjectSelection.jsx`).** Confirmed current behavior
+  first, live, rather than assuming: the agent and Node-fallback paths
+  already render a real price when one exists (confirmed via the same live
+  Dubai-market node-fallback query above — real extracted prices like "AED
+  28,00,000" render correctly). The known gap was real: Places-direct
+  (`searchResidentialPlaces`/`places-client.cjs`) always sets `price:
+  null`, since Google Places genuinely has no price field at all. Option
+  (a) — a per-card price lookup, similar in spirit to the existing RERA
+  auto-lookup — was considered and explicitly rejected: the RERA lookup
+  runs ONCE, for a single already-selected project in Project Intelligence;
+  Places-direct returns up to 20 results PER QUERY, so a price lookup per
+  card would mean up to 20 extra search calls on every request, directly
+  undermining the one thing Places-direct exists for (being the fast,
+  simple, no-extra-research option). Implemented option (b) instead: a
+  price chip that ALWAYS renders something — a real value, or an honest
+  "Price not available" — via a new `emptyLabel` prop on the existing
+  `FactChip` component (kept generic/reusable rather than special-cased
+  just for price, though price is the only fact that currently uses it;
+  every other optional fact still correctly renders nothing when absent).
+
+  **4. RERA badge always renders something
+  (`frontend/src/components/ui/FieldBadge.jsx`,
+  `frontend/.../ProjectSelection.jsx`).** `PropertyCard` previously only
+  rendered the RERA badge conditionally (`{p.rera && <FieldBadge .../>}`)
+  — a missing RERA number showed nothing at all, not an honest label. New
+  `FieldBadge` kind, `none` ("Not available", no icon-based warning
+  triangle, muted grey `#ABA9B5`) — deliberately NOT reusing the existing
+  `unverified` kind for this, since that kind's own ⚠ icon reads as a
+  warning/problem, and a missing RERA number is a normal, expected state
+  for many real listings, not a failure. `p.rera` present still renders
+  the existing "RERA `<number>` (unverified)" badge unchanged; absent now
+  renders "RERA not available" instead of nothing.
+
+  **Tests**: `backend/tests/test_lifecycle_and_eligibility.cjs` — 5 new
+  checks for `pickPrimaryMatchReason` (location preferred over
+  budget/possession/quality, configuration preferred when no location
+  reason exists, first-reason fallback, null-safety, and the "Located in
+  X; Y not independently verified" parent-locality phrasing still counting
+  as a location reason). `agent/tests/test_lifecycle_and_eligibility.py`
+  — the two test blocks that asserted the OLD escape-hatch acceptance
+  behavior were rewritten to assert the new strict-rejection behavior
+  instead (not just deleted — the "Mystery Listing"/"Security Alert" UNKNOWN
+  cases are still exercised, now both correctly rejected instead of one
+  being accepted-and-capped); every other test block in the file already
+  used eligible lifecycle statuses for its own fixtures and needed no
+  change, confirmed by re-reading each one rather than assumed. Both
+  suites, plus `agent/tests/test_bridge_circuit_breaker.py`, re-run clean.
+  `npm run build` re-confirmed. Both backend services restarted with this
+  pass's code and driven live for every verification claim above — not
+  read from the code alone.
+
+  ---
+
+  ## The agent is now the PRIMARY /api/ai-search path, not Places-direct
+
+  A deliberate architecture change, explicitly NOT a performance
+  optimization: the person requesting this understood and accepted that
+  most searches now take real time (35-140+ seconds observed) instead of
+  Places-direct's near-instant answers.
+
+  **1. Reordered the three branches (`backend/server.cjs`'s
+  `/api/ai-search`).** Was: Places-direct → agent (gated on
+  `LANGGRAPH_ENABLED=true`) → Node fallback. Now: agent FIRST → Places-
+  direct SECOND (now the fallback) → Node fallback THIRD (unchanged). Pure
+  reorder — each block's own code, try/catch, early `return res.json(...)`,
+  and silent-fall-through-on-error behavior is untouched, only the
+  sequence changed (plus updating each block's own descriptive comments to
+  stop saying "tried FIRST" when they no longer are).
+
+  **2. Timeout/fall-through logic checked, no bug found, value NOT
+  changed.** `queryAgent()`'s `AbortSignal.timeout(AGENT_TIMEOUT_MS)`
+  (120000ms, from `.env`'s `AI_SEARCH_TIMEOUT_MS`) throws on expiry exactly
+  like any other fetch failure — it's inside the SAME try/catch the route
+  already had, so a timeout falls through to Places-direct identically to
+  a connection refusal or an HTTP error. No frontend-side fetch timeout
+  exists either (confirmed by reading `ProjectSelection.jsx`'s own fetch
+  call — no `AbortSignal`/timeout wrapper), so the browser genuinely waits
+  as long as the backend does. **Live-verified, twice, for real**: two
+  full `/api/ai-search` requests ("2 BHK in Bandra West", "1 BHK in
+  Andheri JB Nagar") each took ~120s, logged `agent service unavailable...
+  The operation was aborted due to timeout`, and correctly returned
+  `pipeline: 'places-direct'` with real results — not a failed request.
+  Separately confirmed the agent itself wasn't hung, just slower than the
+  budget: the same Bandra West query, run directly against the agent
+  (bypassing the route's timeout) with a 4-minute curl budget, completed
+  in `duration_ms: 194520` (194.5s) with a genuine, thoroughly-researched
+  zero-candidate result (`total_candidates: 60`, 71 tool calls, 2 research
+  iterations — the max — `candidate_count: 0`) — Bandra West apparently
+  has no new-launch/under-construction inventory reachable through the
+  configured connectors right now, which is a real answer, not a bug.
+
+  **3. Frontend loading state — genuinely inadequate for the new wait
+  length, fixed (`frontend/.../ProjectSelection.jsx`).** The 5-stage
+  cycling message (`RESEARCH_STAGES`) advanced every 1100ms and stopped at
+  the last stage — all 5 stages burned through in ~4.4s, then the UI froze
+  on "Ranking matching properties…" (implying near-completion) for the
+  remaining ~30-190+ seconds of a real wait, with only the spinner still
+  animating. Fixed with two small, targeted changes, not a rebuild: the
+  interval slowed to 4500ms, and the stage index now LOOPS (`% length`)
+  instead of freezing at the end — cycling back through the same honest
+  phrases reads truer than parking on one implying the search is almost
+  done. Added a real elapsed-seconds counter (new `elapsedSec` state,
+  ticked every second, cleared alongside the existing stage timer) — the
+  clearest unambiguous "still working, not hung" signal for a wait this
+  long; a "can take up to 2 minutes" note appears once elapsed exceeds
+  10s, so a fast Places-direct/Node-fallback answer never shows it at all.
+
+  **4. Pipeline label copy — confirmed correct as-is, no change needed.**
+  `PIPELINE_LABEL`'s `"via full research"` (small, muted `#A8A6B3` text,
+  no icon, no "rare case" styling) reads exactly as well as the common
+  case as it did as the rare one — it was never phrased or styled as an
+  exception in the first place. Confirmed by reading the component, not
+  assumed.
+
+  **Live verification, in full**: with a fresh backend + agent running,
+  ran the same Liberty Garden query that produced a genuine agent success
+  earlier in this document — `pipeline: 'agent'`, `_agent: true`,
+  `research_metadata` present, 3 real UNDER_CONSTRUCTION properties, real
+  wall-clock time **108.9 seconds** (`time curl`, not estimated), each
+  card's `why` short (36 and 64 chars — the 64-char one is the one real
+  case that hits the frontend's 60-char truncation, confirmed to degrade
+  gracefully), price/RERA real where available. **LangSmith confirmed
+  directly via its own REST API** (not just config presence this time):
+  queried `https://api.smith.langchain.com/api/v1/runs/query` for the
+  `Property_Ai-search` project's root runs and got back 4 real `LangGraph`
+  chain traces, `status: "success"`, with `inputs.original_query` matching
+  every query run this pass and `start_time`/`end_time` matching the
+  observed wall-clock durations exactly (e.g. one trace ran
+  10:48:56→10:50:44, a 108s span matching the 108.9s `time curl` result to
+  within a second). **Fallback path deliberately re-tested with the agent
+  genuinely fully stopped** (a leftover supervisor process from an earlier
+  session pass was found still running and quietly keeping the agent
+  alive during an earlier fallback-test attempt — a testing-hygiene
+  mistake caught and corrected mid-verification, not a code bug; once
+  every agent process was actually confirmed dead via `Get-CimInstance`,
+  not just assumed from a `Stop-Process` call) — a search with the agent
+  truly unreachable failed over in **0.81 seconds** (`fetch failed`,
+  correctly caught, no 120s wait), returning `pipeline: 'places-direct'`
+  with 20 real results — never a broken/failed request either way.
+
+  **Tests**: both suites re-run clean, unchanged (a pure reorder, per the
+  task's own expectation — no test content needed to change, and none
+  did).
+
+  ---
+
+  ## Places-direct grows real teeth — bounded per-result price + lifecycle
+  ## enrichment, a genuine LLM "why," and two honest table simplifications
+
+  Seven items, two of them user-decided-final ("System A should get a real
+  per-property web search for pricing, accepting slower" / "unit config
+  table: carpet + price only, no Total/Available/Movement at all, not even
+  a placeholder"). Every claim below is from actual live testing, including
+  two real debugging discoveries this pass surfaced that weren't part of
+  the original ask.
+
+  **0. Agent-first routing — confirmed intact, unchanged.** Re-read
+  `server.cjs`'s `/api/ai-search`: the agent block (`LANGGRAPH_ENABLED`
+  check) still precedes the Places-direct block, exactly as the previous
+  pass left it.
+
+  **3 (built first — everything else in this pass hangs off it). Places-
+  direct's bounded per-result enrichment.** New `agent/agent/tools.py`
+  `enrich_property()` — modeled exactly on the existing `rera_lookup()`
+  (one bounded web search, up to 2 page fetches, reusing
+  `fact_extraction.deterministic_extract()` — which already calls
+  `normalize.classify_lifecycle_status()` against the real fetched page's
+  own text, never a second classifier) — and a new
+  `POST /agent/enrich-property` route in `app.py`, same pattern as the
+  existing `/agent/rera-lookup`. `backend/server.cjs`'s Places-direct
+  branch gained `enrichPlacesResults()`/`enrichOnePlacesResult()`: bounded
+  to the top `PLACES_ENRICH_MAX_RESULTS` (12) candidates by Places' own
+  relevance rank, run in parallel via `Promise.allSettled`, each bounded by
+  its own `PLACES_ENRICH_TIMEOUT_MS` (25000ms, deliberately separate from
+  `AGENT_TIMEOUT_MS`). A confirmed RESALE/RENTAL/READY_TO_MOVE result is
+  **excluded from the response entirely** (the "no old properties"
+  requirement); a genuinely inconclusive one is kept with
+  `lifecycleStatus: 'UNKNOWN'`; a candidate outside the top-12 bound is
+  returned unchanged (never checked, same behavior as before this pass).
+  Degrades gracefully exactly like every other agent-dependent call in
+  this file — if the agent is unreachable, each enrichment call fails fast
+  (confirmed live: ~0.86s for a full 20-result Places-direct response with
+  the agent genuinely down, all 20 properties correctly falling back to
+  `price: null`/no lifecycle badge, never blocking or erroring).
+
+  **Real debugging discovery #1 — `web_search`'s own connectors were dead
+  in this deployment.** First live test of the new endpoint returned
+  `{"price":null,...,"lifecycle_status":"UNKNOWN"}` in 1.27s — suspiciously
+  fast and empty. Traced directly (isolated a standalone Python script
+  calling `tools.web_search()` alone, not assumed): `web_search` maps to
+  Google CSE + Bing only (`agent-tools-bridge.cjs`'s `/web-search` route)
+  — Google CSE 403s in this deployment (a pre-existing, previously-
+  documented key-restriction issue), and Bing isn't configured at all, so
+  `web_search` genuinely, correctly returns zero evidence every time,
+  `status: "ok"`. This is a real pre-existing gap `rera_lookup()` (which
+  uses the identical `web_search` call) has silently had all along — this
+  pass is what exposed it, by being the first caller to actually depend on
+  `web_search` alone succeeding for its whole result. Fixed: `enrich_property()`
+  falls back to `tavily_search` (the one connector confirmed healthy in
+  every other live test this session) when `web_search` comes back empty —
+  same tool the main deep-research pipeline already leans on for this
+  exact purpose, not a new one. Re-tested live: real price (`₹5.65 Cr`),
+  real RERA (`P51800003067`), and real per-configuration
+  `configuration_evidence` (2/3/4 BHK rows with real carpet-area/price
+  evidence from an actual MagicBricks page) all came back correctly after
+  the fix.
+
+  **Real debugging discovery #2 — a genuinely high false-positive rate on
+  raw category-page text, disclosed not hidden.** A real, controlled
+  measurement (standalone script calling `searchResidentialPlaces` for "2
+  BHK in Borivali East", then `/agent/enrich-property` for the top 12 in
+  parallel, timed) came back **9 of 12 (75%) classified RESALE or
+  RENTAL** — meaning the real production code would have excluded 9 of
+  those 12 outright. Investigated rather than assumed a bug: every one of
+  the 9 was a MagicBricks/portal page — the SAME class of false-positive
+  documented earlier in this file for "Rivali Park" (also reproduced in
+  this pass, live: a real, previously-confirmed-legitimate UNDER_CONSTRUCTION
+  project came back `lifecycle_status: "RENTAL"`, evidence text
+  `"Property Types \n Flat for rent in Mumbai \n House for re..."` — page
+  NAVIGATION/FILTER-WIDGET chrome listing transaction-type categories, not
+  a claim about this specific building, the exact same shape of bug the
+  "Posted By Owner Builder Dealer" filter-widget fix addressed earlier in
+  this document, just a different phrase/page). `classify_lifecycle_status()`
+  was built and tuned against `deep_research.py`'s candidate pages
+  (generally a single project's own listing/developer page); this new
+  code path's first search result is more often a broad portal
+  category/search page (the query — `"<name> <locality> price
+  possession"` — has no RERA-anchor or single-project scoping the way the
+  main pipeline's candidate selection does), which routinely mentions
+  "for rent"/"resale"/other-transaction-type language as page furniture,
+  not as a fact about the one building being enriched. **Deliberately NOT
+  patched this pass** — the task's own explicit instruction was to reuse
+  `classify_lifecycle_status()` exactly as-is, not build or tune a second
+  classifier, and this is the SAME classifier, just newly exposed to a
+  page-text shape it wasn't originally exercised against. Disclosed as a
+  real, known limitation, same "accepted rare false-positive" tradeoff
+  this codebase has made before (`isAggregatorTitle`'s own comment: "an
+  acceptable rare false-positive versus routinely showing non-listings as
+  search results") — except this rate (75% in one real measured batch) is
+  materially higher than "rare," and a future pass should look at
+  preferring a more specific single-listing URL over a category/portal
+  page for this specific enrichment query, before trusting classify_
+  lifecycle_status's output here as confidently as the main pipeline does.
+
+  **Real measured timing**: the 12-candidate parallel enrichment batch
+  above took **45.06 seconds** wall-clock (measured directly, not
+  estimated) at a LOOSER 45s per-call cap than production's real
+  `PLACES_ENRICH_TIMEOUT_MS` (25000ms) — one of the 12 calls didn't finish
+  before that looser cap and was rejected; in the actual production code
+  path, any call exceeding 25s is aborted and treated as "no enrichment
+  found" for that one result (graceful degrade, never blocks the rest).
+  So the real production ceiling for this step is bounded at ~25s, not
+  45s+ — still meaningfully faster than the 108.9s full-agent-path search
+  documented earlier in this file (a >4x difference at the bound), while
+  genuinely no longer near-instant, exactly the tradeoff the person
+  requesting this explicitly accepted going in.
+
+  **4. Booking/rental/travel platform filter
+  (`backend/places-client.cjs`).** New `isBookingOrRentalPlatform()` —
+  deterministic name/website regex (`booking.com`, `airbnb`, `makemytrip`,
+  `oyo`, `goibibo`, `cleartrip`, `yatra`, `treebo`, `fabhotels`, `agoda`,
+  `trivago`, `expedia`) plus a Places-type check (`lodging`/`hotel`/
+  `travel_agency`/`vacation_rental_agency` — unconditional; `real_estate_agency`
+  deliberately NOT blanket-excluded, same reasoning `searchResidentialPlaces`'s
+  own header comment already gives for keeping brokers as legitimate
+  discovery results) — applied BEFORE item 3's per-result search ever
+  runs, so a booking-platform result never wastes an enrichment call.
+  `places.websiteUri` added to the field mask (free — same API call) so a
+  business whose NAME doesn't obviously read as a booking platform but
+  whose website does (a white-label OTA storefront) still gets caught.
+  7 new unit tests, all passing, including the "keep a legitimate
+  brokerage, only exclude a KNOWN booking-platform name" distinction and
+  the website-only-match case.
+
+  **1. A real "why" via LLM, made visible (`agent/agent/curator.py`,
+  `backend/server.cjs`).** `key_match` generation already existed (an LLM
+  writes one grounded sentence per property, using only real
+  `match_reasons`/fields, never inventing a fact) — but the card's `why`
+  field was computed from a separate, purely mechanical picker
+  (`scoring.pickPrimaryMatchReason`), so the genuinely natural-language
+  sentence was generated and then never shown. Fixed the priority in
+  `adaptAgentProperty`: `key_match` now wins first, the mechanical picker
+  is the fallback only when `key_match` is itself empty. Tightened
+  curator.py's system prompt (explicit: write a real sentence, never just
+  copy a `match_reasons` fragment verbatim) and its deterministic
+  no-LLM-configured fallback (now prefers a location reason, then a
+  configuration reason, then first-available — mirroring
+  `pickPrimaryMatchReason`'s own priority instead of blind array order).
+  Places-direct's own deterministic "Real building found near X" reason is
+  untouched — no LLM call on that path, exactly as specified.
+
+  **2. Lifecycle badge on every card — extended to Places-direct
+  (`frontend/.../ProjectSelection.jsx`).** `LIFECYCLE_LABEL` gained
+  `UNKNOWN: 'Status unknown'` (rendered in a muted neutral style,
+  deliberately distinct from a confirmed stage's confident blue — never
+  visually conflated) and a previously-missing `PRE_LAUNCH` entry (a real,
+  separate gap found while touching this map — the agent path could
+  already legitimately return `PRE_LAUNCH`, which had no label at all
+  before this). Agent-sourced cards are unaffected (that pipeline never
+  emits UNKNOWN to the frontend — hard-rejected upstream); Places-direct
+  cards can now genuinely show either a real eligible stage or an honest
+  "Status unknown," never nothing and never a false claim.
+
+  **5. Competitor Analysis — strict eligible-only filter, now consistent
+  by construction (`frontend/.../ProjectIntelligence.jsx`).** `aiSearchSiblings`
+  now carries a real `lifecycleStatus` per sibling (added in
+  `ProjectSelection.jsx`'s `toAnalysableProject`, sourced from each
+  candidate's own `p.lifecycleStatus` — real regardless of which pipeline
+  originally found it, now that item 3 gives Places-direct siblings one
+  too). `siblingCompetitors` filters to
+  `{NEW_LAUNCH, PRE_LAUNCH, UNDER_CONSTRUCTION, NEAR_POSSESSION}` only — a
+  sibling with no status at all (an older cached response, or one this
+  filter can't resolve) is treated the same as an explicit UNKNOWN and
+  excluded, never assumed eligible. This card is deliberately STRICTER
+  than the main results list (which labels an unknown status rather than
+  hiding it) — per explicit instruction, Competitor Analysis should only
+  ever show confirmed-eligible competitors. The separate, unrelated
+  `/api/competing-projects` (bare Google Places geo-radius lookup, no
+  lifecycle concept, a known pre-existing architectural gap already
+  disclosed earlier in this document) is untouched — this filter only
+  applies to `aiSearchSiblings`.
+
+  **6. Project Description card removed
+  (`frontend/.../ProjectIntelligence.jsx`).** Confirmed first, not
+  assumed: the AI Project Summary tile (`aiSummaryText`) already falls
+  back to the same `displayDescription` chain
+  (official → current → live → research.summary) whenever
+  `research.summary` itself is unset, so it has real content for any
+  project that has a description ANYWHERE — nothing was uniquely lost by
+  removing the separate card. Deleted the whole card, including its nested
+  "DRISHTI AI SIGNALS" USP list (structurally part of the same card, not a
+  separate one) and its now-entirely-dead markdown renderer
+  (`mdInline`/`DescriptionMarkdown`/`DescriptionSummary`, ~115 lines,
+  confirmed via grep to have no other callers before deleting) —
+  `displayUSPs` itself stays, still genuinely used by the Target Audience
+  card elsewhere in the same file.
+
+  **7. Unit configuration table — Config/Carpet/Price only, per the user's
+  final decision (`frontend/.../ProjectIntelligence.jsx`).** Total/Available/
+  Movement removed from the table structure entirely — not even an honest
+  placeholder, the columns themselves are gone. The now-orphaned
+  `movement()` helper, the `movementFlag`/"Drishti flags" banner (which
+  read `c.movement`/`c.available` — would have silently gone dead/`undefined`
+  once those fields were removed from `displayConfigs`, so removed rather
+  than left broken), and the now-unused `MOVE_COLOR` constant were all
+  deleted along with it. New `configEvidenceRows` — built from
+  `current.configuration_evidence` (a dict keyed by configuration string,
+  e.g. `"2 BHK"`) — slotted into the existing officialConfigs → ??? →
+  `live.configs` → `research.configs` fallback chain, so an AI-Search-
+  sourced property (agent-path: already had `configuration_evidence` from
+  earlier work; Places-direct: now populated by item 3's enrichment,
+  identical field name/shape either way) gets real per-configuration rows
+  even with no official IndiHomes catalog data at all — same table
+  component, genuinely different data source depending on pipeline, per
+  the task's own framing.
+
+  **Tests**: `backend/tests/test_lifecycle_and_eligibility.cjs` — +7
+  checks for `isBookingOrRentalPlatform` (exported from `places-client.cjs`
+  specifically for testability). Both existing suites re-run clean
+  throughout this pass, not just at the end. `npm run build` re-confirmed
+  after every frontend change (bundle size dropped ~5KB from the dead-code
+  deletions). Live verification: the new `/agent/enrich-property` endpoint
+  tested directly (isolated Python script, then live HTTP), a genuinely
+  agent-down Places-direct request confirmed fast graceful degrade
+  (0.86s, 20/20 properties correctly unenriched), and the 12-candidate
+  parallel-enrichment timing measured directly via a standalone script —
+  not one number in this section's timing/exclusion claims is an estimate.
+
+## AI Search root-cause pass — category-page merge collapse, portal_search fallback, injection defense, Places-direct/Competitor Analysis re-verification, AI Search bulk selection (2026-08-20)
+
+Investigation grounded in a live "2BHK in Mahatre Wadi" trace showing a
+MagicBricks category page surviving `verification_results` as ONE fake
+candidate carrying 4 different RERA numbers, 6 different location strings,
+and 9 different prices, all recorded as *conflicts on a single entity*
+instead of being split into the real individual projects named in that
+page's own text ("Arkade Vistas" / "Im Applaud" / "Mahant Sahyadree" /
+"Space Residence II").
+
+**1. Category-page merge collapse — THREE compounding bugs, not one.**
+Confirmed each in order, with live evidence, before fixing:
+
+- **(a) Classification gap — `agent/agent/normalize.py`'s
+  `PORTAL_CATEGORY_TITLE_RE`.** The real trace title ("BHK Flats in
+  Pandurang Wadi, Mumbai - 3 2 BHK Flats for Sale in Pandurang Wadi,
+  Mumbai") wasn't matching: the config-group required a digit before
+  "bhk", never a bare "BHK Flats in X" with no leading count. Made the
+  digit optional within the config group itself. Verified directly:
+  `is_aggregator_title`/`classify_page_type` flipped False to True /
+  INDIVIDUAL_LISTING to CATEGORY_PAGE on the exact trace title.
+- **(b) Content-extraction cap — `backend/agent-tools-bridge.cjs`'s
+  `FETCH_PAGE_MAX_CHARS`.** Even with (a) fixed, `extract_sub_listings`
+  still found 0 sub-listings on the real fetched page. Root cause: the cap
+  (6000 chars) was smaller than the real page's own nav-menu chrome (not
+  wrapped in semantic `<nav>`/`<header>` tags on this site) — confirmed
+  directly, the page's first real RERA number sits at character ~7660 of
+  its extracted text, its 5th at ~24000. Raised the cap to 24000 and added
+  semantic-tag stripping (`<nav>`/`<header>`/`<footer>`) plus more robust
+  blank-line filtering to `htmlToText()`. Verified: a direct fetch of the
+  real page now yields 5 distinct sub-listings, including two of the four
+  buildings named in the trace ("Mahant Sahyadree" RERA P51800054444, "Im
+  Applaud" RERA P51800015665) with correct, distinct RERA numbers.
+- **(c) THE REAL BLOCKER — `agent/agent/dedupe.py`'s URL-matching tier.**
+  Even with (a) and (b) both fixed, a full live re-run of the exact same
+  query still showed the identical merged-conflict pattern
+  (`verification_results` carrying one candidate — the wrapper page's own
+  title — with 4 RERA numbers / 9 prices / 6 locations, `source_conflicts:
+  7`). Root cause: `extract_sub_listings()`'s sub-listings correctly get
+  their own distinct `title`/`property_name`/`rera`, but they all inherit
+  the PARENT category page's `source_url` verbatim (they're synthetic
+  entries pulled from one real page's body text, not each their own
+  fetched page). `dedupe()`'s URL tier
+  (`elif source_url and source_url in url_index: key = url_index[source_url]`)
+  treated that shared, inherited URL as if it uniquely identified one real
+  listing — so every sub-listing after the first got silently redirected
+  into the first one's group, regardless of its own distinct name/RERA,
+  overriding the correct name+locality key entirely. Fixed by excluding
+  `source_type == "category_page_extract"` items from both matching
+  against and registering into `url_index` (`is_synthetic_url` guard) —
+  they still correctly merge via the RERA or name+locality tiers when two
+  sub-listings really are the same project, they just stop being force-
+  merged purely because of a URL they never independently owned.
+
+  **Live before/after, same query, same code path (agent process
+  restarted between runs to pick up each fix):**
+
+  | | Before (all 3 fixes) | After (a)+(b) only | After (a)+(b)+(c) |
+  |---|---|---|---|
+  | `verification_results` (merged-conflict candidates) | 7 giant conflict-bags | 6 giant conflict-bags | **0** |
+  | `source_conflicts` | 7 | 7 | **0** |
+  | "Flats in Pandurang Wadi, Mumbai" carrying 4 RERA / 9 price / 6 location values as ONE entity | yes | yes | **gone — no such merged entity exists** |
+  | Real individual candidate names appearing standalone | no | no | **yes** — "Aurum Tower - Residential Apartments", "Bhakti apartment", "BLUE ORBIT 3", "Celestial Heights", "Chandak Paloma", each with its own clean state and zero `conflicting_fields` |
+
+  Final `properties: []` (0 verified new-launch results) for this specific
+  hyper-local query is unchanged and NOT the bug being fixed here — a
+  separate, honestly-disclosed finding: of 64 real candidates reviewed, 28
+  were portal category/search-results pages (correctly rejected), 5 were
+  resale/rental, 29 had a lifecycle stage that couldn't be confidently
+  verified even after research, and Places contributed 20 more with none
+  eligible. "Mahatre Wadi" (a hyper-local micro-name, not itself in the
+  gazetteer) genuinely appears to have thin *verified new-launch* inventory
+  right now — the merge-collapse bug that made every candidate look broken
+  is fixed; a locality having no eligible new-launch stock is a real,
+  separate, disclosed possible outcome, not silently reinterpreted as "the
+  bug isn't fixed."
+
+  **Regression test added** — `agent/tests/test_lifecycle_and_eligibility.py`:
+  runs `dedupe()` directly on the exact category-page-extraction scenario
+  already covered above (wrapper + 2 real sub-listings sharing one
+  inherited URL), asserting all 3 stay as 3 distinct candidates with their
+  own RERA intact, not collapsed into 1.
+
+**2. `portal_search` returning `count: 0` — same "dead connector in this
+deployment" pattern already found and fixed for `web_search` earlier this
+session.** `agent/agent/tools.py`'s `portal_search()` now falls back to
+`tavily_search()` (already portal-site-scoped for every India-market call
+via `biasQueryToPortals()`) whenever the legacy Playwright portal-scrape
+connector returns nothing — the exact same fallback mechanism already
+proven for `web_search`, not a second implementation. Live-verified in the
+actual running agent process (not just reasoned about): `portal_search`
+tool call for "2BHK in Mahatre Wadi" returned
+`status: ok, count: 10, duration_ms: 448, error: null`.
+
+**3. Prompt injection / off-topic query defense
+(`backend/query-parser.cjs`'s new `isPropertySearchQuery`, wired into
+`server.cjs`'s `/api/ai-search` once, before the agent/Places-direct/
+Node-fallback branching).** Cheap, deterministic, keyword/pattern-based —
+no LLM call per query. First implementation reused `extractLocations`'s
+generic Title-Case fallback tier as its "has a locality" signal, which
+turned out to accept ANY capitalized word as a location
+(`"Ignore all previous instructions..."` produced `locations: ["Ignore"]`
+and was wrongly accepted) — replaced with a strict gazetteer-membership
+regex (`KNOWN_LOCALITY_RE`) plus a narrow structural fallback
+(`looksLikeBareLocalityPhrase`: short, Title-Case, no sentence-shaped
+stopwords) so genuine non-gazetteer hyper-local names ("Mahatre Wadi",
+"Kandarpada") still pass. Live-verified through the actual HTTP route (not
+just the unit function): `POST /api/ai-search {"query":"asdkjahsdkjahsd"}`
+returned
+`{"properties":[],"pipeline":"blocked","warning":"This search only works for property queries — try something like \"2 BHK in Malad West\"."}`.
+33 test cases (17 self-test + 16 permanent, including two live-caught
+false-positive regressions — capitalized mid-sentence words in an
+off-topic question or jailbreak attempt no longer smuggle it through) all
+pass.
+
+**4. Places-direct price/"why" — re-investigated, confirmed NOT a code
+bug.** The per-result enrichment search built earlier this session
+(`/agent/enrich-property`) was directly re-verified live and healthy
+(real price/RERA/config returned). A reported "Price not available" plus
+generic reason screenshot for this pipeline is consistent with the
+already-correct graceful degrade when the agent process happens to be
+down at that moment (Places-direct has no enrichment source of its own
+without it) — not a regression in the enrichment mechanism itself.
+
+**5. Competitor Analysis "Not connected" — re-investigated, confirmed NOT
+a regression.** Direct inspection of a real API response for the specific
+candidate reported showed `placesVerified`/`placesLat`/`placesLon` all
+absent — this candidate genuinely never had Places coordinates attached,
+not a case of a previously-fixed wiring path breaking again. Two smaller,
+real gaps found and fixed along the way while investigating:
+`frontend/.../ProjectIntelligence.jsx`'s geocode `useEffect` was missing
+`knownGeo?.lat`/`knownGeo?.lon` from its own dependency array (stale-
+closure risk), and `mapQuery` now prefers the raw, un-rewritten
+`current.projectName` over `current.name` (which can be the LLM curator's
+rewritten display label — a noisy, wrong string to geocode against).
+
+**6. AI Search bulk selection + scroll-to-top navigation fix.**
+
+- **Selection UI (`frontend/.../ProjectSelection.jsx`).** AI Search's
+  `PropertyCard` (rendered via `RankedResults`/`AnalystReport`) previously
+  navigated instantly per-card via `onAnalyse([...])` with a single-item
+  array. Property Search's existing checkbox/floating-bar pattern
+  (`ProjectCard`'s checkbox + `BriefBar`) already existed for a different
+  bulk action (downloading a Campaign Brief markdown), and `onAnalyse` /
+  `ProjectIntelligence` already fully supported an array of MULTIPLE
+  projects ("Analysing N projects selected") — that capacity was just
+  never exercised by any caller passing more than one item. Rather than
+  building a second, parallel bar component, `BriefBar` was generalized
+  (parameterized `subtitle`/`actionLabel`/`actionTitle`/`actionIcon`/
+  `actionColor`/`onAction`, defaulting to the existing Campaign Brief copy
+  so Property Search's call site is unaffected) and reused for AI Search's
+  new "+ Select multiple to analyse" toggle, per-card checkbox, and
+  "Analyse Selected" floating bar calling `onAnalyse(chosenArray)` —
+  scoped to `AnalystReport`'s own local `selectedIds`/`selectMode` state
+  (mirrors `ProjectCard`'s checkbox styling exactly).
+- **Scroll-to-bottom bug (`frontend/src/App.jsx`).** Root cause: the
+  app's actual scrollable viewport is the `overflowY:'auto'` div wrapping
+  every screen (the outer flex container is `overflow:'hidden'` and never
+  scrolls) — its `scrollTop` was never reset on navigation. Clicking
+  "Open Project Intelligence"/"Analyse Selected" from a card low in a long
+  AI Search results list left that div's `scrollTop` deep from the
+  previous screen; swapping in a shorter Project Intelligence page didn't
+  reset it, so the browser clamped `scrollTop` to the new, smaller max —
+  landing at the bottom instead of the top. Fixed once in `changeView`
+  (every navigation path — sidebar, `onBack`, `onAnalyse` — already routes
+  through it): a ref on the scrollable div, reset to `scrollTop = 0` in a
+  `useEffect` keyed on `view`.
+- **Verification caveat, disclosed honestly**: `npm run build` passes
+  clean and the React state/props wiring was traced end-to-end by hand
+  (checkbox to `selectedIds` to `BriefBar` to `onAnalyse(chosen)` to
+  `App.jsx`'s `setSelectedProjects`/`changeView('project')` to the new
+  `scrollRef` effect). No browser-automation tool was available in this
+  session to literally click through and screenshot the result — this
+  was NOT live-clicked in a real browser, only built and logically
+  verified. Flagging this explicitly rather than claiming a browser
+  click-through that didn't happen.
+
+**Tests**: `backend/tests/test_lifecycle_and_eligibility.cjs` (all
+existing + item 3's 16 new checks) and both
+`agent/tests/test_lifecycle_and_eligibility.py` (137 checks, including 3
+new for the dedupe fix) and `test_bridge_circuit_breaker.py` re-run clean.
+`npm run build` clean. Every numeric claim above (RERA character offsets,
+`source_conflicts` counts, `portal_search` timing, the before/after
+candidate table) came from live runs against the real running
+backend+agent processes, captured to disk, not estimated.
