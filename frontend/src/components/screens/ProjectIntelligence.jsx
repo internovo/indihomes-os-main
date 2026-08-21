@@ -261,7 +261,7 @@ function NearbyMap({ projectQuery, fallbackQuery, onPlaces, onGeo, mapsUrl, disp
   return (
     <div style={{ borderRadius: 16, overflow: 'hidden', border: '1px solid #E9E7E0', boxShadow: '0 1px 3px rgba(16,24,40,0.06)' }}>
       <div style={{ position: 'relative' }}>
-        <div ref={ref} style={{ width: '100%', height: 260, background: '#F0EEE8', ...(status === 'loading' ? { animation: 'mapPulse 1.4s ease-in-out infinite alternate' } : {}) }} />
+        <div ref={ref} style={{ width: '100%', height: 190, background: '#F0EEE8', ...(status === 'loading' ? { animation: 'mapPulse 1.4s ease-in-out infinite alternate' } : {}) }} />
         {status === 'loading' && (
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'rgba(255,255,255,0.55)', fontSize: 12.5, color: '#75737F' }}>
             <Loader2 size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> Locating project and nearby places…
@@ -1389,7 +1389,7 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
   const velocity = salesVelocity({ sold, units })
 
   return (
-    <div style={{ padding:'28px 32px', maxWidth:1280, paddingBottom:48 }}>
+    <div style={{ padding:'16px 24px 32px', maxWidth:1280, margin:'0 auto', boxSizing:'border-box' }}>
       {onboardOpen && <OnboardModal onClose={() => setOnboardOpen(false)} onSubmit={handleOnboardSubmit} />}
       {/* Part 1 — same state-based back-navigation pattern LeadCapture's
           detail view already uses ("← Back to leads"), applied to
@@ -1480,9 +1480,9 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
       {!researchLoading && (
         <>
           {/* ── Hero card (PI-FR-01) ────────────────────────────────────────── */}
-          <div style={{ background:'#fff', border:'1px solid #E9E7E0', borderRadius:14, padding:'24px', marginBottom:20 }}>
-            <div style={{ display:'flex', gap:20, alignItems:'flex-start' }}>
-              <div style={{ width:72, height:72, borderRadius:12, flexShrink:0, overflow:'hidden', background:'#E9E7E0' }}>
+          <div style={{ background:'#fff', border:'1px solid #E9E7E0', borderRadius:12, padding:'16px 20px', marginBottom:14 }}>
+            <div style={{ display:'flex', gap:16, alignItems:'flex-start' }}>
+              <div style={{ width:62, height:62, borderRadius:10, flexShrink:0, overflow:'hidden', background:'#E9E7E0' }}>
                 <img src={projectImageUrl(current)} alt={current?.name}
                   style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}
                   onError={e => { e.currentTarget.style.display='none'; e.currentTarget.parentElement.style.background='repeating-linear-gradient(45deg,#E9E7E0,#E9E7E0 5px,#F6F5F1 5px,#F6F5F1 10px)' }} />
@@ -1529,7 +1529,7 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
                     to join into one sentence (config/budget/possession),
                     now a scannable labeled grid; RERA No. absorbs the old
                     standalone "RERA {code}" badge (shown once, not twice). */}
-                <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:16 }}>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(4, minmax(0, 1fr))', gap:12 }}>
                   {[
                     ['RERA No.', reraCode || null],
                     ['Configurations', current?.config || null],
@@ -1578,7 +1578,7 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
               shown honestly as "Not calculated", when there was no active
               search (e.g. onboarded directly rather than analysed from a
               result list). Neither ever falls back to the other's number. */}
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:14, marginBottom:24, maxWidth:520 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(2, minmax(0, 252px))', gap:14, marginBottom:16 }}>
             <StatCard label="IndiHomes Score"  value={current?.score != null ? `${current.score}/100` : '—'}
               trend={current?.score != null ? `${scoreTierLabel(current.score)} · listing quality` : 'Not yet scored'} trendDir="up" accent="#2E9E4F"
               title="Deterministic completeness/quality score for this listing (RERA, media, description, developer info, possession date on file) — not dependent on any search." />
@@ -1600,7 +1600,7 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
 
           {/* ── Row: Inventory & Unit Configurations + [RERA & Compliance,
               Location Score] ──────────────────────────────────────────── */}
-          <div style={{ display:'grid', gridTemplateColumns:'1.4fr 1fr', gap:16, marginBottom:16, alignItems:'start' }}>
+          <div style={{ display:'grid', gridTemplateColumns:'minmax(0, 1.35fr) minmax(300px, 1fr)', gap:14, marginBottom:14, alignItems:'stretch' }}>
 
             {/* Inventory & Unit Configs (PI-FR-02, 03) */}
             <SectionCard title="Inventory & Unit Configurations" debugId="PI-FR-02"
@@ -1623,28 +1623,17 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
                 <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
                   <thead>
                     <tr style={{ borderBottom:'2px solid #E9E7E0' }}>
-                      {['Config','Carpet','Total','Available','Price','Movement'].map((h,hi) => (
-                        <th key={h} style={{ textAlign: hi>=2 && hi<=4 ? 'right' : 'left', padding:'6px 8px 10px', color:'#8A8896', fontWeight:600, fontSize:11, textTransform:'uppercase', letterSpacing:'0.05em' }}>{h}</th>
+                      {['Config','Carpet','Price'].map((h) => (
+                        <th key={h} style={{ textAlign:'left', padding:'6px 8px 10px', color:'#8A8896', fontWeight:600, fontSize:11, textTransform:'uppercase', letterSpacing:'0.05em' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {displayConfigs.map((c,i) => (
                       <tr key={i} style={{ borderBottom:'1px solid #F0EEE8' }}>
-                        <td style={{ padding:'10px 8px', fontWeight:700, color:'#1B1B3A' }}>{c.type}</td>
-                        <td style={{ padding:'10px 8px', color:'#75737F' }}>{c.carpet === '—' ? <EmptyValue /> : c.carpet}</td>
-                        <td style={{ padding:'10px 8px', textAlign:'right', fontSize:11 }}>{c.total === '—' ? <EmptyValue /> : c.total}</td>
-                        <td style={{ padding:'10px 8px', textAlign:'right', fontSize:11 }}>{c.available === '—' ? <EmptyValue /> : c.available}</td>
-                        <td style={{ padding:'10px 8px', textAlign:'right', color:'#75737F', fontSize:11 }}>{c.price === '—' ? <EmptyValue /> : c.price}</td>
-                        <td style={{ padding:'10px 8px' }}>
-                          {c.movement ? (
-                            <span style={{ background:`${MOVE_COLOR[c.movement]||'#8A8896'}18`, color:MOVE_COLOR[c.movement]||'#8A8896', padding:'3px 8px', borderRadius:4, fontSize:11, fontWeight:700 }}>
-                              {c.movement === 'Fast' ? '▲ ' : c.movement === 'Slow' ? '▼ ' : '→ '}{c.movement}
-                            </span>
-                          ) : (
-                            <EmptyValue />
-                          )}
-                        </td>
+                        <td style={{ padding:'9px 8px', fontWeight:700, color:'#1B1B3A' }}>{c.type}</td>
+                        <td style={{ padding:'9px 8px', color:'#75737F' }}>{c.carpet === '—' ? <EmptyValue /> : c.carpet}</td>
+                        <td style={{ padding:'9px 8px', color:'#1B1B3A', fontWeight:600 }}>{c.price === '—' ? <EmptyValue /> : c.price}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1781,7 +1770,7 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
               Audience routinely renders 7 rows and is allowed to be taller,
               so the row can't use the stretch default without forcing the
               two short cards to blow up to match it. */}
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(3, minmax(0, 1fr))', gap:16, marginBottom:16, alignItems:'stretch' }}>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(3, minmax(0, 1fr))', gap:14, marginBottom:14, alignItems:'stretch' }}>
 
             {/* AI Project Summary — a short, already-sourced paragraph
                 (Drishti's own research summary, or the listing description
@@ -1790,7 +1779,7 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
                 "DRISHTI AI SIGNALS" bullets and Regenerate button still
                 lives in its own full-width Project Description card above,
                 unchanged. */}
-            <div style={{ background:'#0E0E52', borderRadius:14, padding:'16px 18px', boxSizing:'border-box', height:'100%', minWidth:0 }}>
+            <div style={{ background:'#0B0B0B', borderRadius:12, padding:'16px 18px', boxSizing:'border-box', height:'100%', minWidth:0 }}>
               <div style={{ fontSize:11, fontFamily:"'IBM Plex Mono',monospace", color:'rgba(255,255,255,0.55)', letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:12 }}>
                 ✦ AI Project Summary
               </div>
@@ -1872,12 +1861,12 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
                 row with real coordinates selects/pans to its marker on the
                 Location Map below (and vice versa, via selectedCompetitorId
                 lifted to this component). */}
-            <SectionCard title="Competitor Analysis" debugId="PI-FR-07" style={{ maxHeight: 380 }}
+            <SectionCard title="Competitor Analysis" debugId="PI-FR-07" style={{ minHeight:0 }}
               badge={realCompetitors.competitors.length ? <FieldBadge kind="places" />
                 : live?.competitors?.length ? <SourceTag source={live._sources?.competitors || live._sources?.primary} compact />
                 : research?.competitors?.length ? <FieldBadge kind="ai" /> : <FieldBadge kind="unverified" />}>
               {displayCompetitors.length > 0 ? (
-                <div style={{ display:'flex', flexDirection:'column', gap:6, maxHeight:270, overflowY:'auto', paddingRight:4 }}>
+                <div style={{ display:'flex', flexDirection:'column', gap:6, paddingRight:0 }}>
                   {displayCompetitors.map((comp,i) => {
                     const hasMarker = comp.lat != null && comp.lon != null
                     const selected = selectedCompetitorId === i
@@ -1962,7 +1951,7 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
               aligned even when one has noticeably more content than the
               other (SectionCard fills that stretched height itself; see
               its own comment). */}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16, alignItems:'start' }}>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(2, minmax(0, 1fr))', gap:14, marginBottom:14, alignItems:'stretch' }}>
 
             {/* Location Map (PI-FR-05) — real, interactive OpenStreetMap (Leaflet,
                 no API key/billing) with the project, every Nearby
