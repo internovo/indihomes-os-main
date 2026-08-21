@@ -18,6 +18,7 @@ shape we don't recognize.
 from __future__ import annotations
 
 import json
+import os
 import re
 from datetime import datetime, timezone
 from typing import Optional
@@ -158,6 +159,19 @@ def _extract_area_facts(text: str) -> tuple[Optional[str], Optional[str]]:
         elif not carpet:
             carpet = label
     return carpet, built_up
+
+
+def _parse_sqft_value(display: Optional[str]) -> Optional[float]:
+    """Phase 2 — the numeric value parsed straight back out of a "<N> sq ft"
+    display string this module itself just built (_extract_area_facts) —
+    never re-derived from raw text a second time, so it can never disagree
+    with the display string sitting right next to it. Returns None (never
+    a guess) for anything that doesn't contain a recognizable number.
+    """
+    if not display:
+        return None
+    m = re.search(r"(\d{3,5}(?:\.\d+)?)", display)
+    return float(m.group(1)) if m else None
 
 
 def _extract_price(text: str, candidate: Optional[str] = None) -> tuple[Optional[float], Optional[str]]:
@@ -601,7 +615,13 @@ async def llm_assist_extract(candidate: str, page: FetchedPage, fields_needed: l
         f"Only include these fields: {', '.join(targets)}."
     )
     user = json.dumps({"candidate": candidate, "page_title": page.get("title"), "page_text": text[:4000]})
-    result, provider_label = await router.complete_json(system, user, max_tokens=500)
+    # Phase 1a — 500 was the original budget; Phase 0 confirmed live that
+    # Groq's reasoning model (openai/gpt-oss-120b) can spend the bulk of a
+    # tight budget on internal reasoning tokens before emitting any JSON
+    # against a dense 4000-char excerpt, producing an empty
+    # `json_validate_failed`. reasoning_effort="low" (llm_providers.py) is
+    # the primary fix; this raised ceiling is the second layer of margin.
+    result, provider_label = await router.complete_json(system, user, max_tokens=int(os.getenv("AI_SEARCH_EXTRACTION_MAX_TOKENS", "1500")))
     if not result:
         return []
     raw_facts = result.get("facts") or {}
@@ -740,7 +760,12 @@ def extract_sub_listings(evidence: EvidenceItem) -> list[EvidenceItem]:
             source_type="category_page_extract",
             location=evidence.get("location"),
             price={"min_inr": None, "max_inr": None, "display": price_display} if price_display else None,
-            carpet_area={"value_sqft": None, "display": carpet or built_up} if (carpet or built_up) else None,
+            # Phase 2 — value_sqft used to be hardcoded None here always,
+            # even though `carpet`/`built_up` are themselves already a
+            # "<N> sq ft" string this same function just built two lines
+            # up — _parse_sqft_value reads the number straight back out,
+            # never re-derived from raw text a second time.
+            carpet_area={"value_sqft": _parse_sqft_value(carpet or built_up), "display": carpet or built_up} if (carpet or built_up) else None,
             possession=possession,
             rera=rera,
             captured_at=evidence.get("captured_at") or datetime.now(timezone.utc).isoformat(),

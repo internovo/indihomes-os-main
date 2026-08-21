@@ -1,0 +1,14 @@
+node_modules/
+.git/
+.claude/
+agent/
+backend/
+assets/
+docs/
+dist/
+.env
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+playwright-report/
+test-results/

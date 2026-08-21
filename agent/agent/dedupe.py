@@ -16,6 +16,7 @@ from __future__ import annotations
 import re
 from datetime import datetime, timezone
 
+from .fact_extraction import _parse_sqft_value
 from .state import ExtractedFact, FeatureEvidence, FieldEvidence, NormalizedProperty
 
 
@@ -96,7 +97,7 @@ def _merge_into(target: NormalizedProperty, incoming: NormalizedProperty) -> Non
     # doesn't touch a field that already has a value (that's what
     # field_evidence is for), only fills honest gaps.
     for field in ["developer", "location", "price_min_inr", "price_max_inr", "price_display",
-                  "carpet_area_sqft", "possession_year", "possession_display", "rera", "description"]:
+                  "carpet_area_sqft", "carpet_area_display", "possession_year", "possession_display", "rera", "description"]:
         if not target.get(field) and incoming.get(field):
             target[field] = incoming[field]
     if incoming.get("configuration"):
@@ -239,6 +240,22 @@ def merge_extracted_facts(prop: NormalizedProperty, facts: list[ExtractedFact], 
             top_level_key = _EXTRACTED_FIELD_TO_TOP_LEVEL.get(field, field)
             if not out.get(top_level_key):
                 out[top_level_key] = fact["value"]
+            # Phase 2 — carpet_area_sqft's ONLY writer used to be
+            # normalize.py, from a raw EvidenceItem.carpet_area.value_sqft
+            # that's never actually set by any discovery-stage connector
+            # (permanently None). This is the real, main-path writer: a
+            # "carpet_area" fact's value ("650 sq ft", already written to
+            # carpet_area_display two lines up) also gets its number parsed
+            # straight back out here — never a second, independent
+            # re-derivation from raw text. Only fills a genuine gap, same
+            # "never overwrite a real value" discipline as everything else
+            # in this function; per-configuration carpet (Part P0.6) is
+            # completely separate and untouched by this (routed into
+            # configuration_evidence above, never this flat field).
+            if field == "carpet_area" and not out.get("carpet_area_sqft"):
+                sqft = _parse_sqft_value(fact["value"] if isinstance(fact["value"], str) else None)
+                if sqft is not None:
+                    out["carpet_area_sqft"] = sqft
 
     if features:
         out["features"] = _merge_features(out.get("features") or [], features)

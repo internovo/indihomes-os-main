@@ -6,6 +6,7 @@ service is disabled or unreachable (Part 28: production safety).
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import time
@@ -23,7 +24,7 @@ logging.basicConfig(level=os.getenv("AGENT_LOG_LEVEL", "INFO"))
 logger = logging.getLogger("ai-search-agent")
 
 from agent.graph import get_graph  # noqa: E402  (import after dotenv load so env-dependent modules see it)
-from agent.llm_providers import LLMRouter  # noqa: E402
+from agent.llm_providers import LLMRouter, PROVIDER_SPECS, _build_client, _provider_state  # noqa: E402
 from agent import tools as agent_tools  # noqa: E402
 
 app = FastAPI(title="IndiHomes AI Search Agent", version="1.0.0")
@@ -81,11 +82,69 @@ async def enrich_property_route(req: EnrichPropertyRequest):
     return result
 
 
+def _circuit_breaker_snapshot() -> dict:
+    """Phase 1c — the current LLM circuit-breaker state
+    (llm_providers._provider_state), included in BOTH /health modes (cheap
+    default and ?probe=true) so a provider that's ALREADY known-broken this
+    process (Part P0.7's circuit breaker) is visible without needing a real
+    network call to rediscover it. Only currently-tripped entries — an
+    expired TTL is the same as never having tripped.
+    """
+    now = time.monotonic()
+    return {
+        key: {"reason": state["reason"], "seconds_remaining": max(0.0, round(state["unavailable_until"] - now, 1))}
+        for key, state in _provider_state.items()
+        if state["unavailable_until"] > now
+    }
+
+
+async def _probe_one_provider(key: str, client) -> dict:
+    """Phase 1c — one real, minimal completion (~10 tokens) against ONE
+    configured provider, short-timeout, meant to be run in parallel across
+    every configured provider. This is what `reasoning_configured: true`
+    should have meant all along — Phase 0's whole investigation started
+    from `/health` reporting all three providers healthy while all three
+    were actually failing, because the cheap default only ever checked
+    "is an API key present," never "does this provider answer."
+    """
+    start = time.monotonic()
+    try:
+        # max_tokens=50, not the originally-planned ~10 — found live while
+        # verifying this probe: even a TRIVIAL prompt against Groq's
+        # openai/gpt-oss-120b, WITH reasoning_effort="low" already active,
+        # reliably fails below max_tokens=30 (a fixed ~14-token reasoning
+        # floor this model pays regardless of question complexity — 10 and
+        # 20 both failed with the identical json_validate_failed/empty
+        # failed_generation shape as the real production failures; 30+
+        # succeeded every time). 50 leaves real margin above that floor
+        # without meaningfully lengthening the probe.
+        # _complete_json_with_error (not complete_json) — the real
+        # "<status>: <message>" detail (e.g. "403: Authorization failed",
+        # "429: RESOURCE_EXHAUSTED"), not the generic "no usable result"
+        # every other caller of complete_json sees. That generic message is
+        # correct for them (they only need to know to fall back); a probe
+        # exists specifically to answer "why," so it needs the real detail.
+        result, error_detail = await asyncio.wait_for(
+            client._complete_json_with_error("Respond with JSON only.", 'Reply with exactly {"ok": true}.', max_tokens=50),
+            timeout=10.0,
+        )
+        ok = isinstance(result, dict)
+        return {"key": key, "label": client.label, "model": client.model, "ok": ok,
+                "error": None if ok else error_detail,
+                "latency_ms": int((time.monotonic() - start) * 1000)}
+    except asyncio.TimeoutError:
+        return {"key": key, "label": client.label, "model": client.model, "ok": False,
+                "error": "probe timed out (10s)", "latency_ms": int((time.monotonic() - start) * 1000)}
+    except Exception as e:  # noqa: BLE001 - a probe failure must report, never crash /health
+        return {"key": key, "label": client.label, "model": client.model, "ok": False,
+                "error": str(e)[:300], "latency_ms": int((time.monotonic() - start) * 1000)}
+
+
 @app.get("/health")
-async def health():
+async def health(probe: bool = False):
     reasoning = LLMRouter("reasoning")
     extraction = LLMRouter("extraction")
-    return {
+    response = {
         "ok": True,
         "llm": {
             "reasoning_configured": reasoning.is_configured(),
@@ -93,6 +152,7 @@ async def health():
             "extraction_configured": extraction.is_configured(),
             "extraction_providers": extraction.provider_labels(),
         },
+        "circuit_breaker": _circuit_breaker_snapshot(),
         # Presence-only — never echoes the actual key value. LANGSMITH_TRACING
         # must be the literal string "true" for LangGraph/LangChain's
         # tracing callback to actually attach; a key with tracing left off
@@ -104,6 +164,17 @@ async def health():
             "endpoint": os.getenv("LANGSMITH_ENDPOINT") or "https://api.smith.langchain.com (default)",
         },
     }
+    # Phase 1c — ?probe=true only: a real, minimal completion per configured
+    # provider, run in parallel. Deliberately NOT the default (this spends
+    # real tokens/quota on every call to a health endpoint, which is exactly
+    # the kind of always-on cost a cheap health check shouldn't carry) — the
+    # default response above stays free, same as before this pass.
+    if probe:
+        clients = {key: _build_client(spec) for key, spec in PROVIDER_SPECS.items()}
+        clients = {key: c for key, c in clients.items() if c is not None}
+        results = await asyncio.gather(*[_probe_one_provider(key, c) for key, c in clients.items()])
+        response["llm"]["probe"] = list(results)
+    return response
 
 
 AGENT_VERSION = os.getenv("AGENT_VERSION", "2.0.0")  # bumped for the deep-research pipeline this pass adds

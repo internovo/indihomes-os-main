@@ -214,8 +214,13 @@ def _project_intelligence_payload(prop: RankedProperty) -> dict:
         bucket = config_evidence.get(c) or next((v for k, v in config_evidence.items() if k.lower() == c.lower()), {})
         if bucket.get("carpet_area"):
             carpet = bucket["carpet_area"]
-        elif single_config and prop.get("carpet_area_sqft"):
-            carpet = f"{prop.get('carpet_area_sqft')} sq ft"
+        elif single_config and prop.get("carpet_area_display"):
+            # Phase 2 — was prop.get("carpet_area_sqft") (permanently None
+            # before this pass's fix; even now, re-formatting a bare number
+            # here would duplicate " sq ft" logic that already lives in
+            # fact_extraction.py's display-string builder).
+            # carpet_area_display is already the correctly-formatted string.
+            carpet = prop.get("carpet_area_display")
         else:
             carpet = None
         if bucket.get("price"):
@@ -351,6 +356,13 @@ async def curate(state: ResearchState) -> dict:
     # return only the NEW warnings it's adding, never the full accumulated
     # list (that would get concatenated onto itself and duplicate).
     new_warnings: list[str] = []
+    # Phase 1d — an LLM router that's genuinely configured (a real key
+    # present) but whose call still failed used to degrade silently: the
+    # deterministic fallback below is correct and safe, but nothing told
+    # the frontend/an operator that curation quality had actually dropped
+    # for this response. That silent-degradation gap is the actual root
+    # cause the whole Phase 0/1 investigation started from.
+    llm_degraded = False
 
     if router.is_configured() and selected:
         system = (
@@ -391,7 +403,13 @@ async def curate(state: ResearchState) -> dict:
                 for p in selected
             ],
         }, default=str)
-        result, provider_label = await router.complete_json(system, user, max_tokens=1200)
+        # Phase 1a — 1200 was the original budget. Phase 0 showed this
+        # specific call succeeding (675/1200 used with 8 candidates), but
+        # that margin shrinks as candidate count grows; raised alongside
+        # the extraction budget for the same reasoning-token-starvation
+        # reason (reasoning_effort="low" in llm_providers.py is the primary
+        # fix, this is the second layer of margin).
+        result, provider_label = await router.complete_json(system, user, max_tokens=int(os.getenv("AI_SEARCH_CURATOR_MAX_TOKENS", "4000")))
         if result:
             summary = result.get("summary")
             key_matches = result.get("key_matches") or {}
@@ -407,7 +425,8 @@ async def curate(state: ResearchState) -> dict:
                     p["display_name"] = display_names[p["id"]]
             used_provider = provider_label
         else:
-            new_warnings.append("LLM curator was configured but returned no usable result — used deterministic summary instead.")
+            llm_degraded = True
+            new_warnings.append("LLM curation unavailable — all providers failed; results are deterministic-only")
 
     if not summary:
         summary = _deterministic_summary(state, selected)
@@ -447,7 +466,13 @@ async def curate(state: ResearchState) -> dict:
                 # ── Existing fields — untouched (Part 35 backward compatibility) ──
                 "id": p["id"], "name": p["name"], "display_name": p.get("display_name"), "developer": p.get("developer"),
                 "location": p.get("location"), "city": p.get("city"), "configuration": p.get("configuration"),
-                "price": p.get("price_display"), "carpet_area": p.get("carpet_area_sqft"),
+                # Phase 2 — was p.get("carpet_area_sqft") (permanently None
+                # before this pass's fix). Grepped backend/frontend: nothing
+                # reads this exact snake_case "carpet_area" key on the wire
+                # (server.cjs's adaptAgentProperty only reads
+                # carpetAreaDisplay below); fixed anyway per this field's
+                # own "Existing fields — backward compatibility" contract.
+                "price": p.get("price_display"), "carpet_area": p.get("carpet_area_display"),
                 "possession": p.get("possession_display"),
                 "match_score": p["match_score"], "match_tier": p["match_tier"],
                 "match_reasons": p["match_reasons"], "key_match": p.get("key_match"),
@@ -508,6 +533,14 @@ async def curate(state: ResearchState) -> dict:
             "retrieved_at": datetime.now(timezone.utc).isoformat(),
             "research_iterations": state.get("research_iterations", 0),
             "llm_curator_used": used_provider,
+            # Phase 1d — explicit, machine-readable signal (not just a
+            # warnings-array string an operator has to notice) that this
+            # response's summary/key_match/display_name are the
+            # deterministic fallback, not genuine LLM curation. False both
+            # when curation succeeded AND when no LLM was configured at all
+            # (that's a config choice, not a degradation) — True only when
+            # a real, configured router tried and every candidate failed.
+            "llm_degraded": llm_degraded,
             # ── New (Part 29/45) — additive keys alongside the ones above.
             "metrics": _research_metrics(state),
             "limits": _research_limits(),

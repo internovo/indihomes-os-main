@@ -22,14 +22,22 @@ from .state import CandidateGap, ParsedRequirements, RankedProperty
 # the user's query happened to ask about — these are the facts a
 # salesperson needs regardless (Part 14's field list, the "always useful"
 # subset).
-CORE_FIELDS = ["developer", "rera", "possession_display", "carpet_area_sqft", "price_display"]
+CORE_FIELDS = ["developer", "rera", "possession_display", "carpet_area_display", "price_display"]
 
 # Maps a CORE_FIELDS key to the field_evidence key dedupe.py actually
 # tracks (TRACKED_FIELDS in dedupe.py) — used to decide "weak" (single
 # low-confidence source) vs "missing" (no evidence entries at all).
+# Phase 2 — carpet_area_display maps to "carpet_area", NOT "carpet_area_
+# display": dedupe.py's merge_extracted_facts keys field_evidence entries
+# by the RAW ExtractedFact.field name ("carpet_area", from
+# fact_extraction.py's emit("carpet_area", ...)), never by the top-level
+# property key it backfills. carpet_area_sqft was never tracked in
+# field_evidence at all (dedupe.py's TRACKED_FIELDS doesn't include it),
+# so a "weak" judgment on it was structurally impossible before this fix.
 _EVIDENCE_FIELD_MAP = {
     "developer": "developer", "rera": "rera",
     "possession_display": "possession_display", "price_display": "price_display",
+    "carpet_area_display": "carpet_area",
 }
 
 
@@ -96,8 +104,10 @@ def compute_gaps(candidates: list[RankedProperty], parsed: ParsedRequirements) -
         elif _field_is_weak(prop, "possession_display"):
             weak.append("possession")
 
-        if not _field_present(prop, "carpet_area_sqft"):
+        if not _field_present(prop, "carpet_area_display"):
             missing.append("carpet_area")
+        elif _field_is_weak(prop, "carpet_area_display"):
+            weak.append("carpet_area")
 
         if not (prop.get("price_display") or prop.get("price_max_inr") or prop.get("price_min_inr")):
             missing.append("price")
@@ -121,4 +131,52 @@ def compute_gaps(candidates: list[RankedProperty], parsed: ParsedRequirements) -
             gaps.append(CandidateGap(candidate=prop.get("name", ""), missing_fields=missing,
                                       weak_fields=weak, conflicting_fields=conflicting))
 
+    return gaps
+
+
+# Phase 2.5a — a SEPARATE field set from CORE_FIELDS above, on purpose:
+# CORE_FIELDS drives the ELIGIBILITY research loop (route_research_gap) —
+# lifecycle/developer/rera/possession/carpet/price, the facts that decide
+# whether a candidate is even shown at all. This one drives a DIFFERENT
+# question — once a candidate has ALREADY been decided eligible and ranked
+# into the top-MAX_SELECTED that will actually be RETURNED, what's still
+# missing from what the listing card / Project Intelligence panel actually
+# DISPLAY. Real, live-measured reason this needs to be its own list, not a
+# superset check on CORE_FIELDS: 4/79 deduplicated candidates had real
+# carpet data in one live run; 0/8 displayed did — research budget and
+# display selection were choosing different candidates entirely.
+# Each entry is (the real NormalizedProperty/RankedProperty key to check
+# presence on, the label to emit into CandidateGap.missing_fields — the
+# label must be a key `planner.build_field_aware_targeted_queries` can
+# turn into an actual search query via _FIELD_QUERY_HINTS, so a check-key
+# that differs from its own display-facing name (carpet_area_display ->
+# carpet_area) is deliberate, not a typo).
+DISPLAY_FIELD_CHECKS = [
+    ("developer", "developer"),
+    ("carpet_area_display", "carpet_area"),
+    ("amenities", "amenities"),
+    ("possession_display", "possession"),
+    ("connectivity", "connectivity"),
+    ("nearby_landmarks", "nearby_landmarks"),
+    ("tower_count", "tower_count"),
+    ("property_type", "property_type"),
+]
+
+
+def compute_display_gaps(candidates: list[RankedProperty]) -> list[CandidateGap]:
+    """Phase 2.5a — same _field_present presence check as compute_gaps
+    above, over DISPLAY_FIELD_CHECKS instead of CORE_FIELDS. Deliberately
+    ignores weak/conflicting (that distinction exists to drive the
+    eligibility-verification loop's re-confirm-vs-fill-gap query choice;
+    for display purposes "we have something to show" is the only question
+    that matters) and never touches `candidates` beyond reading — the
+    caller (graph.py's node_display_enrichment) is responsible for slicing
+    to the actual top-MAX_SELECTED before calling this, never the whole
+    candidate pool.
+    """
+    gaps: list[CandidateGap] = []
+    for prop in candidates:
+        missing = [label for check_key, label in DISPLAY_FIELD_CHECKS if not _field_present(prop, check_key)]
+        if missing:
+            gaps.append(CandidateGap(candidate=prop.get("name", ""), missing_fields=missing, weak_fields=[], conflicting_fields=[]))
     return gaps

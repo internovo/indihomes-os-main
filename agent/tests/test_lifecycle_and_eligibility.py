@@ -28,6 +28,9 @@ from agent.graph import _apply_hard_eligibility_filter, _location_terms, _matche
 from agent.fact_extraction import extract_project_name, deterministic_extract, extract_sub_listings
 from agent.curator import _retrieval_metrics, _empty_result_explanation
 from agent.query_understanding import parse_query
+from agent.gap_checker import compute_display_gaps
+from agent.deep_research import _chunk_text
+from agent.planner import _FIELD_QUERY_HINTS
 
 failures = []
 
@@ -400,6 +403,38 @@ ruparel = next(s for s in sub_listings if s["title"] == "Ruparel Optima")
 check("facts do NOT bleed across adjacent projects — Jadeite's price is its own, not Ruparel's", jadeite["price"]["display"] == "₹75L")
 check("facts do NOT bleed across adjacent projects — Ruparel has NO price (never mentioned for it), not Jadeite's ₹75L", ruparel.get("price") is None)
 check("carpet area correctly scoped to Ruparel only (never mentioned for Jadeite)", ruparel["carpet_area"]["display"] == "650 sq ft" and jadeite.get("carpet_area") is None)
+# Phase 2 — value_sqft used to be hardcoded None here always, even though
+# the display string ("650 sq ft") already carries the number. Real
+# consumers (curator.py's config table, gap_checker's CORE_FIELDS,
+# graph.py's _data_completeness) were switched to read carpet_area_display
+# as the source of truth (dedupe.py's TRACKED_FIELDS never tracked
+# carpet_area_sqft in field_evidence at all, so it could never even be
+# judged "weak"); this checks the WRITER side — sqft is now real too, not
+# just no-longer-a-blocker.
+check("Phase 2 — value_sqft is now a real parsed number, not hardcoded None", ruparel["carpet_area"]["value_sqft"] == 650.0)
+
+# Phase 2 — the MAIN (non-category-page) research path: deep_research's
+# deterministic_extract emits a "carpet_area" ExtractedFact with a display-
+# string value; merge_extracted_facts must now ALSO populate
+# carpet_area_sqft from that same fact (real consumer fix — this is what
+# most candidates' carpet data actually flows through, not the category-
+# page harvest path checked above).
+main_path_candidate = {"id": "mp1", "name": "Test Tower", "lifecycle_status": "UNDER_CONSTRUCTION", "sources": []}
+main_path_facts = [{"candidate": "Test Tower", "field": "carpet_area", "value": "720 sq ft",
+                     "source": "web", "source_url": "https://example.com/test-tower",
+                     "retrieved_at": "2026-01-01T00:00:00Z", "confidence": "medium"}]
+main_path_merged = merge_extracted_facts(main_path_candidate, main_path_facts, [])
+check("Phase 2 — merge_extracted_facts (main research path) sets carpet_area_display from the fact",
+      main_path_merged.get("carpet_area_display") == "720 sq ft")
+check("Phase 2 — merge_extracted_facts ALSO sets carpet_area_sqft, parsed from the same fact (not a second re-derivation)",
+      main_path_merged.get("carpet_area_sqft") == 720.0)
+# Never overwrites an already-real value with a later, possibly-worse one —
+# same "first genuine value wins" discipline as every other field here.
+already_has_sqft = {"id": "mp2", "name": "Test Tower 2", "lifecycle_status": "UNDER_CONSTRUCTION",
+                     "sources": [], "carpet_area_sqft": 500.0}
+already_has_merged = merge_extracted_facts(already_has_sqft, main_path_facts, [])
+check("Phase 2 — an already-real carpet_area_sqft is never overwritten by a later fact",
+      already_has_merged.get("carpet_area_sqft") == 500.0)
 check("sub-listing source_type correctly reflects category-page provenance", all(s["source_type"] == "category_page_extract" for s in sub_listings))
 check("sub-listing source_url points back to the real page it came from", all(s["source_url"] == "https://99acres.com/charkop-projects" for s in sub_listings))
 
@@ -656,6 +691,34 @@ p = parse_query("properties with marina view", "dubai")
 check("'properties with marina view' -> amenity, NOT misparsed as a location", not p["locations"] and p["amenities"] == ["marina view"])
 p = parse_query("2BR with Marina View", "dubai")
 check("capitalized 'with Marina View' still resolves as an amenity, not a location (case alone isn't the disambiguator)", not p["locations"] and p["amenities"] == ["marina view"])
+
+# ── Phase 2.5a — compute_display_gaps: a SEPARATE field set from
+# compute_gaps'/CORE_FIELDS's eligibility-driven check ───────────────────
+fully_populated = {"name": "Complete Tower", "developer": "Real Developer", "carpet_area_display": "650 sq ft",
+                    "amenities": ["gym"], "possession_display": "Dec 2027", "connectivity": "Near metro",
+                    "nearby_landmarks": ["Mall"], "tower_count": 2, "property_type": "Apartment"}
+check("compute_display_gaps: a candidate with every display field present has NO gap at all", compute_display_gaps([fully_populated]) == [])
+
+thin_candidate = {"name": "Thin Tower", "developer": "Real Developer", "possession_display": "Dec 2027"}
+thin_gaps = compute_display_gaps([thin_candidate])
+check("compute_display_gaps: a candidate missing several display fields gets exactly one CandidateGap", len(thin_gaps) == 1 and thin_gaps[0]["candidate"] == "Thin Tower")
+check("compute_display_gaps: missing_fields uses the query-hint-compatible label ('carpet_area', not 'carpet_area_display')", "carpet_area" in thin_gaps[0]["missing_fields"] and "carpet_area_display" not in thin_gaps[0]["missing_fields"])
+check("compute_display_gaps: developer/possession (already present) are NOT in missing_fields", "developer" not in thin_gaps[0]["missing_fields"] and "possession" not in thin_gaps[0]["missing_fields"])
+for expected_label in ("amenities", "connectivity", "nearby_landmarks", "tower_count", "property_type"):
+    check(f"compute_display_gaps: every query-hint-compatible label has a real planner.py hint ('{expected_label}')", expected_label in _FIELD_QUERY_HINTS)
+
+# ── Phase 2.5c — _chunk_text: chosen over a "most likely section"
+# heuristic specifically so a page's fields spread across genuinely
+# different sections all get a real chance, not just whichever section a
+# heuristic happened to guess ─────────────────────────────────────────────
+short_text = "a" * 3000
+check("_chunk_text: text shorter than the chunk size returns ONE chunk, unchanged", _chunk_text(short_text) == [short_text])
+long_text = "".join(f"chunk{i}-marker " for i in range(2000))  # well over 4000 chars
+long_chunks = _chunk_text(long_text)
+check("_chunk_text: a long page produces multiple chunks", len(long_chunks) > 1)
+check("_chunk_text: every chunk is at or under the configured size", all(len(c) <= 4000 for c in long_chunks))
+check("_chunk_text: consecutive chunks overlap (a boundary-straddling field mention isn't silently split)", long_chunks[0][-100:] in long_chunks[1] if len(long_chunks) > 1 else True)
+check("_chunk_text: the full text is covered — nothing silently dropped past the last chunk", long_text.endswith(long_chunks[-1][-50:]))
 
 print()
 if failures:

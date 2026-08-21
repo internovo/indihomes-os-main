@@ -6,13 +6,14 @@ single monolithic prompt.
 
     START
       -> query_understanding -> location_resolution -> research_planner
-      -> {tavily_search, web_search, apify_search, portal_search, developer_search, places_search}  (fan-out, DISCOVERY)
+      -> {tavily_search, web_search, serper_search, apify_search, portal_search, developer_search, places_search}  (fan-out, DISCOVERY)
       -> evidence_normalizer -> deduplicator -> candidate_verifier
       -> candidate_scorer -> deep_research (DEEP PAGE RESEARCH, fetch_page + fact extraction)
       -> research_gap_checker (per-candidate, per-field: missing/weak/conflicting)
            - needs_more_research -> targeted_research (field-aware search + fetch + extract)
                                        -> candidate_verifier (loop back)
-           - sufficient -> final_scoring -> curator -> structured_output -> END
+           - sufficient -> final_scoring -> display_enrichment (Phase 2.5a — top-MAX_SELECTED only, gap-aware, wall-clock-bounded)
+                                              -> curator -> structured_output -> END
 
 `deep_research` and `research_gap_checker` are the two genuinely new nodes
 this pass adds (Part 4/11); `candidate_verifier` was extended (not
@@ -40,6 +41,7 @@ CALLED from inside these nodes, which is where finer-grained spans
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from datetime import datetime, timezone
@@ -53,7 +55,7 @@ from . import llm_providers
 from . import normalize as normalize_mod
 from . import planner as planner_mod
 from . import tools as tools_mod
-from .curator import curate
+from .curator import curate, MAX_SELECTED
 from .query_understanding import parse_query, resolve_all_locations
 from .scoring import score_all
 from .state import ResearchState
@@ -67,6 +69,16 @@ logger = logging.getLogger("ai-search-agent.graph")
 MAX_RESEARCH_ITERATIONS = int(os.getenv("AI_SEARCH_MAX_RESEARCH_ITERATIONS", "2"))
 TARGETED_RESEARCH_TOP_N = int(os.getenv("AI_SEARCH_TARGETED_RESEARCH_TOP_N", "3"))
 MIN_STRONG_RESULTS = int(os.getenv("AI_SEARCH_MIN_STRONG_RESULTS", "2"))  # if we already have this many PRIMARY/SECONDARY hits AND no real gaps, don't bother looping
+# Phase 2.5a — the eligibility-research loop above spends its budget on
+# whichever candidates are UNDETERMINED (_prioritize_for_deep_research),
+# which is frequently NOT the same set that ends up in the top-MAX_SELECTED
+# actually returned (Phase 2's own live-measured finding: 4/79 deduplicated
+# candidates had real carpet data, 0/8 displayed did). This is a SEPARATE
+# wall-clock budget, deliberately its own env var rather than reusing
+# AI_SEARCH_TIMEOUT_MS — this step runs once, after eligibility is already
+# decided, and must never itself be the reason a request times out into
+# Places-direct; a hard cap here, not a soft one, on purpose.
+DISPLAY_ENRICHMENT_BUDGET_S = int(os.getenv("AI_SEARCH_DISPLAY_ENRICHMENT_BUDGET_MS", "90000")) / 1000
 
 
 # ── Bridge preflight (Part 3.2) ─────────────────────────────────────────────
@@ -161,6 +173,18 @@ async def node_web_search(state: ResearchState) -> dict:
     if state.get("bridge_unavailable"):
         return _bridge_skip_record("web_search")
     evidence, record = await tools_mod.web_search(
+        _search_query_text(state), state.get("market", "india"),
+        langsmith_extra={"metadata": {"stage": "discovery", "market": state.get("market", "india")}, "tags": ["discovery"]},
+    )
+    return {"raw_evidence": evidence, "tool_calls": [record]}
+
+
+async def node_serper_search(state: ResearchState) -> dict:
+    if "serper_search" not in state.get("search_plan", []):
+        return {}
+    if state.get("bridge_unavailable"):
+        return _bridge_skip_record("serper_search")
+    evidence, record = await tools_mod.serper_search(
         _search_query_text(state), state.get("market", "india"),
         langsmith_extra={"metadata": {"stage": "discovery", "market": state.get("market", "india")}, "tags": ["discovery"]},
     )
@@ -567,7 +591,10 @@ def _lifecycle_evidence_presence(p: dict) -> float:
 
 
 def _data_completeness(p: dict) -> float:
-    fields = ("developer", "rera", "possession_display", "carpet_area_sqft", "price_display")
+    # Phase 2 — was carpet_area_sqft (permanently None before this pass's
+    # fix), meaning every single candidate scored exactly 1/5 less complete
+    # than it actually was, unconditionally, regardless of real data.
+    fields = ("developer", "rera", "possession_display", "carpet_area_display", "price_display")
     return sum(1 for f in fields if p.get(f)) / len(fields)
 
 
@@ -611,6 +638,7 @@ async def node_deep_research(state: ResearchState) -> dict:
     if state.get("bridge_unavailable"):
         return _bridge_skip_record("deep_research")
     candidates = _prioritize_for_deep_research(state.get("ranked_properties", []))
+    logger.warning("[node:deep_research] ELIGIBILITY-LOOP first pass, %d candidates: %s", len(candidates), [c.get("name") for c in candidates])
     already_fetched = {p["url"] for p in state.get("fetched_pages", []) if p.get("url")}
     updated, tool_calls, pages, facts = await deep_research_mod.research_candidates(
         candidates, market=state.get("market", "india"), already_fetched=already_fetched,
@@ -701,6 +729,7 @@ async def node_targeted_research(state: ResearchState) -> dict:
     prioritized = _prioritize_for_deep_research(state.get("ranked_properties", []))
     top = [p for p in prioritized if p.get("name") in gappy_names][:TARGETED_RESEARCH_TOP_N]
     already_fetched = {p["url"] for p in state.get("fetched_pages", []) if p.get("url")}
+    logger.warning("[node:targeted_research] ELIGIBILITY-LOOP gap-driven pass, %d candidates: %s", len(top), [p.get("name") for p in top])
 
     updated, tool_calls, pages, facts, new_evidence = await deep_research_mod.targeted_research_candidates(
         top, gaps, market=state.get("market", "india"), already_fetched=already_fetched,
@@ -738,6 +767,66 @@ async def node_final_scoring(state: ResearchState) -> dict:
     return {"ranked_properties": ranked, "debug_rejected_candidates": rejected}
 
 
+async def node_display_enrichment(state: ResearchState) -> dict:
+    """Phase 2.5a — the eligibility-research loop (node_deep_research/
+    node_targeted_research, via _prioritize_for_deep_research) deliberately
+    spends its bounded budget resolving WHETHER a candidate is eligible,
+    never on WHAT to show once ranking is already decided. Real,
+    live-measured consequence (Phase 2): 4 of 79 deduplicated candidates
+    had real carpet data; 0 of the final 8 displayed did — research and
+    display were selecting different candidates. Runs strictly AFTER
+    final_scoring (ranking/eligibility is already final here — this node
+    NEVER re-decides it, never re-runs scoring) and enriches ONLY the exact
+    top-MAX_SELECTED slice curator.py is about to return. Reuses
+    deep_research.targeted_research_candidates() — the SAME gap-driven
+    search+fetch+extract machinery the eligibility loop already uses — via
+    a separate, display-scoped gap computation (gap_checker.
+    compute_display_gaps), never a second research pipeline.
+    """
+    if state.get("bridge_unavailable"):
+        return _bridge_skip_record("display_enrichment")
+    ranked = state.get("ranked_properties", [])
+    top = ranked[:MAX_SELECTED]
+    if not top:
+        return {}
+    gaps = gap_checker_mod.compute_display_gaps(top)
+    if not gaps:
+        logger.warning("[node:display_enrichment] all %d displayed candidates already have every display field — no-op", len(top))
+        return {}  # every candidate we're about to show already has every display field
+    already_fetched = {p["url"] for p in state.get("fetched_pages", []) if p.get("url")}
+    logger.warning("[node:display_enrichment] DISPLAY-SCOPED pass, %d/%d displayed candidates have a gap: %s", len(gaps), len(top), [(g["candidate"], g["missing_fields"]) for g in gaps])
+    try:
+        updated, tool_calls, pages, facts, new_evidence = await asyncio.wait_for(
+            deep_research_mod.targeted_research_candidates(
+                top, gaps, market=state.get("market", "india"), already_fetched=already_fetched,
+            ),
+            timeout=DISPLAY_ENRICHMENT_BUDGET_S,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("[display_enrichment] timed out after %ss — showing the top-%d unenriched (bounded, all-or-nothing, matching every other timeout in this pipeline)", DISPLAY_ENRICHMENT_BUDGET_S, MAX_SELECTED)
+        return {"tool_calls": [{"tool": "display_enrichment", "status": "error", "count": 0, "duration_ms": int(DISPLAY_ENRICHMENT_BUDGET_S * 1000), "error": "timed out"}]}
+
+    newly_normalized = normalize_mod.normalize_all(new_evidence)
+    merged_dedup = dedupe_mod.merge_updated_candidates(state.get("deduplicated_properties", []), updated)
+    merged_dedup = dedupe_mod.dedupe(merged_dedup + newly_normalized)
+    # merge_updated_candidates does a wholesale replace-by-id — safe here
+    # ONLY because `updated`'s entries originate from merge_extracted_facts
+    # starting from `dict(prop)` on these EXACT RankedProperty items (`top`
+    # itself, passed straight into targeted_research_candidates above), so
+    # every ranking field (match_score/match_tier/match_reasons/
+    # limitations) is already carried through intact, not a stripped-down
+    # NormalizedProperty that would silently drop them and break curator.py.
+    merged_ranked = dedupe_mod.merge_updated_candidates(ranked, updated)
+    return {
+        "deduplicated_properties": merged_dedup,
+        "ranked_properties": merged_ranked,
+        "tool_calls": tool_calls,
+        "fetched_pages": pages,
+        "extracted_facts": facts,
+        "raw_evidence": new_evidence,
+    }
+
+
 async def node_curator(state: ResearchState) -> dict:
     return await curate(state)
 
@@ -758,6 +847,7 @@ def build_graph():
     g.add_node("research_planner", node_research_planner)
     g.add_node("tavily_search", node_tavily_search)
     g.add_node("web_search", node_web_search)
+    g.add_node("serper_search", node_serper_search)
     g.add_node("apify_search", node_apify_search)
     g.add_node("portal_search", node_portal_search)
     g.add_node("developer_search", node_developer_search)
@@ -771,6 +861,7 @@ def build_graph():
     g.add_node("research_gap_checker", node_research_gap_checker)
     g.add_node("targeted_research", node_targeted_research)
     g.add_node("final_scoring", node_final_scoring)
+    g.add_node("display_enrichment", node_display_enrichment)
     g.add_node("curator", node_curator)
     g.add_node("structured_output", node_structured_output)
 
@@ -779,7 +870,7 @@ def build_graph():
     g.add_edge("query_understanding", "location_resolution")
     g.add_edge("location_resolution", "research_planner")
 
-    for search_node in ["tavily_search", "web_search", "apify_search", "portal_search", "developer_search", "lifecycle_variant_search", "places_search"]:
+    for search_node in ["tavily_search", "web_search", "serper_search", "apify_search", "portal_search", "developer_search", "lifecycle_variant_search", "places_search"]:
         g.add_edge("research_planner", search_node)
         g.add_edge(search_node, "evidence_normalizer")
 
@@ -795,7 +886,8 @@ def build_graph():
     )
     g.add_edge("targeted_research", "candidate_verifier")  # loop back through verify -> score -> deep_research -> gap_check
 
-    g.add_edge("final_scoring", "curator")
+    g.add_edge("final_scoring", "display_enrichment")
+    g.add_edge("display_enrichment", "curator")
     g.add_edge("curator", "structured_output")
     g.add_edge("structured_output", END)
 

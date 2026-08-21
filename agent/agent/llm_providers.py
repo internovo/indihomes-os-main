@@ -41,7 +41,7 @@ import time
 from dataclasses import dataclass
 from typing import Optional
 
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, APIStatusError
 
 logger = logging.getLogger("ai-search-agent.llm")
 
@@ -66,7 +66,14 @@ _PERMANENT_ERROR_MARKERS = (
     "resource_exhausted", "quota", "credits are depleted", "insufficient_quota",
     "billing", "prepayment",
     # Auth errors — a bad/revoked key will fail identically on every call.
+    # "403"/"forbidden" added after Phase 0 confirmed live NVIDIA was
+    # paying a doomed round-trip on every single call (body: {'status':
+    # 403, 'title': 'Forbidden', 'detail': 'Authorization failed'}) because
+    # neither word was in this tuple — a 403 is exactly as permanent as a
+    # 401 for this codebase's purposes (a bad/unentitled key fails
+    # identically until a human fixes it), it just wasn't circuit-breaking.
     "invalid_api_key", "unauthorized", "permission_denied", "api key not valid",
+    "403", "forbidden", "model not available", "no access",
 )
 CIRCUIT_TTL_S = int(os.getenv("LLM_PROVIDER_CIRCUIT_TTL_MS", "300000")) / 1000
 
@@ -161,6 +168,38 @@ ROLE_DEFAULT_PROVIDER = {
 }
 
 
+def _extract_error_detail(status_code: int, body) -> str:
+    """A short, human-readable `"<status>: <real message>"` string from a
+    provider's raw error body — used by /health?probe=true so a probe
+    failure shows the actual HTTP detail instead of the generic
+    "provider returned no usable JSON" every other caller of
+    complete_json() sees (that generic message is correct for THEM — they
+    only need to know to fall back, not why). Providers use genuinely
+    different body shapes (confirmed live): NVIDIA is a flat dict with
+    `detail` ({'status': 403, 'title': 'Forbidden', 'detail':
+    'Authorization failed'}); Gemini wraps a LIST containing one
+    {'error': {'code', 'message', 'status'}} dict; Groq is a flat dict with
+    `message`/`code`. Handles all three without guessing a fourth shape.
+    """
+    if isinstance(body, list) and body and isinstance(body[0], dict):
+        body = body[0]
+    msg = None
+    if isinstance(body, dict):
+        err = body.get("error")
+        if isinstance(err, dict):
+            # Prefer the short machine-readable `status` (e.g.
+            # "RESOURCE_EXHAUSTED") over the long human `message` — the
+            # short form is what's actually useful in a one-line probe
+            # result; the full message is still in the permanent per-call
+            # warning log for anyone who needs it.
+            msg = err.get("status") or err.get("message")
+        else:
+            msg = body.get("detail") or body.get("message") or body.get("title")
+    if not msg:
+        msg = str(body)[:150]
+    return f"{status_code}: {msg}"
+
+
 def _extract_json(text: str) -> Optional[dict]:
     """Best-effort JSON extraction for a provider/model that ignored the
     requested json_object response format and wrapped its answer in prose
@@ -188,38 +227,145 @@ class LLMClient:
         self.model = model
         self._client = AsyncOpenAI(api_key=api_key, base_url=base_url) if base_url else AsyncOpenAI(api_key=api_key)
 
-    async def complete_json(self, system: str, user: str, max_tokens: int = 2000, temperature: float = 0.2) -> Optional[dict]:
+    async def _attempt(self, system: str, user: str, max_tokens: int, temperature: float) -> tuple[Optional[dict], bool, Optional[str]]:
+        """One real API call. Returns (parsed_json_or_None, truncation_shaped, error_detail).
+
+        error_detail is a real `"<status>: <message>"` string (via
+        _extract_error_detail) whenever the call didn't produce a usable
+        result — None only on genuine success. Threaded through so
+        /health?probe=true can show the real reason (Phase 1, item 2 —
+        the generic "provider returned no usable JSON" the rest of the
+        codebase sees isn't useful at 3am).
+
+        truncation_shaped is True exactly when Phase 0's diagnostic run
+        showed this failure mode: Groq's `json_validate_failed` 400 with an
+        empty `failed_generation` (the reasoning model spent its entire
+        max_tokens budget on internal reasoning tokens before emitting any
+        JSON — confirmed live, `x-ratelimit-remaining-tokens` showed real
+        TPM headroom both times, ruling out rate limiting as the cause), or
+        a genuine `finish_reason == "length"` on a 200. Neither is a
+        permanent provider error and neither may circuit-break the
+        provider — `complete_json` below gives it exactly one retry with a
+        bigger budget instead.
+        """
         _llm_metrics["llm_calls"] += 1
+        kwargs = dict(
+            model=self.model,
+            messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+            max_tokens=max_tokens,
+            temperature=temperature,
+            response_format={"type": "json_object"},
+        )
+        # Phase 1a — Groq's openai/gpt-oss-120b is a reasoning model whose
+        # internal reasoning tokens draw from the SAME max_tokens budget as
+        # the actual JSON answer (Phase 0 confirmed live: a real
+        # extraction-shaped call against a dense page excerpt spent 284 of
+        # 321 completion tokens on reasoning alone). reasoning_effort="low"
+        # cuts that consumption dramatically without touching what gets
+        # extracted (confirmed live, same prompt: 43 of 85 tokens) — it only
+        # throttles HOW MUCH the model reasons before answering, never what
+        # it's allowed to say, so Rule 2/3 (never fabricate, deterministic
+        # stays the source of truth) are untouched by this. Passed via
+        # extra_body since this SDK version's typed create() doesn't
+        # recognize the parameter (raises TypeError if passed directly) but
+        # forwards extra_body verbatim into the request JSON. Groq-only —
+        # not a documented parameter for the other OpenAI-compatible
+        # providers this file talks to.
+        if self.key == "groq":
+            kwargs["extra_body"] = {"reasoning_effort": "low"}
         try:
-            resp = await self._client.chat.completions.create(
-                model=self.model,
-                messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
-                max_tokens=max_tokens,
-                temperature=temperature,
-                response_format={"type": "json_object"},
-            )
+            resp = await self._client.chat.completions.create(**kwargs)
         except Exception as e:  # noqa: BLE001 - any provider/network failure must degrade, not crash
             _llm_metrics["llm_failures"] += 1
             err = str(e)
-            logger.warning("[llm:%s] request failed: %s", self.key, err)
+            truncation_shaped = False
+            error_detail = f"{type(e).__name__}: {err[:200]}"
+            # Phase 0 diagnostic instrumentation — logs the FULL raw error
+            # body, not str(e) truncated, plus every rate-limit header a
+            # real 429 would carry (retry-after/x-ratelimit-remaining-
+            # tokens/x-ratelimit-reset-tokens) — present only on a genuine
+            # rate-limit response, absent on a truncation-shaped 400. Kept
+            # permanently, not just for the one-off diagnostic run — this is
+            # exactly the visibility that was missing before Phase 0.
+            if isinstance(e, APIStatusError):
+                headers = dict(e.response.headers) if getattr(e, "response", None) is not None else {}
+                rate_limit_headers = {
+                    k: v for k, v in headers.items()
+                    if k.lower() in ("retry-after", "x-ratelimit-remaining-tokens", "x-ratelimit-reset-tokens",
+                                      "x-ratelimit-limit-tokens", "x-ratelimit-remaining-requests", "x-ratelimit-reset-requests")
+                }
+                logger.warning(
+                    "[llm:%s] model=%s request failed: status_code=%s body=%s rate_limit_headers=%s",
+                    self.key, self.model, e.status_code, e.body, rate_limit_headers,
+                )
+                body = e.body if isinstance(e.body, dict) else {}
+                truncation_shaped = body.get("code") == "json_validate_failed"
+                error_detail = _extract_error_detail(e.status_code, e.body)
+            else:
+                logger.warning("[llm:%s] model=%s request failed (non-APIStatusError): %s: %s", self.key, self.model, type(e).__name__, err)
             if _is_permanent_error(err):
                 # A permanent config error (deprecated/unknown model) will
                 # fail identically on every future call in this process
                 # until someone fixes the model name — circuit-break it
                 # instead of paying the same failed request over and over
-                # (Part P0.7).
+                # (Part P0.7). A truncation-shaped failure is never in
+                # _PERMANENT_ERROR_MARKERS, so this never fires for it.
                 _mark_provider_unavailable(self.key, f"{self.model}: {err[:200]}")
-            return None
+            return None, truncation_shaped, error_detail
+        usage = resp.usage
+        finish_reason = resp.choices[0].finish_reason
+        logger.warning(
+            "[llm:%s] model=%s SUCCESS finish_reason=%s usage(prompt=%s, completion=%s, total=%s)",
+            self.key, self.model, finish_reason,
+            getattr(usage, "prompt_tokens", None), getattr(usage, "completion_tokens", None), getattr(usage, "total_tokens", None),
+        )
         content = (resp.choices[0].message.content or "").strip()
         if not content:
-            return None
+            return None, finish_reason == "length", f"200: empty content (finish_reason={finish_reason})"
         try:
-            return json.loads(content)
+            return json.loads(content), False, None
         except json.JSONDecodeError:
             parsed = _extract_json(content)
             if parsed is None:
-                logger.warning("[llm:%s] response was not valid JSON", self.key)
-            return parsed
+                # Phase 0 diagnostic instrumentation — the raw content that
+                # failed to parse, so a truncated-mid-JSON payload is
+                # visibly distinguishable from prose/markdown-wrapped JSON
+                # that _extract_json also couldn't rescue.
+                logger.warning(
+                    "[llm:%s] response was not valid JSON (length=%d): %r",
+                    self.key, len(content), content[:500],
+                )
+            return parsed, (finish_reason == "length" if parsed is None else False), (None if parsed is not None else "200: response was not valid JSON")
+
+    async def _complete_json_with_error(self, system: str, user: str, max_tokens: int = 2000, temperature: float = 0.2) -> tuple[Optional[dict], Optional[str]]:
+        """Same one-retry-on-truncation orchestration as complete_json below,
+        but also returns the real error_detail from the LAST attempt —
+        used by /health?probe=true (item 2: the generic message every
+        other caller sees isn't useful at 3am). complete_json() itself
+        keeps its existing Optional[dict]-only contract so nothing else in
+        the codebase (LLMRouter and every caller through it) needs to
+        change.
+        """
+        result, truncation_shaped, error_detail = await self._attempt(system, user, max_tokens, temperature)
+        if result is not None or not truncation_shaped:
+            return result, error_detail
+        retry_max_tokens = min(max_tokens * 2, 4000)
+        logger.warning("[llm:%s] retrying once with max_tokens=%d after a truncation-shaped failure", self.key, retry_max_tokens)
+        result, _, error_detail = await self._attempt(system, user, retry_max_tokens, temperature)
+        return result, error_detail
+
+    async def complete_json(self, system: str, user: str, max_tokens: int = 2000, temperature: float = 0.2) -> Optional[dict]:
+        # Phase 1a — exactly ONE retry with roughly double the budget,
+        # capped, for a truncation-shaped failure only (see _attempt's
+        # docstring) — never treated as a permanent provider error and
+        # never circuit-broken, this is a per-call budget problem, not a
+        # dead provider. Capped at 4000 rather than doubling unboundedly:
+        # Groq's real account TPM ceiling (8000, confirmed live in Phase 0)
+        # means an unbounded doubling risks trading one failure for
+        # another. Delegates to _complete_json_with_error (same retry
+        # logic, also used by the health probe) rather than duplicating it.
+        result, _ = await self._complete_json_with_error(system, user, max_tokens, temperature)
+        return result
 
 
 def _build_client(spec: ProviderSpec) -> Optional[LLMClient]:

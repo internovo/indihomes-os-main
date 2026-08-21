@@ -259,6 +259,42 @@ const tavilyConnector = {
   },
 }
 
+// ── Serper (google.serper.dev) — a second, independent Google-results
+// search API. Added as a genuine alternative/backup alongside Tavily/
+// Google CSE/Bing, not a replacement for any of them: web_search
+// (Google CSE/Bing) was confirmed live, separately, to be returning zero
+// real results (a different failure mode than Tavily's own HTTP 432
+// usage-limit error) — Serper is one more independent source so a single
+// provider's outage/misconfiguration doesn't take down discovery.
+// Response shape confirmed against a real live call before writing this
+// parser: POST https://google.serper.dev/search, header X-API-Key, body
+// {"q": "..."} -> {"organic": [{title, link, snippet, position, date?}], ...}.
+const serperConnector = {
+  id: 'serper', name: 'Serper (Google Search)',
+  market: ['india', 'dubai'],
+  isConfigured() { return !!process.env.SERPER_API_KEY },
+  async search(query, filters = {}, market = 'india') {
+    if (!this.isConfigured()) return []
+    const res = await fetch('https://google.serper.dev/search', {
+      method: 'POST',
+      headers: { 'X-API-Key': process.env.SERPER_API_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ q: biasQueryToPortals(query, market) }),
+      signal: AbortSignal.timeout(parseInt(process.env.SERPER_TIMEOUT_MS, 10) || 15000),
+    })
+    if (!res.ok) throw await connectorError('serper', res)
+    const body = await res.json()
+    const currency = market === 'dubai' ? 'AED' : 'INR'
+    return (body.organic || [])
+      .filter(r => r.title && r.link)
+      .map(r => baseExternalProject({
+        name: r.title, sourceUrl: r.link,
+        sourceName: (() => { try { return new URL(r.link).hostname.replace('www.', '') } catch { return 'Serper' } })(),
+        description: r.snippet || '', market, currency,
+        sourceQuality: typeof r.position === 'number' && r.position <= 3 ? 'high' : 'medium',
+      }))
+  },
+}
+
 // ── Google Places (New) — residential candidate discovery (Part 1 of the
 // Places-augmented pipeline; agent/agent/tools.py's places_search mirrors
 // this exact shape for the LangGraph pipeline, both calling the SAME
@@ -278,13 +314,14 @@ const tavilyConnector = {
 // connector returning zero results — never itself a rejection reason.
 const placesConnector = {
   id: 'google-places', name: 'Google Places (residential discovery)',
-  // India-only in this pass — the textQuery-based place-name biasing below
-  // was only verified against Indian locality names; not extended to
-  // Dubai/UAE without separate verification.
-  market: ['india'],
+  // Extended to Dubai after live verification — Places returned 16 real,
+  // well-named Dubai Marina buildings for a real query; the textQuery-based
+  // place-name biasing below isn't India-specific, it just hadn't been
+  // checked against a Dubai query before this pass.
+  market: ['india', 'dubai'],
   isConfigured() { return placesClient.isPlacesConfigured() },
   async search(query, filters = {}, market = 'india') {
-    if (market !== 'india' || !this.isConfigured()) return []
+    if (!this.isConfigured()) return []
     const locality = (filters.locations || [])[0] || ''
     const configuration = filters.configuration || ''
     // "residential apartment [configuration] near [locality]" — Places Text
@@ -382,10 +419,10 @@ const stubConnectors = [
   stub('developer-sites', 'Developer Websites', ['india', 'dubai'], 'Needs a per-developer feed/sitemap list to index.'),
 ]
 
-const CONNECTORS = [tavilyConnector, googleCseConnector, bingConnector, apifyConnector, legacyPortalConnector, placesConnector, ...stubConnectors]
+const CONNECTORS = [tavilyConnector, serperConnector, googleCseConnector, bingConnector, apifyConnector, legacyPortalConnector, placesConnector, ...stubConnectors]
 
 function getConnectorStatus() {
   return CONNECTORS.map(c => ({ id: c.id, name: c.name, market: c.market, configured: c.isConfigured(), note: c.note || null }))
 }
 
-module.exports = { CONNECTORS, getConnectorStatus, tavilyConnector, googleCseConnector, bingConnector, apifyConnector, legacyPortalConnector, placesConnector, placesVerify, namesLooselyMatch }
+module.exports = { CONNECTORS, getConnectorStatus, tavilyConnector, serperConnector, googleCseConnector, bingConnector, apifyConnector, legacyPortalConnector, placesConnector, placesVerify, namesLooselyMatch }

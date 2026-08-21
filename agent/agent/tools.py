@@ -227,6 +227,24 @@ async def web_search(query: str, market: str) -> tuple[list[EvidenceItem], ToolC
                                      duration_ms=duration_ms, error=err, cache_hit=cache_hit)
 
 
+@traceable(name="serper_search", run_type="tool")
+async def serper_search(query: str, market: str) -> tuple[list[EvidenceItem], ToolCallRecord]:
+    """A second, independent Google-results search API (serper.dev) — run
+    alongside tavily_search/web_search, never as a replacement for either.
+    Added because web_search's own Google CSE/Bing connectors were
+    confirmed live to be returning "ok" with zero real results, a
+    different failure mode than Tavily's HTTP 432 usage-limit error.
+    """
+    data, duration_ms, err, cache_hit = await _call_bridge(
+        "/internal/agent-tools/serper-search", {"query": query, "market": market},
+        cache_namespace="serper-search", cache_key=f"{market}:{query.lower()}",
+    )
+    evidence = data.get("evidence", [])
+    return evidence, ToolCallRecord(tool="serper_search", args={"query": query, "market": market},
+                                     status="error" if err and not evidence else "ok", count=len(evidence),
+                                     duration_ms=duration_ms, error=err, cache_hit=cache_hit)
+
+
 @traceable(name="developer_search", run_type="tool")
 async def developer_search(query: str, market: str) -> tuple[list[EvidenceItem], ToolCallRecord]:
     data, duration_ms, err, cache_hit = await _call_bridge(
@@ -381,6 +399,16 @@ async def rera_lookup(name: str, locality: Optional[str], city: Optional[str]) -
     start = time.monotonic()
     query = f"{name} {locality or ''} RERA number registration".strip()
     evidence, _ = await web_search(query, "india")
+    # web_search (Google CSE + Bing) is a dead connector in this deployment
+    # (Google CSE 403s, Bing unconfigured — confirmed live, same root cause
+    # documented for enrich_property() above) and enrich_property() already
+    # got this exact fallback; rera_lookup() was missed at the time and
+    # silently returned "not found" in ~0.5s on every call as a result —
+    # confirmed live: web_search returned count=0 in 522ms for a query
+    # tavily_search answered with 10 real results in 5.3s for the identical
+    # text. Same fallback, not a second one.
+    if not evidence:
+        evidence, _ = await tavily_search(query, "india")
     urls = [e.get("source_url") for e in evidence[:3] if e.get("source_url")]
     rera_found = None
     for url in urls:

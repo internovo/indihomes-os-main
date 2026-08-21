@@ -14,7 +14,7 @@
 // API, even though this deployment only ever calls it from localhost.
 
 const express = require('express')
-const { tavilyConnector, googleCseConnector, bingConnector, apifyConnector, legacyPortalConnector, placesConnector, placesVerify, getConnectorStatus } = require('./external-connectors.cjs')
+const { tavilyConnector, serperConnector, googleCseConnector, bingConnector, apifyConnector, legacyPortalConnector, placesConnector, placesVerify, getConnectorStatus } = require('./external-connectors.cjs')
 const indihomesClient = require('./indihomes-client.cjs')
 
 const router = express.Router()
@@ -121,6 +121,24 @@ router.post('/tavily-search', async (req, res) => {
   }
 })
 
+// ── Serper (google.serper.dev) — a second, independent Google-results
+// search API, run alongside Tavily (never as its replacement) so a single
+// provider's outage doesn't take down discovery.
+router.post('/serper-search', async (req, res) => {
+  const { query, market } = req.body || {}
+  if (!query) return res.status(400).json({ error: 'query required' })
+  const mkt = market === 'dubai' ? 'dubai' : 'india'
+  if (!serperConnector.isConfigured()) {
+    return res.json({ evidence: [], tried: [], note: 'Serper not configured (SERPER_API_KEY).' })
+  }
+  try {
+    const items = await serperConnector.search(query, {}, mkt)
+    res.json({ evidence: items.map(item => toEvidence(item, { toolId: 'serper', sourceType: 'web' })), tried: ['serper'] })
+  } catch (e) {
+    res.status(502).json({ error: e.message, evidence: [], tried: ['serper'] })
+  }
+})
+
 // ── Developer/project website search — same web-search connectors, biased
 // toward official/builder pages via a query hint (no separate connector
 // exists for this yet, per requirements.md's connector inventory).
@@ -182,17 +200,19 @@ router.post('/apify-search', async (req, res) => {
 // ── places_search — Google Places (New)-based candidate discovery (Part 1
 // of the Places-augmented pipeline). Thin wrapper around placesConnector in
 // external-connectors.cjs — same shared places-client.cjs endpoint/auth
-// /api/competing-projects already uses successfully. India-only, and
-// strongest for ready-to-move/completed buildings (Places' own real
-// coverage gap for pre-launch/early-construction inventory) — this route
-// never claims otherwise; graph.py's discovery fan-out treats an empty
-// result here the same as any other connector finding nothing.
+// /api/competing-projects already uses successfully. Extended to Dubai
+// after live verification (16 real, well-named Dubai Marina buildings for
+// a real query) — strongest for ready-to-move/completed buildings (Places'
+// own real coverage gap for pre-launch/early-construction inventory, true
+// in either market) — this route never claims otherwise; graph.py's
+// discovery fan-out treats an empty result here the same as any other
+// connector finding nothing.
 router.post('/places-search', async (req, res) => {
   const { query, market, locations, configuration } = req.body || {}
   if (!query) return res.status(400).json({ error: 'query required' })
   const mkt = market === 'dubai' ? 'dubai' : 'india'
-  if (!placesConnector.isConfigured() || mkt !== 'india') {
-    return res.json({ evidence: [], tried: [], note: 'Google Places not configured, or market is not India (Places discovery is India-only in this pass).' })
+  if (!placesConnector.isConfigured()) {
+    return res.json({ evidence: [], tried: [], note: 'Google Places not configured (GOOGLE_PLACES_API_KEY).' })
   }
   try {
     const items = await placesConnector.search(query, { locations, configuration }, mkt)

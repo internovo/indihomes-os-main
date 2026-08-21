@@ -1422,20 +1422,6 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
         </div>
       )}
 
-      {/* AI enrichment (Claude web research) is optional, layered on top of
-          official IndiHomes data — never required for this screen to work.
-          Shown once, page-level, rather than per-field, since it's a server
-          config fact, not something that varies box to box. Competitor
-          Analysis no longer depends on this at all — it runs off a real
-          Google Places nearby-search (see the banner below when THAT isn't
-          configured), independent of any LLM provider. */}
-      {!researchEnabled && (
-        <div style={{ background:'#F6F5F1', border:'1px solid #E9E7E0', borderRadius:8, padding:'9px 16px', marginBottom:16, fontSize:12.5, color:'#75737F', display:'flex', alignItems:'flex-start', gap:8 }}>
-          <span>ⓘ</span>
-          <span>No live-web-search LLM provider is enabled on this server. Official IndiHomes data (description, inventory, RERA, amenities) works fully regardless, and so does Competitor Analysis (Google Places-sourced, unrelated to this). Only Nearby Infrastructure's AI-sourced supplementary list is affected — its real OpenStreetMap-sourced places are unaffected.</span>
-        </div>
-      )}
-
       {/* ── Project Tabs ──────────────────────────────────────────────────────── */}
       <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:24, overflowX:'auto', paddingBottom:2 }}>
         {projects.map((p,i) => (
@@ -1578,12 +1564,12 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
               shown honestly as "Not calculated", when there was no active
               search (e.g. onboarded directly rather than analysed from a
               result list). Neither ever falls back to the other's number. */}
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(2, minmax(0, 252px))', gap:14, marginBottom:16 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(2, minmax(0, 210px))', gap:14, marginBottom:16 }}>
             <StatCard label="IndiHomes Score"  value={current?.score != null ? `${current.score}/100` : '—'}
               trend={current?.score != null ? `${scoreTierLabel(current.score)} · listing quality` : 'Not yet scored'} trendDir="up" accent="#2E9E4F"
               title="Deterministic completeness/quality score for this listing (RERA, media, description, developer info, possession date on file) — not dependent on any search." />
-            <StatCard label="AI Match"         value={current?.matchScore != null ? `${current.matchScore}%` : '—'}
-              trend={current?.matchScore != null ? `${scoreTierLabel(current.matchScore)} match for your search` : 'Open from a search result to see a match score'} trendDir="up" accent="#0E0E52"
+            <StatCard label="AI Match"         value={(current?.matchScore ?? current?.match_score ?? current?.match) != null ? `${current.matchScore ?? current.match_score ?? current.match}%` : '—'}
+              trend={(current?.matchScore ?? current?.match_score ?? current?.match) != null ? `${scoreTierLabel(current.matchScore ?? current.match_score ?? current.match)} match for your search` : 'Open from a search result to see a match score'} trendDir="up" accent="#0E0E52"
               title="How well this project matched the Property Search/AI Search query you opened it from — a different calculation from IndiHomes Score." />
           </div>
 
@@ -1600,10 +1586,10 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
 
           {/* ── Row: Inventory & Unit Configurations + [RERA & Compliance,
               Location Score] ──────────────────────────────────────────── */}
-          <div style={{ display:'grid', gridTemplateColumns:'minmax(0, 1.35fr) minmax(300px, 1fr)', gap:14, marginBottom:14, alignItems:'stretch' }}>
+          <div style={{ display:'grid', gridTemplateColumns:'minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr)', gap:14, marginBottom:14, alignItems:'start' }}>
 
             {/* Inventory & Unit Configs (PI-FR-02, 03) */}
-            <SectionCard title="Inventory & Unit Configurations" debugId="PI-FR-02"
+            <SectionCard title="Inventory & Unit Configurations" debugId="PI-FR-02" style={{ height:'auto' }}
               badge={officialConfigs.length && configsExtracted ? (
                 <span title="Real numbers regex-parsed from the official description text — the API's own structured unit-inventory field was empty for this project."
                   style={{ display:'inline-flex', alignItems:'center', gap:4, background:'#F1EDFB', color:'#6B4FBB', padding:'2px 8px', borderRadius:4, fontSize:10, fontWeight:700, fontFamily:"'IBM Plex Mono',monospace", letterSpacing:'0.03em' }}>
@@ -1649,13 +1635,10 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
               )}
             </SectionCard>
 
-            {/* Right column: RERA & Compliance (moved up from the old Row 3
-                pairing with Competitor Analysis — same fields/buttons,
-                unchanged) + Location Score (new card, built entirely from
-                locQuality, already computed above from real nearby-places
-                data — never fabricated). */}
-            <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
-              {(() => {
+            {/* RERA & Compliance and Location Score share this row with
+              inventory so the three primary intelligence cards stay
+              aligned without a stretched empty column. */}
+            {(() => {
                 const isDubai = current?.market === 'dubai'
                 const regLabel = isDubai ? 'DLD' : 'RERA'
                 return (
@@ -1736,11 +1719,11 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
                 )
               })()}
 
-              {/* Location Score — new card built entirely from locQuality
+            {/* Location Score — new card built entirely from locQuality
                   (locationQualityScore(realNearbyPlaces), already computed
                   above). Honest EmptyState until real nearby-places data
                   resolves, never a fabricated score. */}
-              <SectionCard title="Location Score" badge={<FieldBadge kind={locQuality ? 'map' : 'unverified'} />}>
+            <SectionCard title="Location Score" badge={<FieldBadge kind={locQuality ? 'map' : 'unverified'} />}>
                 {locQuality ? (
                   <>
                     <div style={{ display:'flex', alignItems:'baseline', gap:6 }}>
@@ -1760,8 +1743,7 @@ export default function ProjectIntelligence({ selectedProjects, onBack }) {
                 ) : (
                   <EmptyState reason="Not connected." detail="Waiting for the Location Map below to resolve real coordinates for this project." />
                 )}
-              </SectionCard>
-            </div>
+            </SectionCard>
           </div>
 
           {/* ── Row 2: AI Project Summary + USPs + Target Audience ──────────── */}

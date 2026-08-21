@@ -23,8 +23,11 @@ session.
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 from typing import Optional
+
+logger = logging.getLogger("ai-search-agent.deep_research")
 
 from . import dedupe as dedupe_mod
 from . import fact_extraction
@@ -43,6 +46,16 @@ from .state import CandidateGap, EvidenceItem, ExtractedFact, FeatureEvidence, F
 MAX_CANDIDATES_FOR_DEEP_RESEARCH = int(os.getenv("AI_SEARCH_MAX_CANDIDATES_FOR_DEEP_RESEARCH", "5"))
 MAX_FETCHES_PER_CANDIDATE = int(os.getenv("AI_SEARCH_MAX_FETCHES_PER_CANDIDATE", "3"))
 MAX_TARGETED_SEARCHES_PER_ITERATION = int(os.getenv("AI_SEARCH_MAX_TARGETED_SEARCHES_PER_ITERATION", "5"))
+# Phase 2.5c — llm_assist_extract's own per-call window stays 4000 chars
+# (fact_extraction.py, unchanged); this bounds how many 4000-char WINDOWS
+# of a candidate's fetched pages get tried in total (across pages AND
+# within one page) before giving up on the still-missing fields. Real
+# pages carry their target fields spread across the WHOLE page (Part P0's
+# own live measurement: a page's first RERA sits at ~7660 chars, its fifth
+# at ~24000) — one page can need several windows. A cap here, not an
+# unbounded "try every window of every fetched page," so a very long, very
+# thin page can't turn into an unbounded LLM call count.
+MAX_LLM_ASSIST_CALLS_PER_CANDIDATE = int(os.getenv("AI_SEARCH_MAX_LLM_ASSIST_CALLS_PER_CANDIDATE", "6"))
 
 # Source hierarchy (Part 34) — lower number wins when choosing which of a
 # candidate's already-known source URLs to actually spend a fetch on.
@@ -62,6 +75,35 @@ _SOURCE_PRIORITY = {"official": 0, "developer": 1, "portal": 2, "web": 3, "categ
 # sources at all, rather than wasting a fetch attempt on it.
 def _is_unfetchable_url(url: str) -> bool:
     return "maps.google.com/?cid=" in url or "maps.google.com/place?cid=" in url
+
+
+# Phase 2.5c — chosen over a "select the section most likely to hold the
+# target fields" heuristic. Reasoning: real pages carry their target
+# fields spread across GENUINELY DIFFERENT sections (developer/RERA
+# usually near the top, amenities/tower-count/connectivity further down,
+# sometimes past 20000 chars) — a single heuristic window risks
+# confidently picking the WRONG section and missing everything else
+# entirely, with no second chance. Chunking with early-stop (see
+# _fetch_and_extract below) tries the cheap thing first (chunk 1 of page
+# 1 is IDENTICAL to the old text[:4000] behavior) and only escalates when
+# fields are genuinely still missing after that — the common case costs
+# exactly what it cost before this change. A small overlap so a field
+# mention straddling a chunk boundary isn't silently split in half.
+_CHUNK_SIZE = 4000
+_CHUNK_OVERLAP = 200
+
+
+def _chunk_text(text: str, size: int = _CHUNK_SIZE, overlap: int = _CHUNK_OVERLAP) -> list[str]:
+    if len(text) <= size:
+        return [text]
+    chunks = []
+    start = 0
+    while start < len(text):
+        chunks.append(text[start:start + size])
+        if start + size >= len(text):
+            break
+        start += size - overlap
+    return chunks
 
 
 def _prioritized_source_urls(prop: NormalizedProperty, limit: int, already_fetched: set[str]) -> list[tuple[str, str]]:
@@ -110,17 +152,53 @@ async def _fetch_and_extract(name: str, urls: list[tuple[str, str]], candidate_i
         facts.extend(page_facts)
         features.extend(page_features)
 
-    # ONE bounded LLM assist call per candidate (not per page) — only for
-    # fields still missing after every deterministic pass across all of
-    # this candidate's fetched pages, and only against the single richest
-    # (first successful) page — Part 17/19's cost rule. Never covers deck/
-    # balcony/parking (LLM_ASSISTABLE_FIELDS excludes them — see fact_
-    # extraction.py) since those are the structured `features` list's job.
+    # Phase 2.5b/2.5c — was ONE call, against ONLY pages[0], against ONLY
+    # its first 4000 chars, regardless of how many pages were actually
+    # fetched (up to MAX_FETCHES_PER_CANDIDATE) or how long each one is (up
+    # to 24000 chars, agent-tools-bridge.cjs's FETCH_PAGE_MAX_CHARS). Now
+    # walks every fetched page, and within each page every 4000-char
+    # window (_chunk_text), stopping the INSTANT every LLM-assistable
+    # field is found — chunk 1 of page 1 is identical to the old behavior,
+    # so the common case (fields found immediately) costs exactly what it
+    # cost before. Bounded overall by MAX_LLM_ASSIST_CALLS_PER_CANDIDATE.
+    # Never covers deck/balcony/parking (LLM_ASSISTABLE_FIELDS excludes
+    # them) since those are the structured `features` list's job.
     if pages:
         found_fields = {f["field"] for f in facts}
         still_missing = [f for f in fact_extraction.LLM_ASSISTABLE_FIELDS if f not in found_fields]
-        if still_missing:
-            facts.extend(await fact_extraction.llm_assist_extract(name, pages[0], still_missing))
+        calls_made = 0
+        for page in pages:
+            if not still_missing or calls_made >= MAX_LLM_ASSIST_CALLS_PER_CANDIDATE:
+                break
+            page_text = (page.get("content") or "").strip()
+            for chunk in _chunk_text(page_text):
+                if not still_missing or calls_made >= MAX_LLM_ASSIST_CALLS_PER_CANDIDATE:
+                    break
+                calls_made += 1
+                # A shallow copy with `content` swapped for this chunk —
+                # NOT just {"content", "title"}: llm_assist_extract reads
+                # page.get("url")/page.get("retrieved_at") too, for each
+                # ExtractedFact's own provenance (source_url/retrieved_at).
+                # Dropping those would have silently made every LLM-
+                # assisted fact from this loop untraceable back to its
+                # real source page.
+                chunk_page: FetchedPage = {**page, "content": chunk}
+                new_facts = await fact_extraction.llm_assist_extract(name, chunk_page, still_missing)
+                found_here = {f["field"] for f in new_facts} if new_facts else set()
+                # Reporting-only instrumentation (not a behavior change) —
+                # per-call, per-candidate token-cost attribution was asked
+                # for explicitly and can't be reconstructed after the fact
+                # from llm_providers.py's own per-call logs alone (those
+                # don't know which candidate/chunk they were serving).
+                logger.warning(
+                    "[fetch_and_extract] candidate=%r call=%d/%d chunk_len=%d still_missing_before=%s found=%s",
+                    name, calls_made, MAX_LLM_ASSIST_CALLS_PER_CANDIDATE, len(chunk), still_missing, sorted(found_here),
+                )
+                if new_facts:
+                    facts.extend(new_facts)
+                    still_missing = [f for f in still_missing if f not in found_here]
+        if calls_made:
+            logger.warning("[fetch_and_extract] candidate=%r TOTAL calls=%d still_missing_after=%s", name, calls_made, still_missing)
 
     return pages, facts, features, tool_calls
 

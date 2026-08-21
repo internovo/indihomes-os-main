@@ -4,7 +4,7 @@ import {
   UserPlus, TrendingUp, Trash2, Phone, MessageCircle, Users,
   Headphones, Briefcase, HardHat, BarChart3, Lightbulb, UserCog,
 } from 'lucide-react'
-import Logomark from '../ui/Logomark.jsx'
+import logoUrl from '../../../../assets/logo-removebg.png'
 
 const NAV_GROUPS = [
   { label: 'OVERVIEW', items: [
@@ -54,20 +54,10 @@ export default function Sidebar({ active, setView }) {
     }}>
       {/* Logo row */}
       <div style={{
-        height: 'var(--pg-topbar-h)', padding: '0 16px', flexShrink: 0,
-        borderBottom: '1px solid var(--pg-border)', display: 'flex', alignItems: 'center', gap: 10,
+        height: 76, padding: '0 16px', flexShrink: 0,
+        borderBottom: '1px solid var(--pg-border)', display: 'flex', alignItems: 'center',
       }}>
-        <Logomark size={28} />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--pg-ink)', letterSpacing: '-0.4px', lineHeight: 1, fontFamily: 'var(--pg-font)' }}>
-            propOG
-          </div>
-          <span style={{
-            fontFamily: 'var(--pg-font-mono)', fontSize: 8.5, letterSpacing: '0.5px',
-            color: 'var(--pg-gold-deep)', background: 'var(--pg-gold-tint)',
-            borderRadius: 'var(--pg-r-xs)', padding: '3px 6px', lineHeight: 1,
-          }}>OS</span>
-        </div>
+        <img src={logoUrl} alt="propOG" style={{ width: '100%', height: 74, objectFit: 'contain', objectPosition: 'left center', display: 'block' }} />
       </div>
 
       {/* Nav */}

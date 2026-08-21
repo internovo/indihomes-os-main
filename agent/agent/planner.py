@@ -32,6 +32,13 @@ def build_search_plan(parsed: ParsedRequirements, market: str) -> list[str]:
     plan.append("web_search")
     plan.append("apify_search")
 
+    # serper_search (serper.dev) — a second, independent Google-results
+    # search API. Same "cheap to no-op, independent failure mode" reasoning
+    # as tavily_search/web_search above: added specifically because
+    # web_search's own Google CSE/Bing connectors were confirmed live to be
+    # returning zero real results, a failure this doesn't share.
+    plan.append("serper_search")
+
     # Portal scraping (99acres/MagicBricks direct) is comparatively
     # expensive (a real browser launch) and only useful once we can narrow
     # it to a covered city — skip it entirely for a location-less query
@@ -70,9 +77,14 @@ def build_search_plan(parsed: ParsedRequirements, market: str) -> list[str]:
     # pipeline) — a genuinely different signal source (Google's own
     # business/building index, not a web-search snippet), gated on
     # has_location for the same "unbounded/location-less would be noise"
-    # reason as portal_search/lifecycle_variant_search above, and India-only
-    # in this pass (not verified against Dubai/UAE locality naming).
-    if has_location and market == "india":
+    # reason as portal_search/lifecycle_variant_search above. Extended to
+    # Dubai after live verification (Places returned 16 real, well-named
+    # Dubai Marina buildings — Marina Vista - Emaar, LIV Marina, Marina
+    # Shores by Emaar, etc. — for a real "residential apartment 2 bedroom
+    # near Dubai Marina" query) — Places' textQuery-based place-name
+    # biasing is not India-specific, it was just never checked against a
+    # Dubai query before this.
+    if has_location:
         plan.append("places_search")
 
     return plan
@@ -110,6 +122,18 @@ _FIELD_QUERY_HINTS = {
     "possession": "possession date",
     "carpet_area": "carpet area sq ft",
     "price": "price per sq ft",
+    # Phase 2.5a — display-only fields (gap_checker.compute_display_gaps,
+    # never CORE_FIELDS/compute_gaps above) that build_field_aware_
+    # targeted_queries had no hint for before: any of these landing in a
+    # gap's missing_fields fell into the known_amenity_gaps branch below
+    # instead, which is the right shape for a real amenity name ("deck")
+    # but produces an awkward literal-field-name query for these
+    # (e.g. "<name> <loc> tower_count").
+    "amenities": "amenities features",
+    "connectivity": "connectivity metro station road access",
+    "nearby_landmarks": "nearby landmarks location",
+    "tower_count": "number of towers",
+    "property_type": "apartment villa property type",
 }
 
 

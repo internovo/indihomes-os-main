@@ -115,12 +115,23 @@ module.exports = { NON_RESIDENTIAL_PLACE_TYPES, isPlacesConfigured, searchPlaces
 //     legitimate discovery result for this text-search use case, same
 //     reasoning as this function's own header comment) — only excluded
 //     when its name/website ALSO matches a known booking platform above.
+// Dubai-specific gap found live (Places-direct extended to Dubai, Part:
+// "make Dubai search work like India"): "La Buena Vida Holiday Homes" and
+// "Ain View Studio (Holiday Rental), JBR, Dubai" both surfaced in a real
+// Dubai Marina search and matched none of the named-platform patterns
+// above (they're not booking.com/Airbnb by name) nor BOOKING_PLACE_TYPES
+// (their Places `types` didn't include vacation_rental_agency/lodging on
+// this real result) — Dubai's holiday-home/serviced-stay market is large
+// enough that a generic phrase match is worth it here, unlike India where
+// the named-platform list above already covers the dominant players.
 const BOOKING_PLATFORM_NAME_RE = /\bbooking\.com\b|\bairbnb(?:\.com|\.in)?\b|\bmakemytrip\b|\boyo(?:\s*rooms?)?\b|\bgoibibo\b|\bcleartrip\b|\byatra\b|\btreebo\b|\bfabhotels?\b|\bagoda\b|\btrivago\b|\bexpedia\b/i
+const HOLIDAY_RENTAL_NAME_RE = /\bholiday\s*home(s)?\b|\bholiday\s*rental\b|\bshort[\s-]?term\s*rental\b|\bserviced\s*apartments?\b|\bvacation\s*rental\b/i
 const BOOKING_PLACE_TYPES = new Set(['lodging', 'hotel', 'travel_agency', 'vacation_rental_agency'])
 function isBookingOrRentalPlatform(p) {
   if ((p.types || []).some(t => BOOKING_PLACE_TYPES.has(t))) return true
   if (BOOKING_PLATFORM_NAME_RE.test(p.name || '')) return true
-  if (p.website && BOOKING_PLATFORM_NAME_RE.test(p.website)) return true
+  if (HOLIDAY_RENTAL_NAME_RE.test(p.name || '')) return true
+  if (p.website && (BOOKING_PLATFORM_NAME_RE.test(p.website) || HOLIDAY_RENTAL_NAME_RE.test(p.website))) return true
   return false
 }
 

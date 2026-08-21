@@ -2018,13 +2018,22 @@ async function enrichOnePlacesResult(name, { locality, city, configuration, mark
       body: JSON.stringify({ name, locality, city, configuration, market }),
       signal: AbortSignal.timeout(PLACES_ENRICH_TIMEOUT_MS),
     })
-    if (!res.ok) return null
+    if (!res.ok) {
+      // Was previously silent — a failed enrichment call for one specific
+      // candidate left zero trace anywhere, making "why didn't X get
+      // enriched" undiagnosable from logs. Real failures reported, same
+      // discipline as every other agent-dependent call in this file.
+      const body = await res.text().catch(() => '')
+      console.warn(`[places-enrich] ${name}: HTTP ${res.status} ${body.slice(0, 200)}`)
+      return null
+    }
     return res.json()
   } catch (e) {
     // Agent unreachable/timed out for this one lookup — degrade exactly
     // like every other agent-dependent route in this file: the result
     // keeps its existing null price / no lifecycle badge, never a hard
     // failure of the whole Places-direct response over one enrichment call.
+    console.warn(`[places-enrich] ${name}: ${e.name}: ${e.message}`)
     return null
   }
 }
@@ -2214,6 +2223,14 @@ app.post('/api/ai-search', async (req, res) => {
         // vs. "candidates found but disqualified" vs. "candidates found and
         // plausible, but unverified" instead of one generic empty state.
         retrieval_metrics: agentResult.retrieval_metrics,
+        // Phase 1d — hoisted to top-level (same convention as
+        // retrieval_metrics above) from research_metadata.llm_degraded so
+        // the UI doesn't have to reach into a nested object to show "this
+        // result used deterministic-only curation, not real LLM curation"
+        // — real key_match/summary/display_name quality dropped for this
+        // response even though the search itself succeeded normally.
+        // Already present, unhoisted, inside research_metadata either way.
+        llm_degraded: agentResult.research_metadata?.llm_degraded ?? false,
         // Dev-only debug trace (Part 27) — present only when the AGENT
         // process itself has AI_SEARCH_DEBUG_TRACE=true set (curator.py's
         // own gate); undefined/omitted here otherwise, so a production
@@ -2242,11 +2259,17 @@ app.post('/api/ai-search', async (req, res) => {
   // can be "rejected as not-new-launch" — this deliberately doesn't
   // attempt that classification; it shows real, existing buildings
   // matching the location + configuration, honestly. Falls through to the
-  // Node fallback below (unchanged) when Places isn't configured, the
-  // market is Dubai (India-gazetteer-tuned for now), or it genuinely
-  // returns nothing — never a hard dependency, same "additive, never make
-  // things worse" discipline as every other integration in this app.
-  if (market === 'india' && placesClient.isPlacesConfigured()) {
+  // Node fallback below (unchanged) when Places isn't configured or it
+  // genuinely returns nothing — never a hard dependency, same "additive,
+  // never make things worse" discipline as every other integration in this
+  // app. Extended to Dubai after live verification (Places returned 16
+  // real, well-named Dubai Marina buildings for a real query) — Places
+  // itself is not India-specific; `filters.locations` below may come back
+  // empty for a Dubai locality not in the (India-focused) gazetteer, in
+  // which case `placesQuery` still carries the raw query text Places'
+  // own text understanding resolves directly, same as it already does for
+  // an India locality this app's own gazetteer doesn't know either.
+  if (placesClient.isPlacesConfigured()) {
     try {
       const filters = queryParser.parseExternalQuery(query, market)
       // Deliberately passes something close to the RAW query text to Places

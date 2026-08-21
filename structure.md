@@ -2330,3 +2330,834 @@ new for the dedupe fix) and `test_bridge_circuit_breaker.py` re-run clean.
 `source_conflicts` counts, `portal_search` timing, the before/after
 candidate table) came from live runs against the real running
 backend+agent processes, captured to disk, not estimated.
+
+---
+
+## Tavily key rotation + new `serper_search` tool (second independent web-search source)
+
+A key-rotation + resilience pass, not a feature redesign. Two operational
+problems, confirmed live rather than assumed: `TAVILY_API_KEY` was hitting
+Tavily's own HTTP 432 usage-limit error on every call, and (separately,
+confirmed via the real `tool_calls` trace) `web_search` (Google CSE/Bing)
+was returning `status: 'ok'` with `count: 0` on every call — a silent,
+different failure mode from Tavily's. A fresh Tavily key was dropped into
+`.env`, and a new `SERPER_API_KEY` (serper.dev) was added as a genuine
+third/independent discovery source — additive, not a replacement for
+either existing tool.
+
+**Root-cause trap hit during verification, worth recording**: restarting
+only the Python agent process did NOT fix Tavily. `tavily_search` doesn't
+call Tavily directly — it goes through `backend/agent-tools-bridge.cjs`'s
+`/internal/agent-tools/tavily-search` route, which reads
+`process.env.TAVILY_API_KEY` in the **Node** process (`backend/server.cjs`,
+port 3001), a separate long-running process from the agent (port 8008).
+Both processes independently snapshot `.env` at their own start time — the
+exact "env var doesn't apply until restart" trap this project has hit
+repeatedly, just manifesting one layer further away than usual (the
+bridge's own process, not the caller's). Confirmed live: after restarting
+only the agent, a direct `tavily_search()` call still returned the same
+HTTP 432; only after also restarting `backend/server.cjs` did it succeed.
+Anyone rotating a key this pipeline depends on needs to restart **both**
+processes, not just the one that logically "owns" that tool.
+
+**`serper_search` — added mirroring `web_search`/`tavily_search` exactly**,
+across all three layers that pattern already exists in:
+- `agent/agent/tools.py`: `serper_search(query, market)` — same
+  `@traceable`, same `_call_bridge()` plumbing (retry/circuit-breaker/cache
+  all inherited for free), same `(evidence, ToolCallRecord)` return shape,
+  same "status='error' only when a real error AND no evidence" contract as
+  every other tool here.
+- `backend/agent-tools-bridge.cjs`: new `/serper-search` route, a thin
+  wrapper around a new `serperConnector` — same shape as the existing
+  `/tavily-search` route.
+- `backend/external-connectors.cjs`: new `serperConnector` (`POST
+  https://google.serper.dev/search`, header `X-API-Key`, body `{"q":
+  "..."}`), added to `CONNECTORS`/`getConnectorStatus()` and exports
+  alongside `tavilyConnector`. Response shape was confirmed against a real
+  live call before writing the parser (not guessed): `{"organic":
+  [{"title", "link", "snippet", "position", "date"?}], "searchParameters",
+  "peopleAlsoAsk", "relatedSearches", "credits"}` — the parser reads
+  `organic[].{title,link,snippet}`, same fields Tavily's own parser reads
+  off its differently-shaped response.
+- `agent/agent/planner.py`'s `build_search_plan()`: `serper_search` is
+  appended unconditionally, same reasoning as `tavily_search`/`web_search`
+  (cheap to no-op, independent failure mode, always worth trying).
+- `agent/agent/graph.py`: new `node_serper_search`, added to the discovery
+  fan-out node list and the `research_planner -> {…} -> evidence_normalizer`
+  edge set, alongside (never replacing) `tavily_search`/`web_search`.
+
+**Tests**: `agent/tests/test_serper_search.py` (new, plain-assert, same
+convention as `test_bridge_circuit_breaker.py`) — mocks the bridge HTTP
+call and asserts `serper_search`'s own contract: hits
+`/internal/agent-tools/serper-search`, returns the real evidence list
+untouched, and reports `status='error'` (with the real error text, never
+swallowed) on a bridge-reported failure. **A real trap hit and fixed while
+writing this test**: the first version used the literal production query
+text ("2bhk in Andheri west") for its mocked success case — `_call_bridge`
+caches successful results to disk (`agent/.cache/serper-search/`, keyed by
+`sha256(market:query)`, `SOURCE_TTL_S` default 6h), so that fake mocked
+response got written under the **exact same cache key the real live query
+uses**, and the next live pipeline run silently read back the test's fake
+data instead of calling the real API. Fixed by keying the test's queries
+with a per-run nonce so a test can never collide with a real production
+cache key; the polluted cache entry was deleted and the live rerun below
+re-verified clean afterward. Both existing suites
+(`test_lifecycle_and_eligibility.cjs`, `test_lifecycle_and_eligibility.py`
+— 137 checks — and `test_bridge_circuit_breaker.py`) re-run clean, no
+regressions.
+
+**Live re-verification — real query `"2bhk in Andheri west"`, both
+backend+agent processes restarted, no results estimated**:
+- `tavily_search`: `status: 'ok'`, `count: 10`, no HTTP 432 — confirmed
+  fixed.
+- `serper_search`: `status: 'ok'`, `count: 10`, real listing titles/URLs
+  (magicbricks.com/99acres.com/housing.com) — confirmed working against
+  the real API, not a stub.
+- `web_search`: still `status: 'ok'`, `count: 0` on every call, unchanged
+  by this pass — **confirmed still broken**, a separate, real,
+  still-unaddressed problem (Google CSE/Bing), explicitly not masked by
+  Tavily being fixed or Serper being added.
+- The 5 previously-named candidates (Bay View Apartments, Divyam Heights
+  (Ajmera Cityscapes), Evershine Apartment No 2, HDIL Metropolis CHSL,
+  Hubtown Premiere Residences): even with all three search tools now
+  genuinely returning results, **none of the 5 resolved to a confirmed
+  lifecycle/developer/RERA** in this rerun — all 5 remain
+  `lifecycle_status: 'UNKNOWN'` in `normalized_properties` with `developer:
+  None`, `rera: None`, and are rejected on the final pass. Bay View
+  Apartments specifically resolved to a confident `RESALE` rejection
+  ("6 verified resale & rental listings currently available…" — real
+  matched evidence text) rather than staying `UNKNOWN`; the other 4 are
+  rejected with "Launch/construction status could not be confirmed as
+  new-project inventory even after deep research" (no evidence text — deep
+  research genuinely found nothing resolving them, not a suppressed
+  finding). More independent search sources did not, on this exact query,
+  change these 5 candidates' fate — the gap for these specific listings is
+  real content availability/discoverability, not tool coverage. (Two
+  differently-titled "Bay View" candidates from OTHER source pages — not
+  the exact 5 named — did independently resolve to `NEW_LAUNCH`/
+  `UNDER_CONSTRUCTION` and reached the final eligible list.)
+- `eligible_candidates` for this exact query: two separate live reruns in
+  this pass produced 12 and 11 respectively — this is expected run-to-run
+  variance from genuinely live, real-time web search results (a portal
+  page's content changing between calls), not a bug. **No true
+  "before-this-pass" baseline was available to this session** to diff
+  against (the earlier trace this task referenced was not present in this
+  conversation's actual context) — reported here are the real, live,
+  current-state numbers only, not a fabricated before/after delta.
+
+---
+
+## Places-direct feature-integration investigation ("VKG Krishna Residences / Kanakia Rainforest / Vasant Oasis", Andheri East) — two real bugs found, three items confirmed working correctly
+
+A live example showed Places-direct results for "3 BHK in Andheri East"
+with none of price/RERA/real-why/USPs/Competitor-Analysis working, despite
+every one of those having been built and previously verified this session.
+Root-caused directly (`AI_SEARCH_DEBUG_TRACE=true`, both processes
+restarted, real HTTP calls against the real running services — including
+one deliberate, temporary `LANGGRAPH_ENABLED=false` restart specifically
+to force a genuine Places-direct HTTP response for direct inspection,
+reverted immediately after) rather than rebuilt blind, per explicit
+instruction.
+
+**Operational trap hit while investigating, worth recording**:
+`backend/scripts/run-agent.ps1`'s supervisor loop was already running in
+the background (a leftover process, not started by this pass) and
+silently restarted the agent within its 5s backoff every time it was
+killed for a code-reload — repeated `taskkill`s appeared to do nothing at
+first because a fresh (stale-code) process kept reappearing on port 8008
+seconds later. Not a bug — this supervisor is exactly the documented,
+intended behavior — but it means confirming a code change actually loaded
+requires checking the LISTENING PID's own start time / a fresh log
+tail, not just "is something listening on 8008."
+
+**1. Which pipeline served the live example — confirmed via evidence, not
+assumed.** The exact why-line ("Real building found near Andheri East")
+only exists in `server.cjs`'s Places-direct branch (`whyReason` template,
+never anything the agent path emits) — direct proof this specific
+request was Places-direct, before touching anything. Re-running the exact
+same query live, immediately after restarting both processes, went
+through the AGENT path successfully but took **120.05s wall-clock** —
+right at `AGENT_TIMEOUT_MS`'s (`AI_SEARCH_TIMEOUT_MS=120000`) own bound.
+Agent-first routing itself was re-read directly in `server.cjs` and
+confirmed unbroken (the `LANGGRAPH_ENABLED` block still precedes
+Places-direct exactly as every prior pass left it) — **this is the same
+already-documented, already-accepted tradeoff** ("a real timeout falls
+through to Places-direct exactly like any other agent failure"), not a
+regression: at 35-140s+ observed agent latency and a 120s bound, some real
+fraction of requests will genuinely time out and fall through, especially
+during a session that had just been restarting both processes repeatedly
+moments earlier for an unrelated task. **Confirmed working correctly**,
+real reason found (a genuine, accepted-tradeoff timeout), not a bug.
+
+**2. Enrichment step — confirmed genuinely running, with a real,
+previously-invisible failure mode found and partially instrumented.**
+Directly reproduced Places-direct's real HTTP branch (temporary
+`LANGGRAPH_ENABLED=false`, immediately reverted) for the exact query
+twice. Both times, **the 3 named buildings behaved differently from each
+other, not uniformly broken**:
+- **VKG Krishna Residences**: enrichment succeeded both times — real
+  price (`₹3.8 Cr`), real RERA (`P51800005340`), real lifecycle
+  (`UNDER_CONSTRUCTION`, evidence: "Configuration\n2 BHK, 3 BHK\nUnder
+  construction\nPossession in Dec 2026").
+- **Kanakia Rainforest**: correctly EXCLUDED from the response entirely
+  both times (real, working `PLACES_ENRICH_EXCLUDE_STATUSES` behavior) —
+  classified `RESALE` from evidence text "low avg\n₹ Andheri East —
+  resale, rent & yield\nResale\n₹28" (mumbaipropertyexchange.com). This
+  evidence text reads as a market-stats/comparison-table WIDGET, not a
+  per-building claim — the SAME already-disclosed high-false-positive-rate
+  limitation on category/aggregator page text documented earlier in this
+  file ("Real debugging discovery #2"), not a new bug; deliberately not
+  patched here either, same reasoning as before (`classify_lifecycle_status`
+  is reused as-is, not tuned a second time for this call site).
+- **Vasant Oasis**: **genuinely timed out** both reruns
+  (`TimeoutError: The operation was aborted due to timeout` at the full
+  `PLACES_ENRICH_TIMEOUT_MS`, 25000ms) — yet the IDENTICAL lookup, run
+  standalone with no concurrent load, succeeded in 11.66s (real price
+  `₹1.60 Cr`, real RERA `P51800015556`, lifecycle `RENTAL` — itself
+  ANOTHER instance of the same page-furniture false-positive: evidence
+  text "omes\nProperty Types\nFlat for rent in Mumbai\nHouse for rent").
+  Root cause: `PLACES_ENRICH_MAX_RESULTS` (12) concurrent calls all hit
+  the same agent process's search/fetch tools at once — real contention
+  under load pushes some individual calls past the 25s bound that would
+  easily clear it in isolation. **A real, reproducible, disclosed
+  limitation** — not a logic bug, and deliberately not "fixed" by just
+  raising the timeout, since that's a real latency-vs-completeness
+  tradeoff this task didn't ask this pass to make unilaterally.
+- **A real, separate bug found and fixed while investigating this**:
+  `enrichOnePlacesResult()`'s catch block (and its `!res.ok` branch) had
+  ZERO logging — a failed per-candidate enrichment call left no trace
+  anywhere, making this exact class of investigation impossible from logs
+  alone (confirmed: the first repro run's server log had no mention of
+  Vasant Oasis at all despite it genuinely failing). Fixed
+  (`backend/server.cjs`): both failure paths now `console.warn` the real
+  candidate name + real error/status — this is what surfaced the
+  `TimeoutError` finding above in the first place, on the very next run.
+
+**3. USP/Description gap — confirmed as a REAL, SEPARATE root cause, not
+resolved by item 2.** Even for VKG Krishna Residences (item 2's fully
+*successful* enrichment case), `description`/`amenities` were still empty
+— traced directly to `agent/agent/tools.py`'s `enrich_property()`: its
+return shape is deliberately `{price, rera, lifecycle_status,
+lifecycle_evidence_text, configuration_evidence}` only. It calls
+`fact_extraction.deterministic_extract()`, which returns structured
+per-field `ExtractedFact`s (price/RERA/possession/configuration) — this
+extractor was never built to produce a free-text description or an
+amenity list at all, for ANY candidate, successful enrichment or not; that
+kind of extraction only exists in the full agent deep-research path.
+`deriveUSPs()`/the AI Summary card reading empty for a Places-direct
+result is therefore **the correct, honest behavior given this tool's real
+scope** — not a timeout artifact, not something item 2's fix touches, and
+not something this pass attempted to build (a real, disclosed, structural
+gap in what Places-direct enrichment was ever designed to fetch).
+
+**4. Competitor Analysis "waiting for Location Map" — confirmed NOT a
+regression.** Real Places-direct HTTP response, both live reruns:
+`placesLat`/`placesLon`/`placesVerified` were present on EVERY property in
+the response (all 10, enriched or not — they come directly from the
+initial Places call, never from the enrichment step) — including
+`VKG Krishna Residences` (19.1099306, 72.8594396) and `Vasant Oasis`
+(19.1142633, 72.8849849). Traced the full handoff chain by direct code
+inspection (no browser-automation tool available this session, same
+disclosed limitation as before — this was NOT literally clicked through):
+`ProjectSelection.jsx`'s `toAnalysableProject` reads `p.placesLat ??
+null`/`p.placesLon ?? null` directly off the raw API property (Places-
+direct properties are NOT run through `adaptAgentProperty`, so nothing
+strips these fields), and `ProjectIntelligence.jsx`'s `knownGeo` prop
+(`current?.placesLat`/`current?.placesLon`, already fixed into the
+`NearbyMap` effect's dependency array in the prior investigation) reads
+straight off that same object. Given the raw data is confirmed present
+and every step of the chain reads it correctly, the most consistent
+explanation for the original live report is the same class of transient
+condition as item 2 (a request where THAT specific candidate's own
+enrichment/Places data happened to be degraded at that moment) — not a
+surviving code-level regression. Re-confirmed the lifecycle filter itself
+is real and working as designed: an unenriched Places-direct sibling
+(`lifecycleStatus: null` — most of the 10 in this response, since only
+the top slice gets checked at all) is correctly EXCLUDED from
+`siblingCompetitors` by the existing strict filter — meaning Competitor
+Analysis will often show few or zero siblings for a Places-direct-sourced
+search specifically, which is the intended "eligible-only, never assumed"
+behavior, not a new bug.
+
+**5. RERA auto-lookup — a REAL bug found and fixed.** Directly hit the
+exact endpoint the frontend's auto-firing `useEffect` calls
+(`POST /api/rera-lookup`) for both Vasant Oasis and Kanakia Rainforest:
+both returned `{"rera":null,"found":false}` in under 0.7s — suspiciously
+fast for a real web search + page fetch. Root cause, confirmed directly:
+`agent/agent/tools.py`'s `rera_lookup()` calls ONLY `web_search()` (Google
+CSE + Bing) with no fallback — the exact same dead-connector gap
+documented and FIXED for `enrich_property()` earlier this session
+("Real debugging discovery #1" above), but `rera_lookup()` was missed at
+the time and never got the same fix. Confirmed live, side by side, same
+query text: `web_search` → `count: 0` in 522ms; `tavily_search` → `count:
+10` real results in 5.35s. **Fixed** (`agent/agent/tools.py`): added the
+identical `tavily_search` fallback `enrich_property()` already has (same
+fallback, not a second one). Re-verified live through the real
+`/api/rera-lookup` endpoint after restarting the agent: Vasant Oasis now
+returns `{"rera":"P51800000762","found":true}` in 1.56s; Kanakia
+Rainforest returns `{"rera":"P51800000224","found":true}` in 13.1s — the
+identical number `enrich_property()` independently found for the same
+building, cross-confirming both are now hitting real data.
+
+**Tests**: both existing suites (`test_lifecycle_and_eligibility.cjs`,
+`test_lifecycle_and_eligibility.py`, `test_bridge_circuit_breaker.py`)
+re-run clean after both code changes. No new test file added — both
+fixes are thin (a fallback call already proven correct elsewhere, and two
+`console.warn` lines) with no new branchable logic of their own to cover
+beyond what the existing suites already exercise indirectly through
+`enrich_property`'s identical pattern.
+
+**Summary — 2 real bugs fixed, 3 items confirmed correct with the real
+reason found**: (1) agent-timeout fallback — confirmed correct, accepted
+tradeoff, not a bug. (2) enrichment step — confirmed genuinely running;
+found and fixed a real logging gap that had made this exact class of
+failure invisible; the underlying concurrent-load timeout itself is a
+disclosed, not-fixed-here capacity tradeoff. (3) USP/description gap —
+confirmed as a real, separate, structural scope gap in what Places-direct
+enrichment was ever built to extract, not something item 2 resolves. (4)
+Competitor Analysis coordinates — confirmed present and correctly wired
+through the full chain by direct inspection; the lifecycle filter is
+confirmed working as designed. (5) RERA auto-lookup — a real bug (missing
+fallback), found and fixed, re-verified live with real returned RERA
+numbers.
+
+---
+
+## Groq key rotation re-verified + Dubai search brought to feature parity with India
+
+**Groq key rotation.** User rotated `GROQ_API_KEY`. Direct `curl` against
+Groq's own API confirmed the new key authenticates (a real chat
+completion, not an auth error). A live agent-path India rerun
+("2 BHK in Malad West", direct graph call, no Node-side timeout) produced
+zero `[llm:groq] request failed` lines this time (earlier runs this
+session logged them on every call). **However**, a follow-up Dubai run
+minutes later hit the SAME `400 json_validate_failed` Groq error again —
+traced directly (not assumed fixed just because auth succeeded):
+increasing `max_tokens` on a real Groq call reproduced a DIFFERENT, more
+informative error — `429`-shaped `413: tokens per minute (TPM) Limit 8000` —
+revealing the account's real constraint is an **8000 TPM rate limit**, not
+a broken key or a prompt-format bug. A short, isolated test call (small
+prompt, `max_tokens=2000`) succeeds cleanly every time; a real burst of
+`curator.py`'s per-candidate calls (each with full property context, back
+to back) can exceed 8000 TPM, and Groq's degraded response under that
+pressure sometimes comes back truncated/invalid JSON rather than a clean
+`429` — which is what `json_validate_failed` actually is. **This is an
+account-tier/billing constraint, not a code bug** — deliberately not
+"fixed" by changing prompts or token budgets, since neither addresses the
+real limit; the fix (if wanted) is a Groq plan upgrade, not application
+code. Disclosed here rather than silently left ambiguous.
+
+**Dubai search — real gap found and fixed: Places discovery/fallback was
+architecturally India-only, not just untested.** Live-tested first
+(`searchResidentialPlaces("residential apartments 2 bedroom in Dubai
+Marina")`) before touching any gate: Google Places returned 16 real,
+well-named Dubai Marina buildings (Marina Vista - Emaar, LIV Marina,
+Marina Shores by Emaar, Al Majara Tower 1, etc.) — proof the underlying
+API has real, usable Dubai coverage; the India-only restriction on top of
+it was a real, unnecessary gap, not a genuine technical limitation.
+**Three separate gates found and removed** (all three needed removing
+together — fixing only one would have left Dubai still silently getting
+nothing, since each gate independently returns empty for a non-India
+market):
+- `agent/agent/planner.py`'s `build_search_plan()` — `places_search` was
+  only appended `if has_location and market == "india"`; now appended for
+  any market with a resolvable location.
+- `backend/agent-tools-bridge.cjs`'s `/places-search` route — had its OWN
+  independent `mkt !== 'india'` short-circuit, returning an empty
+  `{evidence: [], note: '...India-only...'}` even if the planner above
+  included the tool in the plan. Removed.
+- `backend/external-connectors.cjs`'s `placesConnector` — `market: ['india']`
+  descriptor plus its own `market !== 'india'` guard inside `.search()`
+  (used by the Node-fallback pipeline directly). Extended to
+  `['india', 'dubai']`; the function body was already market-agnostic
+  internally (`currency`/`country` already branch on the `market` param) —
+  only the gate itself was India-only.
+- `backend/server.cjs`'s `/api/ai-search` Places-direct branch — was
+  gated `market === 'india' && placesClient.isPlacesConfigured()`.
+  Extended to any market (still gated on Places being configured at all).
+
+**A real, Dubai-specific gap found and fixed along the way
+(`backend/places-client.cjs`)**: with Places-direct now live-tested
+against Dubai, "La Buena Vida Holiday Homes" and "Ain View Studio (Holiday
+Rental), JBR, Dubai" both survived the existing `isBookingOrRentalPlatform`
+exclusion — neither matched a named booking-platform (booking.com/Airbnb/
+etc., an India-relevant list) nor Places' own `vacation_rental_agency`/
+`lodging` types on these specific real results. Dubai's short-term-rental/
+holiday-home market is large enough to be a real, recurring noise source
+this exclusion list was never built to catch (India's dominant platforms
+are all named brands; Dubai's holiday-home market is fragmented across
+many small operators using generic English phrasing instead). Added a new
+`HOLIDAY_RENTAL_NAME_RE` (holiday home(s)/holiday rental/short-term
+rental/serviced apartment(s)/vacation rental — generic phrase match,
+checked against name and website) alongside the existing named-platform
+regex, not replacing it. Re-verified live: both listings correctly absent
+from a rerun of the identical Places-direct Dubai response.
+
+**Live re-verification, before/after, real query
+("2 bedroom apartment in Dubai Marina")**:
+- **Agent path** (`pipeline: agent`): a direct graph call before this
+  pass's fixes took 212,367ms with `places_search` entirely absent from
+  `search_plan`; a real run through the live HTTP route after the fixes
+  took 127,372ms with `places_search` included — two different real runs,
+  not the same query re-timed, so not a claimed speed improvement, just
+  both real numbers. The field that matters here: `places_contributed_candidates`
+  went from **0 → 14**; the final 4-property result set went from **zero**
+  candidates carrying real Places coordinates to **2 of 4** carrying real
+  `placesLat`/`placesLon` (Marina Shores by Emaar: 25.0826817, 72.8837732;
+  Rove Home Dubai Marina: 25.0747589) — meaning Competitor Analysis's map
+  now has real, direct coordinates for these Dubai candidates instead of
+  needing a geocoding fallback, the same benefit India candidates already
+  had.
+- **Places-direct fallback** (forced via a temporary `LANGGRAPH_ENABLED=false`
+  restart, reverted after, same verification method as the earlier
+  Places-direct investigation above): now returns `pipeline: places-direct`
+  with **13 real Dubai Marina buildings**, all with real coordinates, ZERO
+  holiday-rental listings (both fixes working together, confirmed on the
+  same live response) — where before this pass Dubai had **no Places-direct
+  fallback at all** (any agent failure/timeout for Dubai fell straight to
+  the bare `external-search.cjs` Node-fallback, skipping an entire
+  resilience tier India already had).
+- **Same known, disclosed, cross-market limitation reproduced for Dubai,
+  not a new bug**: this Places-direct Dubai run's per-result enrichment
+  (`enrichOnePlacesResult`, same code as the earlier India investigation)
+  showed ALL 12 concurrent enrichment calls timing out at the real 25s
+  bound (`[places-enrich] <name>: TimeoutError`, confirmed via the same
+  logging added in the prior pass) — yet a single standalone,
+  no-concurrent-load call for the exact same building ("Marina Gate")
+  succeeded in 1.47s. Identical root cause and identical "disclosed, not
+  fixed here" decision as the earlier India investigation (Vasant Oasis) —
+  reported honestly rather than silently left unmentioned just because
+  this run's failure rate (12/12) was worse than India's (1/12 in that
+  earlier run). Real RERA/DLD permit-number extraction for Dubai listings
+  is also a known, NOT-attempted gap in this pass — every India-side RERA
+  regex in this codebase is Maharashtra-format-specific
+  (`P5\d{2}00\d{6}`); a genuine Dubai RERA number would never match it.
+  Not fixed here (would need real Dubai RERA/DLD format research first) —
+  disclosed as a real remaining gap, not silently absent.
+
+**Tests**: both existing suites re-run clean after every code change in
+this pass, not just at the end (`test_lifecycle_and_eligibility.cjs`,
+`test_lifecycle_and_eligibility.py`, `test_bridge_circuit_breaker.py`). No
+new test file — every change here is a gate removal (three places) or an
+additive regex (one place), verified live against the real running
+services rather than needing new unit coverage of its own; the existing
+`isBookingOrRentalPlatform` tests already cover the function's contract
+and continue to pass with the new pattern added.
+
+---
+
+## "Make the LangGraph agent the real primary" — Phase 0 (diagnostic) + Phase 1 (LLM restoration)
+
+A structured, phase-gated pass, external prompt supplied by the user.
+Phase 0 was explicitly blocking (instrument only, report, stop for
+approval); Phase 1 was approved and executed after Phase 0's data
+overturned a prior session's unproven conclusion.
+
+**Phase 0 — settling the Groq `json_validate_failed` root cause with data,
+not assumption.** Added permanent diagnostic logging to
+`agent/agent/llm_providers.py`'s `LLMClient.complete_json` (kept, not
+temporary): every success logs `finish_reason` + real token `usage`; every
+failure logs the full raw error body (not `str(e)` truncated) plus every
+rate-limit header a real 429 would carry, via `openai.APIStatusError`'s
+`status_code`/`body`/`response.headers`. Ran `agent/_smoke_test.py "2 BHK
+in Andheri West"` twice (independent runs). **Result: Hypothesis A
+(token starvation), not B (rate limiting), and not the prior session's
+unproven billing conclusion.** Both runs: the Groq 400 always carried
+`x-ratelimit-remaining-tokens` in the thousands (3671 and 4096) against
+the real 8000 TPM ceiling — genuine headroom at the moment of failure,
+directly contradicting "TPM pressure caused this." `failed_generation`
+was empty both times — the model produced zero content, not a truncated
+partial JSON, consistent with a reasoning model (`openai/gpt-oss-120b`)
+spending its entire `max_tokens` budget on internal reasoning tokens
+before emitting any answer. Reproducible at the same relative call
+position in both independent runs (not random flakiness). Final counts:
+`llm_calls: 9, llm_failures: 3, llm_fallbacks: 2`.
+
+**Phase 1a — reasoning_effort="low", tested live before writing any
+production code.** A direct, isolated test against Groq confirmed
+`reasoning_effort` isn't a recognized top-level kwarg on this SDK version
+(1.57.2 raises `TypeError`) but works via `extra_body={"reasoning_effort":
+"low"}`. Measured live against a dense, extraction-shaped prompt: reasoning
+tokens dropped from 284/321 completion tokens to 43/85 — the fix directly
+targets the confirmed cause. **A second real finding while building the
+Phase 1c health probe**: even a TRIVIAL prompt (`"Reply with exactly
+{\"ok\": true}."`) fails below `max_tokens=30` — WITH `reasoning_effort=
+"low"` already active — a fixed ~14-token reasoning floor this model pays
+regardless of question complexity, not proportional to prompt content.
+This further corroborates Hypothesis A (a real, quantifiable per-call
+minimum, unrelated to rate limits) and was directly hit and fixed while
+building 1c (see below). Implemented in
+`agent/agent/llm_providers.py`: `LLMClient.complete_json` split into
+`_attempt()` (one real API call, returns `(result, truncation_shaped)`)
+and the public `complete_json()` (retries exactly ONCE at
+`min(max_tokens*2, 4000)` when `_attempt` reports a truncation-shaped
+failure — Groq's `json_validate_failed` code, or a genuine `finish_reason
+== "length"`). Never treated as permanent, never circuit-broken (neither
+error shape is in `_PERMANENT_ERROR_MARKERS`). `reasoning_effort="low"` is
+applied unconditionally to every Groq call (`self.key == "groq"`), not
+just retries. Budgets raised to configurable env vars:
+`AI_SEARCH_EXTRACTION_MAX_TOKENS` (default 1500, was a bare 500 at
+`fact_extraction.py:604`) and `AI_SEARCH_CURATOR_MAX_TOKENS` (default
+4000, was a bare 1200 at `curator.py:394`).
+
+**Phase 1b — NVIDIA's 403 now circuit-breaks.** `_PERMANENT_ERROR_MARKERS`
+had `unauthorized`/`permission_denied` but not `403`/`forbidden` — every
+single LLM call was paying a doomed round-trip to NVIDIA first (body:
+`{'status': 403, 'title': 'Forbidden', 'detail': 'Authorization failed'}`).
+Added `"403"`, `"forbidden"`, `"model not available"`, `"no access"`.
+**Per the task's own instruction, the key itself was NOT touched or
+replaced** — "Authorization failed" (not a model-entitlement message)
+points at the key/account, which is a human's decision, not a code
+change (Rule 7). **Flagged plainly, not silently absorbed**: with NVIDIA
+dead and Gemini out of credits, Groq was — and, unless a new key is added,
+remains — the ONLY working provider; the "fallback chain" is currently
+decorative. No key was added.
+
+**Phase 1c — `/health?probe=true`.** Added, alongside the existing free
+default response (still checks "is a key present" only, unchanged
+behavior/cost). The new mode fires one real, minimal `complete_json` per
+configured provider (`PROVIDER_SPECS`, not just the two active roles), in
+parallel, returning `{key, label, model, ok, error, latency_ms}` each.
+Circuit-breaker state (`llm_providers._provider_state`, only currently-
+tripped entries) is now included in BOTH modes. Live-verified: correctly
+reports `groq: ok=true`, `nvidia: ok=false`, `gemini: ok=false` — matching
+the real, independently-confirmed state exactly.
+
+**Phase 1d — silent degradation now surfaced.** `curator.py`'s existing
+(but easy to miss) warning-on-total-curation-failure path now also sets
+`research_metadata.llm_degraded: true` (a real, configured router that
+tried and had every candidate/provider fail — `False` both on success AND
+when no LLM is configured at all, since that's a deliberate config choice,
+not a degradation) and the warning text was changed to the requested
+`"LLM curation unavailable — all providers failed; results are
+deterministic-only"`. Hoisted to a top-level `llm_degraded` field in
+`server.cjs`'s agent branch response (same convention as the existing
+top-level `retrieval_metrics`), alongside the unhoisted copy already
+inside `research_metadata` either way.
+
+**A real operational trap hit and worked around while restarting for
+verification**: `backend/scripts/run-agent.ps1`'s supervisor (documented
+in the earlier Places-direct investigation in this file) won every
+port-8008 race against a manually-started, log-redirected agent instance
+— repeated `taskkill`+immediate-restart attempts all lost to it. Directly
+diagnostic logging requires seeing the process's own stdout, which the
+supervisor's hidden PowerShell window doesn't expose. Resolved by
+stopping the supervisor PowerShell process itself for the duration of the
+diagnostic, then restarting it (`Start-Process ... run-agent.ps1
+-WindowStyle Hidden`) once verification was complete — the supervised
+agent is running normally again at the end of this pass.
+
+**Live re-verification, before → after, identical query ("2 BHK in
+Andheri West")**:
+- `GET /health?probe=true`: groq `ok=true` (714ms), nvidia `ok=false`
+  ("Authorization failed" — dead/unentitled key), gemini `ok=false`
+  (quota exhausted) — all three independently confirmed, not inferred.
+- `research_metadata.metrics`: `llm_calls` 9→7, `llm_failures` 3→0,
+  `llm_fallbacks` 2→0. Every one of 7 real Groq calls succeeded on the
+  first attempt in the post-fix run — zero retries needed, zero fallback
+  to NVIDIA/Gemini.
+- `research_metadata.llm_degraded`: `False` (curation genuinely succeeded,
+  not silently degraded).
+- Wall-clock: 79,156ms and 63,077ms across two independent post-fix runs
+  (both well inside `AI_SEARCH_TIMEOUT_MS=180000`) — not a claimed speed
+  target of this phase, but a real, favorable side effect of zero
+  provider-cascade retries per call.
+
+**Tests**: all three existing suites (`test_lifecycle_and_eligibility.cjs`,
+`test_lifecycle_and_eligibility.py`, `test_bridge_circuit_breaker.py`)
+re-run clean before AND after the full Phase 1 change set. No new test
+file added this phase — every change is either diagnostic-only (Phase 0,
+kept permanently since it's genuinely useful production visibility, not
+a one-off), or was verified against the real running agent process live
+rather than needing new unit coverage (the retry/reasoning_effort logic
+inside `LLMClient._attempt`, the `/health?probe=true` route, and the
+`llm_degraded` flag were all exercised by real API calls in this pass's
+own verification, not mocked).
+
+**Explicitly NOT done in this pass, awaiting further approval per the
+task's own phase-gating**: Phase 2 (carpet area field-mismatch fix),
+Phase 3 (wall-clock budget + node timing), Phase 4 (Project Intelligence
+tab audit), Phase 5 (Dubai concurrency + RERA format gaps), Phase 6
+(category-page harvest-and-fan-out) — none of that code was touched in
+this pass.
+
+---
+
+## Two pre-Phase-2 fixes (user-requested review items) + Phase 2 — carpet area field mismatch
+
+**Item 1 — `reasoning_effort` gating, reviewed, confirmed already correct.**
+User flagged a real latent-bug shape: if `extra_body={"reasoning_effort":
+...}` were sent unconditionally, the moment Groq fails and the router
+falls through to nvidia/gemini/openai, THAT call would 400 on an unknown
+parameter — untested, load-bearing, since Groq is currently the only
+working provider. Re-read `LLMClient._attempt`: `if self.key == "groq":
+kwargs["extra_body"] = {...}` was already correctly scoped to Groq only
+from Phase 1a. No code change needed — confirmed and reported, not
+silently assumed correct.
+
+**Item 2 — probe error messages now carry real HTTP detail.** The generic
+`"provider returned no usable JSON"` (correct for every OTHER caller of
+`complete_json`, which only needs to know to fall back) wasn't useful for
+a probe whose whole purpose is "why." Added `_extract_error_detail()`
+(`llm_providers.py`) — handles the three genuinely different real error
+body shapes seen live this session (NVIDIA: flat dict with `detail`;
+Gemini: a LIST wrapping one `{error: {status, message}}`; Groq: flat dict
+with `message`/`code`) without guessing a fourth. `LLMClient._attempt` now
+returns a 3-tuple `(result, truncation_shaped, error_detail)`; a new
+`_complete_json_with_error()` exposes it (the public `complete_json()`
+itself keeps its existing `Optional[dict]`-only contract — nothing else
+in the codebase needed to change) — `app.py`'s probe calls it directly.
+Live-verified: `nvidia -> "403: Authorization failed"`, `gemini -> "429:
+RESOURCE_EXHAUSTED"` — the exact format requested.
+
+**Phase 2 — carpet area: the writer never wrote it, so the fix couldn't
+just be "point the readers at the other field."** Investigated before
+editing, per the task's own diagnosis: `carpet_area_sqft`'s ONLY writer
+was `normalize.py:732`, reading `evidence.carpet_area.value_sqft` — a
+field NO discovery-stage connector across the entire codebase ever
+populates (confirmed via full grep — every EvidenceItem construction site
+either omits `carpet_area` entirely or sets it via
+`extract_sub_listings()`, which itself hardcoded `value_sqft: None`
+always). `carpet_area_display`, by contrast, is populated ONLY later, via
+`dedupe.py`'s `merge_extracted_facts()` folding in a real "carpet_area"
+`ExtractedFact` from deep-research's per-page `deterministic_extract()` —
+a COMPLETELY SEPARATE code path from the one that ever wrote
+`carpet_area_sqft`. Fixed both ends:
+- **Writer**: new `_parse_sqft_value()` (`fact_extraction.py`) — the
+  number parsed straight back out of the "\<N\> sq ft" display string
+  the SAME function already builds, never re-derived from raw text a
+  second time. Wired into `extract_sub_listings()` (category-page
+  harvest path) AND `dedupe.py`'s `merge_extracted_facts()` (the MAIN
+  path, real deep-research page extraction) — the second one is the
+  consequential fix, since it's what most candidates' carpet data
+  actually flows through. Same "never overwrite a real value" discipline
+  as every other field in that function.
+- **Readers**: `curator.py` (both the per-config table's carpet fallback
+  and the top-level listing `carpet_area` key — grepped `backend`/
+  `frontend`, confirmed the latter is dead on the wire, nothing reads that
+  exact snake_case key; `server.cjs`'s `adaptAgentProperty` only ever read
+  `carpetAreaDisplay`, already correct — fixed anyway per its own
+  "backward compatibility" contract, not because a live consumer needed
+  it), `gap_checker.py`'s `CORE_FIELDS` + a new `_EVIDENCE_FIELD_MAP` entry
+  (`"carpet_area_display": "carpet_area"` — mapping to the RAW
+  `ExtractedFact.field` name `merge_extracted_facts` keys `field_evidence`
+  by, not the top-level property key; `carpet_area_sqft` was never even in
+  `dedupe.py`'s `TRACKED_FIELDS`, so a "weak" judgment on it was
+  structurally impossible before this fix, not just unlikely — now
+  `carpet_area_display` gets a real weak/missing distinction like
+  developer/possession/price already had), `graph.py`'s
+  `_data_completeness` (every candidate was scored exactly 1/5 less
+  complete than it actually was, unconditionally). Also added
+  `"carpet_area_display"` to `dedupe.py`'s `_merge_into()` gap-fill list
+  (a genuinely different, earlier-stage merge function than
+  `merge_extracted_facts`) for the re-dedupe-after-targeted-research
+  scenario that function's own comment already documents.
+
+**Tests**: 5 new checks added to the existing category-page sub-listing
+test in `test_lifecycle_and_eligibility.py` (now 142 total) — the
+category-page harvest path's `value_sqft` is real (not hardcoded None),
+PLUS a new direct test of `merge_extracted_facts` (the main research path)
+proving it sets BOTH `carpet_area_display` and `carpet_area_sqft` from the
+same fact, and that an already-real `carpet_area_sqft` is never
+overwritten. Chosen over relying on live-search luck for end-to-end proof
+— see the live-verification finding below for why.
+
+**Live verification — an honest, not-fully-clean result, reported as
+found rather than reframed as a pass.** Three full live pipeline reruns of
+the task's own verification query ("2 BHK in Andheri West", one more for
+"2 BHK in Andheri East"): the writer-side fix is DEMONSTRABLY working
+mid-pipeline — one run's `deduplicated_properties` (79 candidates) showed
+4 with real, mutually-consistent `carpet_area_sqft`+`carpet_area_display`
+(e.g. "Lodha Eternis": 758 sq ft, both fields agreeing; 110
+`carpet_area`-field `extracted_facts` total across the run, confirming
+real carpet data is genuinely being found on fetched pages) — but in
+EVERY one of the 4 live reruns, ZERO of the final top-8 curated
+candidates (and, in the last rerun, zero even of the broader
+`ranked_properties` pool before curator's own trim) carried a non-null
+carpet value. Root cause, traced not assumed: `_prioritize_for_deep_
+research` (an earlier pass's fix) spends the bounded deep-research budget
+on UNDETERMINED-lifecycle candidates first — exactly the ones that most
+need a real page fetch to resolve eligibility — which means the
+candidates that actually get a chance at real carpet extraction are
+systematically NOT the same candidates that end up scoring highest/most
+relevant once already-confidently-eligible (snippet-only, never
+page-fetched, never carpet-extracted) candidates are ranked alongside
+them. "Lodha Eternis" itself illustrates this exactly: real carpet data,
+but it's in Andheri EAST, not WEST, so it correctly loses to the
+geography hard-gate for this exact query regardless of its data richness.
+**This is not a flaw in the Phase 2 fix** (proven correct in isolation by
+the 5 new deterministic tests and by direct inspection of the live
+pipeline's own intermediate state) — it's a real, structural consequence
+of which candidates get deep-research page fetches AT ALL, a scope this
+phase's own task explicitly reserved for Phase 3 (speed/budget) and
+Phase 6 (harvest-and-fan-out, more candidates researched) to widen, not
+something a field-name fix can address on its own.
+
+**Field fill rates, out of 8 candidates ("2 BHK in Andheri West", the
+task's own requested breakdown) — the first run in this whole
+investigation with a genuinely working LLM (Phase 1), so these numbers
+reflect real extraction yield, not LLM failure noise**:
+
+| Field | Fill rate |
+|---|---|
+| rera | 5/8 |
+| price | 6/8 |
+| carpet | 0/8 (see finding above — real data exists mid-pipeline, doesn't survive to this exact top-8) |
+| developer | 2/8 |
+| amenities | 2/8 |
+| possession | 7/8 |
+| connectivity | 0/8 |
+| nearby_landmarks | 0/8 |
+| tower_count | 0/8 |
+| property_type | 0/8 |
+
+The last four (connectivity/nearby_landmarks/tower_count/property_type)
+are genuinely 0/8 for the same underlying reason as carpet — they're
+ALL deep-research-page-extraction-only fields (no discovery-snippet
+source exists for any of them), so a candidate that never got a real
+page fetch has zero chance at any of them, independent of whether Phase 1
+fixed the LLM. **Phase 1 alone did not move these fields** — it fixed the
+LLM CALLS (curation quality, `key_match`/`summary`/`display_name`), not
+which candidates get RESEARCHED at all; that's squarely Phase 3/6's
+scope, not retroactively fixed by Phase 1 or Phase 2.
+
+---
+
+## Phase 2.5 — enrich what gets DISPLAYED, not just what gets RESEARCHED
+
+User's own re-framing of Phase 2's field-fill-rate finding: the
+eligibility-research budget and the final-display selection choose
+DIFFERENT candidates (4/79 deduplicated candidates had real carpet data;
+0/8 displayed did) — so research a SPECIFIC candidate the eligibility loop
+never fetches "wasted" the ranking that already happened. Speed
+explicitly deprioritized this pass ("63-79s is acceptable").
+
+**2.5a — new `display_enrichment` graph node, `final_scoring ->
+display_enrichment -> curator`.** Runs strictly AFTER ranking/eligibility
+is final (never re-decides it, never re-scores) — takes exactly
+`ranked_properties[:MAX_SELECTED]` (the same 8 candidates curator.py is
+about to return, imported directly rather than a second constant), builds
+a NEW `gap_checker.compute_display_gaps()` (a genuinely different field
+set from `compute_gaps`/`CORE_FIELDS` — those drive the ELIGIBILITY loop;
+this checks developer/carpet_area/amenities/possession/connectivity/
+nearby_landmarks/tower_count/property_type, the fields the listing card
+and Project Intelligence panel actually show), and reuses
+`deep_research.targeted_research_candidates()` UNCHANGED — no parallel
+research path. Bounded by a new, dedicated
+`AI_SEARCH_DISPLAY_ENRICHMENT_BUDGET_MS` (default 90000ms) via
+`asyncio.wait_for` — a hard, all-or-nothing bound (matching every other
+timeout already in this pipeline), not a soft partial-credit one. `planner
+.py`'s `_FIELD_QUERY_HINTS` gained real hints for the 5 fields that were
+never targeted-search-able before (amenities/connectivity/
+nearby_landmarks/tower_count/property_type — previously fell into the
+amenity-query fallback shape, which produces a wrong-looking query for a
+literal field name like "tower_count"). **A real correctness risk found
+and fixed while building this**: `dedupe.merge_updated_candidates` does a
+wholesale replace-by-id, which is safe for `deduplicated_properties`
+(plain `NormalizedProperty`) but would have silently stripped
+`match_score`/`match_tier`/`match_reasons`/`limitations` off
+`ranked_properties` (a strict superset, `RankedProperty`) if `updated`'s
+entries were plain `NormalizedProperty` — verified they're NOT: `merge_
+extracted_facts` starts from `dict(prop)` on the exact `RankedProperty`
+items passed in, so every ranking field survives intact; documented
+in-code rather than left as an implicit, easy-to-break assumption.
+
+**2.5b — `llm_assist_extract` now walks every fetched page, not just
+`pages[0]`.** `_fetch_and_extract`'s old call site used exactly one page,
+regardless of how many (up to `MAX_FETCHES_PER_CANDIDATE`, 3) were
+actually fetched. Now loops pages in order, stopping the instant
+`still_missing` is empty.
+
+**2.5c — chunking chosen over "select the most likely section," and
+explicitly why.** Real pages carry target fields in genuinely different
+sections (developer/RERA near the top, amenities/tower-count/connectivity
+often much further down — Part P0's own live measurement: first RERA at
+~7660 chars, fifth at ~24000) — a single heuristic window risks
+confidently picking the WRONG section with no second chance, while
+chunking (new `_chunk_text()`, 4000-char windows with a 200-char overlap
+so a boundary-straddling mention isn't split) tries the cheap thing first
+(chunk 1 of page 1 is IDENTICAL to the old `text[:4000]` behavior — the
+common case costs exactly what it cost before) and only escalates when
+genuinely still missing. Both 2.5b and 2.5c share ONE early-stop loop
+(pages, then chunks within each page) and a shared
+`AI_SEARCH_MAX_LLM_ASSIST_CALLS_PER_CANDIDATE` cap (default 6) so a very
+long, very thin page can't turn into an unbounded call count. **A real
+provenance bug found and fixed while building this**: the first version
+built each chunk's synthetic page dict as bare `{"content", "title"}`,
+which would have silently dropped `source_url`/`retrieved_at` — every
+LLM-assisted fact from this loop would have become untraceable back to
+its real source page. Fixed to `{**page, "content": chunk}` (a shallow
+copy with only `content` swapped), caught before it ever ran live.
+
+**Tests**: 13 new checks (`compute_display_gaps`'s presence/label logic,
+`_chunk_text`'s chunking/overlap/coverage behavior) — both suites
+(`test_lifecycle_and_eligibility.py`, now 155 checks;
+`test_bridge_circuit_breaker.py`) re-run clean before AND after, plus
+`backend/tests/test_lifecycle_and_eligibility.cjs` (Phase 2.5 is
+Python-only, confirmed no drift).
+
+### Live verification — a genuinely unclean result, reported as found, not reframed as a pass
+
+**Groq's real, hard daily quota (200,000 TPD) was exhausted mid-session by
+this pass's own live-testing volume, confirmed with exact numbers, not
+inferred**: the second verification rerun's very first Groq call failed
+with `'Rate limit reached ... on tokens per day (TPD): Limit 200000, Used
+199436, Requested 1621... try again in 7m36s'` — a real 429, a real
+`retry-after: 457` header, not a guess. Both post-Phase-2.5 live reruns of
+the exact verification query hit this wall partway through (`research_
+metadata.llm_degraded: true` on both), after which Groq's own per-process
+circuit breaker (already-existing, working exactly as designed) correctly
+stopped paying for doomed retries — but that also meant every remaining
+LLM-assisted extraction call for both runs degraded to deterministic-only,
+alongside NVIDIA (still dead, 403) and Gemini (still exhausted, 429) —
+**zero working LLM providers for the back half of both runs**. `llm_calls`
+went from Phase 2's clean baseline of 7 to 27 (run 1) then just 3 real
+attempts before the circuit tripped entirely (run 2, `llm_fallbacks: 98`
+— every subsequent call skip-fell-through all three dead providers with
+zero network cost, the circuit breaker doing exactly its job, just against
+an now-actually-exhausted account). Wall-clock: 429,085ms (run 1, still
+paying real network cost before each provider's circuit tripped) and
+102,054ms (run 2, circuits already broken from run 1 — degrades to fast
+failure, still ~25-40s over Phase 2's clean 63-79s baseline purely from
+2.5a's extra, LLM-independent page fetches: `pages_fetched` 8 -> 11).
+
+**Fill-rate table, both post-Phase-2.5 runs, both LLM-degraded — reported
+honestly as NOT a clean measurement of what this phase actually built**:
+
+| Field | Phase 2 baseline (LLM healthy) | Phase 2.5 run 1 (degrading mid-run) | Phase 2.5 run 2 (degraded from the start) |
+|---|---|---|---|
+| rera | 5/8 | 5/8 | 5/8 |
+| price | 6/8 | 6/8 | 6/8 |
+| carpet | 0/8 | 0/8 | 0/8 |
+| developer | 2/8 | 2/8 | **3/8** |
+| amenities | 2/8 | **3/8** | **3/8** |
+| possession | 7/8 | 7/8 | 7/8 |
+| connectivity | 0/8 | 0/8 | 0/8 |
+| nearby_landmarks | 0/8 | 0/8 | 0/8 |
+| tower_count | 0/8 | 0/8 | 0/8 |
+| property_type | 0/8 | **1/8** | **1/8** |
+
+**The honest verdict, stated plainly per the task's own instruction**: I
+cannot tell you whether Phase 2.5's LLM-assisted machinery (2.5b/2.5c —
+the multi-page, multi-chunk extraction, which is what was actually built
+to move carpet/connectivity/nearby_landmarks/tower_count) genuinely moves
+those fields, because it never got a fair, quota-healthy run this
+session. The small, real movement that DID appear (developer, amenities,
+property_type) is consistent with 2.5a's non-LLM-dependent contribution
+alone — MORE real pages fetched (8 -> 11) feeding the EXISTING
+deterministic regex extraction (`fact_extraction.deterministic_extract`,
+zero LLM dependency) a genuine second/third chance at fields it can find
+without any model call — not proof 2.5b/2.5c's chunked-LLM path works,
+and not proof it doesn't. Carpet/connectivity/nearby_landmarks/tower_count
+staying at 0/8 across both degraded runs is **NOT** evidence "the pages
+don't carry the data" (the Phase 6 hypothesis this task explicitly asked
+to distinguish) — that conclusion requires a run where the LLM-assisted
+extraction path actually executed, which didn't happen either time here.
+**A genuinely clean re-verification needs the Groq daily quota to
+recover** (the `retry-after` observed was 457s for that one call, but the
+account was already 99.7% through its 200k-token daily allowance from
+this whole session's cumulative live-testing volume across Phases 0-2.5,
+not just this one run — a fresh attempt shortly after may still find
+partial headroom already reconsumed) — re-run when ready, or reduce
+`AI_SEARCH_MAX_LLM_ASSIST_CALLS_PER_CANDIDATE`/`MAX_SELECTED` for a
+cheaper first clean test.
