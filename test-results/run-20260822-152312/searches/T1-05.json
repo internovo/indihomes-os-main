@@ -1,0 +1,2002 @@
+{
+  "scenario_id": "T1-05",
+  "query": "3 BHK in Malad West with gym and swimming pool",
+  "started_at": "2026-08-22T10:18:34.417Z",
+  "finished_at": "2026-08-22T10:20:50.522Z",
+  "duration_ms": 136104,
+  "http_status": 200,
+  "error": null,
+  "pipeline": "agent",
+  "llm_degraded": false,
+  "warnings": null,
+  "result_count": 0,
+  "properties": [],
+  "field_ledger": null,
+  "rejected": null,
+  "agent_log_excerpt": null,
+  "raw_response_top_level_keys": [
+    "filters",
+    "reportId",
+    "market",
+    "configured",
+    "enabled",
+    "properties",
+    "sources",
+    "warning",
+    "summary",
+    "citations",
+    "research_metadata",
+    "retrieval_metrics",
+    "llm_degraded",
+    "_agent",
+    "pipeline"
+  ],
+  "retrieval_metrics": {
+    "total_candidates": 57,
+    "individual_project_candidates": 28,
+    "aggregator_pages": 29,
+    "resale_candidates": 1,
+    "rental_candidates": 1,
+    "unknown_candidates": 24,
+    "invalid_name_candidates": 0,
+    "eligible_candidates": 2,
+    "rejected_candidates": 57,
+    "places_configured": true,
+    "places_contributed_candidates": 20
+  },
+  "research_metadata": {
+    "sources_used": [
+      "apify_search",
+      "bridge_preflight",
+      "fetch_page",
+      "places_search",
+      "places_verify",
+      "portal_search",
+      "serper_search",
+      "tavily_search"
+    ],
+    "tool_calls": [
+      {
+        "tool": "bridge_preflight",
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 0,
+        "error": null
+      },
+      {
+        "tool": "apify_search",
+        "args": {
+          "query": "3 BHK in Malad West with gym and swimming pool",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 30807,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "developer_search",
+        "args": {
+          "query": "3 BHK in Malad West with gym and swimming pool",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 1816,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "tavily_search",
+        "args": {
+          "query": "3 BHK in Malad West with gym and swimming pool under construction OR new launch OR near possession",
+          "market": "india",
+          "depth": "basic"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 5800,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_search",
+        "args": {
+          "query": "3 BHK in Malad West with gym and swimming pool",
+          "market": "india",
+          "locations": [
+            "Malad West"
+          ],
+          "configuration": "3 BHK"
+        },
+        "status": "ok",
+        "count": 20,
+        "duration_ms": 1585,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "portal_search",
+        "args": {
+          "query": "3 BHK in Malad West with gym and swimming pool",
+          "market": "india",
+          "locations": [
+            "Malad West"
+          ],
+          "configuration": "3 BHK",
+          "budgetMax": null
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 1838,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "serper_search",
+        "args": {
+          "query": "3 BHK in Malad West with gym and swimming pool",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 1963,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "tavily_search",
+        "args": {
+          "query": "3 BHK in Malad West with gym and swimming pool",
+          "market": "india",
+          "depth": "basic"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 7764,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "web_search",
+        "args": {
+          "query": "3 BHK in Malad West with gym and swimming pool",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 2433,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.99acres.com/lodha-raj-infinia-evershine-nagar-mumbai-andheri-dahisar-npxid-r9176",
+          "candidate": "Lodha Raj Infinia Evershine Nagar, Malad West",
+          "candidate_id": "lodharajinfiniaevershinenagarmaladwest::evershinenagarmaladwest"
+        },
+        "status": "error",
+        "count": 0,
+        "duration_ms": 1070,
+        "error": "Unsupported content-type: application/json",
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.99acres.com/3-bhk-flats-for-resale-in-lodha-raj-infinia-evershine-nagar-mumbai-andheri-dahisar-17828-npffid",
+          "candidate": "Lodha Raj Infinia Evershine Nagar, Malad West",
+          "candidate_id": "lodharajinfiniaevershinenagarmaladwest::evershinenagarmaladwest"
+        },
+        "status": "error",
+        "count": 0,
+        "duration_ms": 858,
+        "error": "Unsupported content-type: application/json",
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Lodha Raj Infinia Evershine Nagar, Malad West",
+          "locality": "Evershine Nagar, Malad West",
+          "city": "Mumbai"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 628,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.99acres.com/gurukrupa-marina-enclave-malad-west-mumbai-andheri-dahisar-npxid-r46570",
+          "candidate": "Gurukrupa Marina Enclave",
+          "candidate_id": "gurukrupamarinaenclave::maladwest"
+        },
+        "status": "error",
+        "count": 0,
+        "duration_ms": 813,
+        "error": "Unsupported content-type: application/json",
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.magicbricks.com/3-bhk-flats-in-malad-west-mumbai-under-3-crore-pppfs",
+          "candidate": "Embassy Marquis Residences",
+          "candidate_id": "embassymarquisresidences::embassymarquisresidences"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 3304,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Embassy Marquis Residences",
+          "locality": "Embassy Marquis Residences",
+          "city": null
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 521,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Mahindra Marina64",
+          "locality": "Mahindra",
+          "city": null
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 2319,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.magicbricks.com/3-bhk-flats-in-malad-west-mumbai-for-sale-pppfs",
+          "candidate": "Polo Matrix",
+          "candidate_id": "polomatrix::polomatrix"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 969,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Polo Matrix",
+          "locality": "Polo Matrix",
+          "city": null
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 861,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "The Yukti Anchorpoint Aviara",
+          "locality": "The Yukti Anchorpoint, Aviara",
+          "city": null
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 1267,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "web_search",
+        "args": {
+          "query": "Lodha Raj Infinia Evershine Nagar, Malad West Evershine Nagar, Malad West under construction new launch possession status RERA",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 1039,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "tavily_search",
+        "args": {
+          "query": "Lodha Raj Infinia Evershine Nagar, Malad West Evershine Nagar, Malad West under construction new launch possession status RERA",
+          "market": "india",
+          "depth": "advanced"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 5733,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "web_search",
+        "args": {
+          "query": "Lodha Raj Infinia Evershine Nagar, Malad West Evershine Nagar, Malad West developer builder",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 689,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "tavily_search",
+        "args": {
+          "query": "Lodha Raj Infinia Evershine Nagar, Malad West Evershine Nagar, Malad West developer builder",
+          "market": "india",
+          "depth": "advanced"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 6238,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "web_search",
+        "args": {
+          "query": "Lodha Raj Infinia Evershine Nagar, Malad West Evershine Nagar, Malad West RERA number registration",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 762,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "tavily_search",
+        "args": {
+          "query": "Lodha Raj Infinia Evershine Nagar, Malad West Evershine Nagar, Malad West RERA number registration",
+          "market": "india",
+          "depth": "advanced"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 4791,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "web_search",
+        "args": {
+          "query": "Lodha Raj Infinia Evershine Nagar, Malad West Evershine Nagar, Malad West carpet area sq ft",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 718,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "tavily_search",
+        "args": {
+          "query": "Lodha Raj Infinia Evershine Nagar, Malad West Evershine Nagar, Malad West carpet area sq ft",
+          "market": "india",
+          "depth": "advanced"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 5172,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "web_search",
+        "args": {
+          "query": "Lodha Raj Infinia Evershine Nagar, Malad West Evershine Nagar, Malad West confirm configuration",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 807,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "tavily_search",
+        "args": {
+          "query": "Lodha Raj Infinia Evershine Nagar, Malad West Evershine Nagar, Malad West confirm configuration",
+          "market": "india",
+          "depth": "advanced"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 4129,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.ghar.tv/property/new-projects-in-evershine-nagar-malad-west-mumbai/1-21-116-640.html",
+          "candidate": "Lodha Raj Infinia Evershine Nagar, Malad West",
+          "candidate_id": "lodharajinfiniaevershinenagarmaladwest::evershinenagarmaladwest"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 1814,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.99acres.com/lodha-raj-infinia-evershine-nagar-mumbai-andheri-dahisar-npxid-r9176",
+          "candidate": "Lodha Raj Infinia Evershine Nagar, Malad West",
+          "candidate_id": "lodharajinfiniaevershinenagarmaladwest::evershinenagarmaladwest"
+        },
+        "status": "error",
+        "count": 0,
+        "duration_ms": 728,
+        "error": "Unsupported content-type: application/json",
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.rezide.in/project/669e345b28af987dbd67e4bd",
+          "candidate": "Lodha Raj Infinia Evershine Nagar, Malad West",
+          "candidate_id": "lodharajinfiniaevershinenagarmaladwest::evershinenagarmaladwest"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 2776,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.99acres.com/lodha-raj-infinia-evershine-nagar-mumbai-andheri-dahisar-npxid-r9176",
+          "candidate": "Just a moment...",
+          "candidate_id": "justamoment::evershinenagarmaladwest"
+        },
+        "status": "error",
+        "count": 0,
+        "duration_ms": 1861,
+        "error": "Unsupported content-type: application/json",
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.99acres.com/3-bhk-flats-for-resale-in-lodha-raj-infinia-evershine-nagar-mumbai-andheri-dahisar-17828-npffid",
+          "candidate": "Just a moment...",
+          "candidate_id": "justamoment::evershinenagarmaladwest"
+        },
+        "status": "error",
+        "count": 0,
+        "duration_ms": 1543,
+        "error": "Unsupported content-type: application/json",
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Just a moment...",
+          "locality": "Evershine Nagar, Malad West",
+          "city": "Mumbai"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 1621,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.magicbricks.com/raj-infinia-malad-west-mumbai-pdpid-4d4235303139313930",
+          "candidate": "Raj Infinia",
+          "candidate_id": "rajinfinia::evershinenagarmaladwest"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 4032,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Raj Infinia",
+          "locality": "Evershine Nagar, Malad West",
+          "city": "Mumbai"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 849,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.99acres.com/gurukrupa-marina-enclave-malad-west-mumbai-andheri-dahisar-npxid-r46570",
+          "candidate": "Gurukrupa Marina Enclave",
+          "candidate_id": "gurukrupamarinaenclave::maladwest"
+        },
+        "status": "error",
+        "count": 0,
+        "duration_ms": 663,
+        "error": "Unsupported content-type: application/json",
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.99acres.com/under-construction-projects-in-evershine-nagar-mumbai-andheri-dahisar-ffid",
+          "candidate": "Stans Arize",
+          "candidate_id": "stansarize::stansarize"
+        },
+        "status": "error",
+        "count": 0,
+        "duration_ms": 732,
+        "error": "Unsupported content-type: application/json",
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Stans Arize",
+          "locality": "Stans Arize",
+          "city": null
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 924,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Embassy Marquis Residences",
+          "locality": "Embassy Marquis Residences",
+          "city": null
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 948,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Marol Phase",
+          "locality": "Marol",
+          "city": "Mumbai"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 1646,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.jllhomes.co.in/apartments-new/mumbai/lodha-raj-infinia",
+          "candidate": "Lodha Raj Infinia",
+          "candidate_id": "lodharajinfinia::lodharajinfiniamumbaiapartments"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 2021,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.99acres.com/4-bhk-flats-for-resale-in-lodha-raj-infinia-evershine-nagar-mumbai-andheri-dahisar-17828-npffid",
+          "candidate": "Lodha Raj Infinia",
+          "candidate_id": "lodharajinfinia::lodharajinfiniamumbaiapartments"
+        },
+        "status": "error",
+        "count": 0,
+        "duration_ms": 1445,
+        "error": "Unsupported content-type: application/json",
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.magicbricks.com/project-raj-infinia-for-sale-in-mumbai-pppfs",
+          "candidate": "Lodha Raj Infinia",
+          "candidate_id": "lodharajinfinia::lodharajinfiniamumbaiapartments"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 1660,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Lodha Raj Infinia",
+          "locality": "Lodha Raj Infinia, Mumbai Apartments",
+          "city": null
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 932,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Stay Project",
+          "locality": "Stay Project",
+          "city": null
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 1362,
+        "error": null,
+        "cache_hit": false
+      }
+    ],
+    "retrieved_at": "2026-08-22T10:20:50.494574+00:00",
+    "research_iterations": 1,
+    "llm_curator_used": null,
+    "metrics": {
+      "total_searches": 47,
+      "successful_searches": 38,
+      "failed_searches": 9,
+      "cache_hits": 0,
+      "candidate_count": 0,
+      "verified_candidate_count": 0,
+      "pages_fetched": 7,
+      "facts_extracted": 327,
+      "research_iterations": 1,
+      "sources_used": [
+        "apify_search",
+        "bridge_preflight",
+        "fetch_page",
+        "places_search",
+        "places_verify",
+        "portal_search",
+        "serper_search",
+        "tavily_search"
+      ],
+      "source_conflicts": 8,
+      "missing_field_count": 70,
+      "bridge_unavailable": false,
+      "llm_calls": 14,
+      "llm_failures": 0,
+      "llm_fallbacks": 0
+    },
+    "limits": {
+      "max_research_iterations": 2,
+      "max_candidates_for_deep_research": 3,
+      "max_fetches_per_candidate": 3,
+      "max_targeted_searches_per_iteration": 5
+    },
+    "research_gaps": [
+      {
+        "candidate": "Just a moment...",
+        "missing_fields": [
+          "lifecycle",
+          "rera",
+          "carpet_area"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": [
+          "price_display",
+          "configuration",
+          "possession_display"
+        ]
+      },
+      {
+        "candidate": "Raj Infinia",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "rera",
+          "carpet_area",
+          "swimming pool",
+          "gym"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": [
+          "price_display",
+          "configuration",
+          "possession_display",
+          "location"
+        ]
+      },
+      {
+        "candidate": "Gurukrupa Marina Enclave",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "rera",
+          "possession",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Stans Arize",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "carpet_area",
+          "price",
+          "swimming pool",
+          "gym"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Mahindra Marina64",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "possession",
+          "carpet_area",
+          "swimming pool",
+          "gym"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Embassy Marquis Residences",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "possession",
+          "carpet_area",
+          "swimming pool",
+          "gym"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "The Yukti Anchorpoint Aviara",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "possession",
+          "carpet_area",
+          "swimming pool",
+          "gym"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Marol Phase",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "possession",
+          "carpet_area",
+          "price",
+          "swimming pool",
+          "gym"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Lodha Raj Infinia",
+        "missing_fields": [
+          "developer",
+          "carpet_area",
+          "swimming pool",
+          "gym"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": [
+          "location",
+          "configuration",
+          "price_display"
+        ]
+      },
+      {
+        "candidate": "Stay Project",
+        "missing_fields": [
+          "developer",
+          "carpet_area",
+          "swimming pool",
+          "gym"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Rock Highland By Origin Corp",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "rera",
+          "possession",
+          "carpet_area",
+          "price",
+          "swimming pool",
+          "gym"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "ACME Enclave",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "rera",
+          "possession",
+          "carpet_area",
+          "price",
+          "swimming pool",
+          "gym"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      }
+    ],
+    "verification_results": [
+      {
+        "candidate": "BHK Flats for Rent in Jankalyan Nagar, Malad West",
+        "conflicts": {
+          "possession_display": [
+            "Ready to Move",
+            "sep 2026"
+          ],
+          "location": [
+            "Evershine Nagar, Malad West",
+            "Malad West"
+          ]
+        },
+        "corroborated_fields": []
+      },
+      {
+        "candidate": "Just a moment...",
+        "conflicts": {
+          "price_display": [
+            "₹2,72,00,000",
+            "₹2,89,00,000",
+            "₹3,55,00,000"
+          ],
+          "configuration": [
+            "['2 BHK', '3 BHK']",
+            "['2 BHK']"
+          ],
+          "possession_display": [
+            "2025",
+            "Ready to Move"
+          ]
+        },
+        "corroborated_fields": []
+      },
+      {
+        "candidate": "New Projects in Evershine Nagar, Malad West, Mumbai",
+        "conflicts": {
+          "possession_display": [
+            "Jun 2028",
+            "Ready to Move"
+          ],
+          "price_display": [
+            "₹1,28,00,000",
+            "₹1,66,00,000",
+            "₹3,40,00,000"
+          ]
+        },
+        "corroborated_fields": []
+      },
+      {
+        "candidate": "Raj Infinia",
+        "conflicts": {
+          "price_display": [
+            "₹1,21,00,000",
+            "₹1,75,00,000",
+            "₹3,29,00,000",
+            "₹4,92,00,000"
+          ],
+          "configuration": [
+            "['2 BHK', '3 BHK']",
+            "['4 BHK']"
+          ],
+          "possession_display": [
+            "2024",
+            "Ready to Move"
+          ],
+          "location": [
+            "Evershine Nagar, Malad West",
+            "Malad West"
+          ]
+        },
+        "corroborated_fields": []
+      },
+      {
+        "candidate": "Modispaces Montreal Evershine Nagar, Malad West",
+        "conflicts": {
+          "price_display": [
+            "₹1,98,00,000",
+            "₹2,66,00,000"
+          ]
+        },
+        "corroborated_fields": []
+      },
+      {
+        "candidate": "Lodha Raj Infinia",
+        "conflicts": {
+          "location": [
+            "Lodha Raj Infinia",
+            "Lodha Raj Infinia, Mumbai Apartments",
+            "Lodha Raj Infinia, Mumbai Apartments, JLL Homes",
+            "Raj Infinia"
+          ],
+          "configuration": [
+            "['2 BHK', '3 BHK']",
+            "['3 BHK']",
+            "['4 BHK']",
+            "['5 BHK']"
+          ],
+          "price_display": [
+            "₹1,66,00,000",
+            "₹2.77 Cr"
+          ]
+        },
+        "corroborated_fields": []
+      },
+      {
+        "candidate": "BHK Resale Flats in Lodha Raj Infinia, Evershine Nagar ...",
+        "conflicts": {
+          "configuration": [
+            "['3 BHK']",
+            "['4 BHK']"
+          ],
+          "location": [
+            "Evershine Nagar",
+            "Evershine Nagar, Malad West"
+          ]
+        },
+        "corroborated_fields": []
+      },
+      {
+        "candidate": "BHK Flats for resale in Lodha Raj Infinia, Evershine ...",
+        "conflicts": {
+          "configuration": [
+            "['2 BHK']",
+            "['3 BHK']",
+            "['5 BHK']"
+          ]
+        },
+        "corroborated_fields": []
+      }
+    ],
+    "duration_ms": 136068,
+    "agent_version": "2.0.0"
+  },
+  "summary": "No verified new residential projects found. 57 candidates were reviewed. 29 were portal category/search-results pages, not individual projects, 2 were resale/rental listings, and 24 had a lifecycle stage that couldn't be confidently verified. Google Places was also checked (20 additional candidates found, none eligible). Try a broader location or fewer requirements.",
+  "raw_response_full": {
+    "filters": {},
+    "reportId": "1787394050513_77nj8ie",
+    "market": "india",
+    "configured": true,
+    "enabled": true,
+    "properties": [],
+    "sources": [],
+    "warning": null,
+    "summary": "No verified new residential projects found. 57 candidates were reviewed. 29 were portal category/search-results pages, not individual projects, 2 were resale/rental listings, and 24 had a lifecycle stage that couldn't be confidently verified. Google Places was also checked (20 additional candidates found, none eligible). Try a broader location or fewer requirements.",
+    "citations": [],
+    "research_metadata": {
+      "sources_used": [
+        "apify_search",
+        "bridge_preflight",
+        "fetch_page",
+        "places_search",
+        "places_verify",
+        "portal_search",
+        "serper_search",
+        "tavily_search"
+      ],
+      "tool_calls": [
+        {
+          "tool": "bridge_preflight",
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 0,
+          "error": null
+        },
+        {
+          "tool": "apify_search",
+          "args": {
+            "query": "3 BHK in Malad West with gym and swimming pool",
+            "market": "india"
+          },
+          "status": "ok",
+          "count": 10,
+          "duration_ms": 30807,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "developer_search",
+          "args": {
+            "query": "3 BHK in Malad West with gym and swimming pool",
+            "market": "india"
+          },
+          "status": "ok",
+          "count": 0,
+          "duration_ms": 1816,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "tavily_search",
+          "args": {
+            "query": "3 BHK in Malad West with gym and swimming pool under construction OR new launch OR near possession",
+            "market": "india",
+            "depth": "basic"
+          },
+          "status": "ok",
+          "count": 10,
+          "duration_ms": 5800,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "places_search",
+          "args": {
+            "query": "3 BHK in Malad West with gym and swimming pool",
+            "market": "india",
+            "locations": [
+              "Malad West"
+            ],
+            "configuration": "3 BHK"
+          },
+          "status": "ok",
+          "count": 20,
+          "duration_ms": 1585,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "portal_search",
+          "args": {
+            "query": "3 BHK in Malad West with gym and swimming pool",
+            "market": "india",
+            "locations": [
+              "Malad West"
+            ],
+            "configuration": "3 BHK",
+            "budgetMax": null
+          },
+          "status": "ok",
+          "count": 10,
+          "duration_ms": 1838,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "serper_search",
+          "args": {
+            "query": "3 BHK in Malad West with gym and swimming pool",
+            "market": "india"
+          },
+          "status": "ok",
+          "count": 10,
+          "duration_ms": 1963,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "tavily_search",
+          "args": {
+            "query": "3 BHK in Malad West with gym and swimming pool",
+            "market": "india",
+            "depth": "basic"
+          },
+          "status": "ok",
+          "count": 10,
+          "duration_ms": 7764,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "web_search",
+          "args": {
+            "query": "3 BHK in Malad West with gym and swimming pool",
+            "market": "india"
+          },
+          "status": "ok",
+          "count": 0,
+          "duration_ms": 2433,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "fetch_page",
+          "args": {
+            "url": "https://www.99acres.com/lodha-raj-infinia-evershine-nagar-mumbai-andheri-dahisar-npxid-r9176",
+            "candidate": "Lodha Raj Infinia Evershine Nagar, Malad West",
+            "candidate_id": "lodharajinfiniaevershinenagarmaladwest::evershinenagarmaladwest"
+          },
+          "status": "error",
+          "count": 0,
+          "duration_ms": 1070,
+          "error": "Unsupported content-type: application/json",
+          "cache_hit": false
+        },
+        {
+          "tool": "fetch_page",
+          "args": {
+            "url": "https://www.99acres.com/3-bhk-flats-for-resale-in-lodha-raj-infinia-evershine-nagar-mumbai-andheri-dahisar-17828-npffid",
+            "candidate": "Lodha Raj Infinia Evershine Nagar, Malad West",
+            "candidate_id": "lodharajinfiniaevershinenagarmaladwest::evershinenagarmaladwest"
+          },
+          "status": "error",
+          "count": 0,
+          "duration_ms": 858,
+          "error": "Unsupported content-type: application/json",
+          "cache_hit": false
+        },
+        {
+          "tool": "places_verify",
+          "args": {
+            "name": "Lodha Raj Infinia Evershine Nagar, Malad West",
+            "locality": "Evershine Nagar, Malad West",
+            "city": "Mumbai"
+          },
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 628,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "fetch_page",
+          "args": {
+            "url": "https://www.99acres.com/gurukrupa-marina-enclave-malad-west-mumbai-andheri-dahisar-npxid-r46570",
+            "candidate": "Gurukrupa Marina Enclave",
+            "candidate_id": "gurukrupamarinaenclave::maladwest"
+          },
+          "status": "error",
+          "count": 0,
+          "duration_ms": 813,
+          "error": "Unsupported content-type: application/json",
+          "cache_hit": false
+        },
+        {
+          "tool": "fetch_page",
+          "args": {
+            "url": "https://www.magicbricks.com/3-bhk-flats-in-malad-west-mumbai-under-3-crore-pppfs",
+            "candidate": "Embassy Marquis Residences",
+            "candidate_id": "embassymarquisresidences::embassymarquisresidences"
+          },
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 3304,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "places_verify",
+          "args": {
+            "name": "Embassy Marquis Residences",
+            "locality": "Embassy Marquis Residences",
+            "city": null
+          },
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 521,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "places_verify",
+          "args": {
+            "name": "Mahindra Marina64",
+            "locality": "Mahindra",
+            "city": null
+          },
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 2319,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "fetch_page",
+          "args": {
+            "url": "https://www.magicbricks.com/3-bhk-flats-in-malad-west-mumbai-for-sale-pppfs",
+            "candidate": "Polo Matrix",
+            "candidate_id": "polomatrix::polomatrix"
+          },
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 969,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "places_verify",
+          "args": {
+            "name": "Polo Matrix",
+            "locality": "Polo Matrix",
+            "city": null
+          },
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 861,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "places_verify",
+          "args": {
+            "name": "The Yukti Anchorpoint Aviara",
+            "locality": "The Yukti Anchorpoint, Aviara",
+            "city": null
+          },
+          "status": "ok",
+          "count": 0,
+          "duration_ms": 1267,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "web_search",
+          "args": {
+            "query": "Lodha Raj Infinia Evershine Nagar, Malad West Evershine Nagar, Malad West under construction new launch possession status RERA",
+            "market": "india"
+          },
+          "status": "ok",
+          "count": 0,
+          "duration_ms": 1039,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "tavily_search",
+          "args": {
+            "query": "Lodha Raj Infinia Evershine Nagar, Malad West Evershine Nagar, Malad West under construction new launch possession status RERA",
+            "market": "india",
+            "depth": "advanced"
+          },
+          "status": "ok",
+          "count": 10,
+          "duration_ms": 5733,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "web_search",
+          "args": {
+            "query": "Lodha Raj Infinia Evershine Nagar, Malad West Evershine Nagar, Malad West developer builder",
+            "market": "india"
+          },
+          "status": "ok",
+          "count": 0,
+          "duration_ms": 689,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "tavily_search",
+          "args": {
+            "query": "Lodha Raj Infinia Evershine Nagar, Malad West Evershine Nagar, Malad West developer builder",
+            "market": "india",
+            "depth": "advanced"
+          },
+          "status": "ok",
+          "count": 10,
+          "duration_ms": 6238,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "web_search",
+          "args": {
+            "query": "Lodha Raj Infinia Evershine Nagar, Malad West Evershine Nagar, Malad West RERA number registration",
+            "market": "india"
+          },
+          "status": "ok",
+          "count": 0,
+          "duration_ms": 762,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "tavily_search",
+          "args": {
+            "query": "Lodha Raj Infinia Evershine Nagar, Malad West Evershine Nagar, Malad West RERA number registration",
+            "market": "india",
+            "depth": "advanced"
+          },
+          "status": "ok",
+          "count": 10,
+          "duration_ms": 4791,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "web_search",
+          "args": {
+            "query": "Lodha Raj Infinia Evershine Nagar, Malad West Evershine Nagar, Malad West carpet area sq ft",
+            "market": "india"
+          },
+          "status": "ok",
+          "count": 0,
+          "duration_ms": 718,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "tavily_search",
+          "args": {
+            "query": "Lodha Raj Infinia Evershine Nagar, Malad West Evershine Nagar, Malad West carpet area sq ft",
+            "market": "india",
+            "depth": "advanced"
+          },
+          "status": "ok",
+          "count": 10,
+          "duration_ms": 5172,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "web_search",
+          "args": {
+            "query": "Lodha Raj Infinia Evershine Nagar, Malad West Evershine Nagar, Malad West confirm configuration",
+            "market": "india"
+          },
+          "status": "ok",
+          "count": 0,
+          "duration_ms": 807,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "tavily_search",
+          "args": {
+            "query": "Lodha Raj Infinia Evershine Nagar, Malad West Evershine Nagar, Malad West confirm configuration",
+            "market": "india",
+            "depth": "advanced"
+          },
+          "status": "ok",
+          "count": 10,
+          "duration_ms": 4129,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "fetch_page",
+          "args": {
+            "url": "https://www.ghar.tv/property/new-projects-in-evershine-nagar-malad-west-mumbai/1-21-116-640.html",
+            "candidate": "Lodha Raj Infinia Evershine Nagar, Malad West",
+            "candidate_id": "lodharajinfiniaevershinenagarmaladwest::evershinenagarmaladwest"
+          },
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 1814,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "fetch_page",
+          "args": {
+            "url": "https://www.99acres.com/lodha-raj-infinia-evershine-nagar-mumbai-andheri-dahisar-npxid-r9176",
+            "candidate": "Lodha Raj Infinia Evershine Nagar, Malad West",
+            "candidate_id": "lodharajinfiniaevershinenagarmaladwest::evershinenagarmaladwest"
+          },
+          "status": "error",
+          "count": 0,
+          "duration_ms": 728,
+          "error": "Unsupported content-type: application/json",
+          "cache_hit": false
+        },
+        {
+          "tool": "fetch_page",
+          "args": {
+            "url": "https://www.rezide.in/project/669e345b28af987dbd67e4bd",
+            "candidate": "Lodha Raj Infinia Evershine Nagar, Malad West",
+            "candidate_id": "lodharajinfiniaevershinenagarmaladwest::evershinenagarmaladwest"
+          },
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 2776,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "fetch_page",
+          "args": {
+            "url": "https://www.99acres.com/lodha-raj-infinia-evershine-nagar-mumbai-andheri-dahisar-npxid-r9176",
+            "candidate": "Just a moment...",
+            "candidate_id": "justamoment::evershinenagarmaladwest"
+          },
+          "status": "error",
+          "count": 0,
+          "duration_ms": 1861,
+          "error": "Unsupported content-type: application/json",
+          "cache_hit": false
+        },
+        {
+          "tool": "fetch_page",
+          "args": {
+            "url": "https://www.99acres.com/3-bhk-flats-for-resale-in-lodha-raj-infinia-evershine-nagar-mumbai-andheri-dahisar-17828-npffid",
+            "candidate": "Just a moment...",
+            "candidate_id": "justamoment::evershinenagarmaladwest"
+          },
+          "status": "error",
+          "count": 0,
+          "duration_ms": 1543,
+          "error": "Unsupported content-type: application/json",
+          "cache_hit": false
+        },
+        {
+          "tool": "places_verify",
+          "args": {
+            "name": "Just a moment...",
+            "locality": "Evershine Nagar, Malad West",
+            "city": "Mumbai"
+          },
+          "status": "ok",
+          "count": 0,
+          "duration_ms": 1621,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "fetch_page",
+          "args": {
+            "url": "https://www.magicbricks.com/raj-infinia-malad-west-mumbai-pdpid-4d4235303139313930",
+            "candidate": "Raj Infinia",
+            "candidate_id": "rajinfinia::evershinenagarmaladwest"
+          },
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 4032,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "places_verify",
+          "args": {
+            "name": "Raj Infinia",
+            "locality": "Evershine Nagar, Malad West",
+            "city": "Mumbai"
+          },
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 849,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "fetch_page",
+          "args": {
+            "url": "https://www.99acres.com/gurukrupa-marina-enclave-malad-west-mumbai-andheri-dahisar-npxid-r46570",
+            "candidate": "Gurukrupa Marina Enclave",
+            "candidate_id": "gurukrupamarinaenclave::maladwest"
+          },
+          "status": "error",
+          "count": 0,
+          "duration_ms": 663,
+          "error": "Unsupported content-type: application/json",
+          "cache_hit": false
+        },
+        {
+          "tool": "fetch_page",
+          "args": {
+            "url": "https://www.99acres.com/under-construction-projects-in-evershine-nagar-mumbai-andheri-dahisar-ffid",
+            "candidate": "Stans Arize",
+            "candidate_id": "stansarize::stansarize"
+          },
+          "status": "error",
+          "count": 0,
+          "duration_ms": 732,
+          "error": "Unsupported content-type: application/json",
+          "cache_hit": false
+        },
+        {
+          "tool": "places_verify",
+          "args": {
+            "name": "Stans Arize",
+            "locality": "Stans Arize",
+            "city": null
+          },
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 924,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "places_verify",
+          "args": {
+            "name": "Embassy Marquis Residences",
+            "locality": "Embassy Marquis Residences",
+            "city": null
+          },
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 948,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "places_verify",
+          "args": {
+            "name": "Marol Phase",
+            "locality": "Marol",
+            "city": "Mumbai"
+          },
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 1646,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "fetch_page",
+          "args": {
+            "url": "https://www.jllhomes.co.in/apartments-new/mumbai/lodha-raj-infinia",
+            "candidate": "Lodha Raj Infinia",
+            "candidate_id": "lodharajinfinia::lodharajinfiniamumbaiapartments"
+          },
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 2021,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "fetch_page",
+          "args": {
+            "url": "https://www.99acres.com/4-bhk-flats-for-resale-in-lodha-raj-infinia-evershine-nagar-mumbai-andheri-dahisar-17828-npffid",
+            "candidate": "Lodha Raj Infinia",
+            "candidate_id": "lodharajinfinia::lodharajinfiniamumbaiapartments"
+          },
+          "status": "error",
+          "count": 0,
+          "duration_ms": 1445,
+          "error": "Unsupported content-type: application/json",
+          "cache_hit": false
+        },
+        {
+          "tool": "fetch_page",
+          "args": {
+            "url": "https://www.magicbricks.com/project-raj-infinia-for-sale-in-mumbai-pppfs",
+            "candidate": "Lodha Raj Infinia",
+            "candidate_id": "lodharajinfinia::lodharajinfiniamumbaiapartments"
+          },
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 1660,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "places_verify",
+          "args": {
+            "name": "Lodha Raj Infinia",
+            "locality": "Lodha Raj Infinia, Mumbai Apartments",
+            "city": null
+          },
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 932,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "places_verify",
+          "args": {
+            "name": "Stay Project",
+            "locality": "Stay Project",
+            "city": null
+          },
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 1362,
+          "error": null,
+          "cache_hit": false
+        }
+      ],
+      "retrieved_at": "2026-08-22T10:20:50.494574+00:00",
+      "research_iterations": 1,
+      "llm_curator_used": null,
+      "metrics": {
+        "total_searches": 47,
+        "successful_searches": 38,
+        "failed_searches": 9,
+        "cache_hits": 0,
+        "candidate_count": 0,
+        "verified_candidate_count": 0,
+        "pages_fetched": 7,
+        "facts_extracted": 327,
+        "research_iterations": 1,
+        "sources_used": [
+          "apify_search",
+          "bridge_preflight",
+          "fetch_page",
+          "places_search",
+          "places_verify",
+          "portal_search",
+          "serper_search",
+          "tavily_search"
+        ],
+        "source_conflicts": 8,
+        "missing_field_count": 70,
+        "bridge_unavailable": false,
+        "llm_calls": 14,
+        "llm_failures": 0,
+        "llm_fallbacks": 0
+      },
+      "limits": {
+        "max_research_iterations": 2,
+        "max_candidates_for_deep_research": 3,
+        "max_fetches_per_candidate": 3,
+        "max_targeted_searches_per_iteration": 5
+      },
+      "research_gaps": [
+        {
+          "candidate": "Just a moment...",
+          "missing_fields": [
+            "lifecycle",
+            "rera",
+            "carpet_area"
+          ],
+          "weak_fields": [],
+          "conflicting_fields": [
+            "price_display",
+            "configuration",
+            "possession_display"
+          ]
+        },
+        {
+          "candidate": "Raj Infinia",
+          "missing_fields": [
+            "lifecycle",
+            "developer",
+            "rera",
+            "carpet_area",
+            "swimming pool",
+            "gym"
+          ],
+          "weak_fields": [],
+          "conflicting_fields": [
+            "price_display",
+            "configuration",
+            "possession_display",
+            "location"
+          ]
+        },
+        {
+          "candidate": "Gurukrupa Marina Enclave",
+          "missing_fields": [
+            "lifecycle",
+            "developer",
+            "rera",
+            "possession",
+            "carpet_area",
+            "price"
+          ],
+          "weak_fields": [],
+          "conflicting_fields": []
+        },
+        {
+          "candidate": "Stans Arize",
+          "missing_fields": [
+            "lifecycle",
+            "developer",
+            "carpet_area",
+            "price",
+            "swimming pool",
+            "gym"
+          ],
+          "weak_fields": [],
+          "conflicting_fields": []
+        },
+        {
+          "candidate": "Mahindra Marina64",
+          "missing_fields": [
+            "lifecycle",
+            "developer",
+            "possession",
+            "carpet_area",
+            "swimming pool",
+            "gym"
+          ],
+          "weak_fields": [],
+          "conflicting_fields": []
+        },
+        {
+          "candidate": "Embassy Marquis Residences",
+          "missing_fields": [
+            "lifecycle",
+            "developer",
+            "possession",
+            "carpet_area",
+            "swimming pool",
+            "gym"
+          ],
+          "weak_fields": [],
+          "conflicting_fields": []
+        },
+        {
+          "candidate": "The Yukti Anchorpoint Aviara",
+          "missing_fields": [
+            "lifecycle",
+            "developer",
+            "possession",
+            "carpet_area",
+            "swimming pool",
+            "gym"
+          ],
+          "weak_fields": [],
+          "conflicting_fields": []
+        },
+        {
+          "candidate": "Marol Phase",
+          "missing_fields": [
+            "lifecycle",
+            "developer",
+            "possession",
+            "carpet_area",
+            "price",
+            "swimming pool",
+            "gym"
+          ],
+          "weak_fields": [],
+          "conflicting_fields": []
+        },
+        {
+          "candidate": "Lodha Raj Infinia",
+          "missing_fields": [
+            "developer",
+            "carpet_area",
+            "swimming pool",
+            "gym"
+          ],
+          "weak_fields": [],
+          "conflicting_fields": [
+            "location",
+            "configuration",
+            "price_display"
+          ]
+        },
+        {
+          "candidate": "Stay Project",
+          "missing_fields": [
+            "developer",
+            "carpet_area",
+            "swimming pool",
+            "gym"
+          ],
+          "weak_fields": [],
+          "conflicting_fields": []
+        },
+        {
+          "candidate": "Rock Highland By Origin Corp",
+          "missing_fields": [
+            "lifecycle",
+            "developer",
+            "rera",
+            "possession",
+            "carpet_area",
+            "price",
+            "swimming pool",
+            "gym"
+          ],
+          "weak_fields": [],
+          "conflicting_fields": []
+        },
+        {
+          "candidate": "ACME Enclave",
+          "missing_fields": [
+            "lifecycle",
+            "developer",
+            "rera",
+            "possession",
+            "carpet_area",
+            "price",
+            "swimming pool",
+            "gym"
+          ],
+          "weak_fields": [],
+          "conflicting_fields": []
+        }
+      ],
+      "verification_results": [
+        {
+          "candidate": "BHK Flats for Rent in Jankalyan Nagar, Malad West",
+          "conflicts": {
+            "possession_display": [
+              "Ready to Move",
+              "sep 2026"
+            ],
+            "location": [
+              "Evershine Nagar, Malad West",
+              "Malad West"
+            ]
+          },
+          "corroborated_fields": []
+        },
+        {
+          "candidate": "Just a moment...",
+          "conflicts": {
+            "price_display": [
+              "₹2,72,00,000",
+              "₹2,89,00,000",
+              "₹3,55,00,000"
+            ],
+            "configuration": [
+              "['2 BHK', '3 BHK']",
+              "['2 BHK']"
+            ],
+            "possession_display": [
+              "2025",
+              "Ready to Move"
+            ]
+          },
+          "corroborated_fields": []
+        },
+        {
+          "candidate": "New Projects in Evershine Nagar, Malad West, Mumbai",
+          "conflicts": {
+            "possession_display": [
+              "Jun 2028",
+              "Ready to Move"
+            ],
+            "price_display": [
+              "₹1,28,00,000",
+              "₹1,66,00,000",
+              "₹3,40,00,000"
+            ]
+          },
+          "corroborated_fields": []
+        },
+        {
+          "candidate": "Raj Infinia",
+          "conflicts": {
+            "price_display": [
+              "₹1,21,00,000",
+              "₹1,75,00,000",
+              "₹3,29,00,000",
+              "₹4,92,00,000"
+            ],
+            "configuration": [
+              "['2 BHK', '3 BHK']",
+              "['4 BHK']"
+            ],
+            "possession_display": [
+              "2024",
+              "Ready to Move"
+            ],
+            "location": [
+              "Evershine Nagar, Malad West",
+              "Malad West"
+            ]
+          },
+          "corroborated_fields": []
+        },
+        {
+          "candidate": "Modispaces Montreal Evershine Nagar, Malad West",
+          "conflicts": {
+            "price_display": [
+              "₹1,98,00,000",
+              "₹2,66,00,000"
+            ]
+          },
+          "corroborated_fields": []
+        },
+        {
+          "candidate": "Lodha Raj Infinia",
+          "conflicts": {
+            "location": [
+              "Lodha Raj Infinia",
+              "Lodha Raj Infinia, Mumbai Apartments",
+              "Lodha Raj Infinia, Mumbai Apartments, JLL Homes",
+              "Raj Infinia"
+            ],
+            "configuration": [
+              "['2 BHK', '3 BHK']",
+              "['3 BHK']",
+              "['4 BHK']",
+              "['5 BHK']"
+            ],
+            "price_display": [
+              "₹1,66,00,000",
+              "₹2.77 Cr"
+            ]
+          },
+          "corroborated_fields": []
+        },
+        {
+          "candidate": "BHK Resale Flats in Lodha Raj Infinia, Evershine Nagar ...",
+          "conflicts": {
+            "configuration": [
+              "['3 BHK']",
+              "['4 BHK']"
+            ],
+            "location": [
+              "Evershine Nagar",
+              "Evershine Nagar, Malad West"
+            ]
+          },
+          "corroborated_fields": []
+        },
+        {
+          "candidate": "BHK Flats for resale in Lodha Raj Infinia, Evershine ...",
+          "conflicts": {
+            "configuration": [
+              "['2 BHK']",
+              "['3 BHK']",
+              "['5 BHK']"
+            ]
+          },
+          "corroborated_fields": []
+        }
+      ],
+      "duration_ms": 136068,
+      "agent_version": "2.0.0"
+    },
+    "retrieval_metrics": {
+      "total_candidates": 57,
+      "individual_project_candidates": 28,
+      "aggregator_pages": 29,
+      "resale_candidates": 1,
+      "rental_candidates": 1,
+      "unknown_candidates": 24,
+      "invalid_name_candidates": 0,
+      "eligible_candidates": 2,
+      "rejected_candidates": 57,
+      "places_configured": true,
+      "places_contributed_candidates": 20
+    },
+    "llm_degraded": false,
+    "_agent": true,
+    "pipeline": "agent"
+  },
+  "provider_inference": {
+    "inferred": "groq_likely_throughout",
+    "reason": "groq breaker closed both before and after (two-sample check — a trip-then-recovery inside the run cannot be fully ruled out)"
+  },
+  "groq_circuit_before": {
+    "gemini": {
+      "reason": "gemini-3.6-flash: Error code: 429 - [{'error': {'code': 429, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at http",
+      "seconds_remaining": 210.0
+    }
+  },
+  "groq_circuit_after": {
+    "gemini": {
+      "reason": "gemini-3.6-flash: Error code: 429 - [{'error': {'code': 429, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at http",
+      "seconds_remaining": 162.3
+    }
+  }
+}

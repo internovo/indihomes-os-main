@@ -345,6 +345,37 @@ async def places_verify(name: str, locality: Optional[str], city: Optional[str])
         count=1 if found else 0, duration_ms=duration_ms, error=err, cache_hit=cache_hit)
 
 
+@traceable(name="places_nearby", run_type="tool")
+async def places_nearby(lat: float, lon: float) -> tuple[dict, ToolCallRecord]:
+    """Nearby infrastructure for ONE coordinate — Location Score, connectivity
+    and nearby landmarks, from the same Google Places key every other Places
+    tool here uses (backend/places-client.cjs's nearbyInfrastructure).
+
+    Deterministic and LLM-free by design. `connectivity` and
+    `nearby_landmarks` measured 0/8 in every live run because an LLM was
+    being asked to infer them from portal marketing prose; they are facts
+    about a coordinate, and Places answers them directly with real distances.
+
+    Requires a REAL coordinate — the bridge route 400s on a missing one
+    rather than geocoding a name, because a wrong coordinate produces a
+    confident, wrong Location Score with real-looking place names attached,
+    which is worse than an absent one. File-cached at the SOURCE_TTL_S tier:
+    the infrastructure around a coordinate does not change between two
+    searches on the same day.
+    """
+    payload = {"lat": lat, "lon": lon}
+    data, duration_ms, err, cache_hit = await _call_bridge(
+        "/internal/agent-tools/places-nearby", payload,
+        cache_namespace="places-nearby", cache_key=f"{round(float(lat), 5)},{round(float(lon), 5)}",
+        ttl_s=cache.SOURCE_TTL_S,
+    )
+    score = ((data.get("location_score") or {}).get("score")
+             if isinstance(data.get("location_score"), dict) else None)
+    return data, ToolCallRecord(
+        tool="places_nearby", args=payload, status="error" if err else "ok",
+        count=1 if score is not None else 0, duration_ms=duration_ms, error=err, cache_hit=cache_hit)
+
+
 # apify-search's own real latency (Node's APIFY_TIMEOUT_MS, 60s default —
 # a genuinely synchronous "run-sync-get-dataset-items" Apify API call, see
 # external-connectors.cjs) is structurally longer than the shared

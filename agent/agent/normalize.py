@@ -7,12 +7,53 @@ guess whether "2bhk" and "2 BHK" are the same thing.
 """
 from __future__ import annotations
 
+import logging
 import re
 from datetime import datetime, timezone
 
-from .query_understanding import _known_gazetteer_terms, extract_configuration, extract_locations, extract_possession
+from .query_understanding import (
+    _gazetteer_scan_locations, _known_gazetteer_terms, _proper_case,
+    extract_configuration, extract_locations, extract_possession,
+)
 from .gazetteer import resolve_location
 from .state import EvidenceItem, NormalizedProperty
+
+logger = logging.getLogger("ai-search-agent.normalize")
+
+
+_BHK_RE = re.compile(r"(\d+(?:\.\d+)?)\s*bhk", re.IGNORECASE)
+
+
+def _atomic_configs(value) -> list[str]:
+    """["1 BHK", "2 BHK"] out of anything that states one or more configs.
+
+    Everything downstream — dedupe.py's exact-string merge, the ` & ` joins
+    in planner/deep_research, Node's `configuration.join(' & ')`, the
+    frontend's `config.split(/&|,/)` — assumes each element is ONE
+    configuration. Two places quietly broke that assumption:
+
+      * `re.search` (singular) on "1 BHK & 2 BHK" returned only the first
+        match, silently dropping "2 BHK" from a candidate that offers it.
+      * the title/description fallback appended the whole compound string
+        "1 BHK & 2 BHK" as a SINGLE element. dedupe.py merges configuration
+        lists with `dict.fromkeys`, which compares whole strings, so the
+        compound could never be recognised as already containing the atomic
+        "1 BHK"/"2 BHK" arriving from another page. Both shapes survived the
+        merge and Node joined the result into the string the card actually
+        showed: "1 BHK & 2 BHK & 1 BHK & 2 BHK".
+
+    Atomising here, at the single point where evidence becomes a
+    configuration list, is what makes the existing dedupe correct rather
+    than adding a second one further down.
+    """
+    text = str(value or "")
+    found = [f"{n} BHK" for n in _BHK_RE.findall(text)]
+    if found:
+        return list(dict.fromkeys(found))
+    # Not BHK-shaped ("Studio", "Penthouse", …) — keep it verbatim, exactly
+    # as this function's predecessor did; only compounds change behaviour.
+    stripped = text.strip()
+    return [stripped] if stripped else []
 
 
 def normalize_configuration(evidence: EvidenceItem) -> list[str]:
@@ -21,11 +62,7 @@ def normalize_configuration(evidence: EvidenceItem) -> list[str]:
         cfg = [cfg]
     out = []
     for c in cfg:
-        m = re.search(r"(\d+)\s*bhk", str(c), re.IGNORECASE)
-        if m:
-            out.append(f"{m.group(1)} BHK")
-        elif str(c).strip():
-            out.append(str(c).strip())
+        out.extend(_atomic_configs(c))
     if not out:
         # Fall back to extracting from title/description text — a listing
         # title like "2 BHK Flats for Rent in Liberty Garden" often carries
@@ -33,7 +70,7 @@ def normalize_configuration(evidence: EvidenceItem) -> list[str]:
         text = f"{evidence.get('title', '')} {evidence.get('description', '')}"
         found = extract_configuration(text)
         if found:
-            out.append(found)
+            out.extend(_atomic_configs(found))
     seen = []
     for c in out:
         if c not in seen:
@@ -108,8 +145,30 @@ def normalize_location(evidence: EvidenceItem) -> str | None:
     # (a "2 BHK Flats in Andheri East" result was scoring an "exact match"
     # for a Borivali East search purely because its description happened
     # to mention Borivali East in passing).
-    found = extract_locations(evidence.get("title", ""))
-    return ", ".join(found) if found else None
+    #
+    # GAZETTEER SCAN ONLY — not the full extract_locations() cascade.
+    # extract_locations was written for USER QUERIES, and its last-resort
+    # tier grabs any Title-Case phrase, because in "2 BHK in Andheri West"
+    # the only Title-Case text left by then IS the place. Run against a
+    # candidate TITLE, the only Title-Case text is the PROJECT NAME, so that
+    # tier turned every project into its own location.
+    #
+    # Live, from "2 BHK in Andheri West" — all five results:
+    #     name "Spenta Anthea"    -> location "Spenta Anthea",    city null
+    #     name "Transcon Triumph" -> location "Transcon Triumph", city null
+    # and the same line produced, character for character:
+    #     "Under Construction Projects by I STAY HOUSING PRIVATE LIMITED"
+    #  -> "Under Construction Projects, STAY Housing Private, Limited"
+    # (three Title-Case runs, joined with ", "). derive_city() then returned
+    # None for every one of them, correctly — a project name is not a place.
+    #
+    # A location we cannot evidence is now None. That is the truth, it is
+    # what derive_city already expects, and it restores dedupe's fuzzy tier,
+    # which needs a REAL locality as its second signal when developer is
+    # unknown — with the name sitting in `location`, same_locality could
+    # never fire, so name-variant duplicates of the same project survived.
+    found = [_proper_case(h) for h in dict.fromkeys(_gazetteer_scan_locations(evidence.get("title", "") or ""))]
+    return ", ".join(found[:5]) if found else None
 
 
 # The Location Map / Nearby Infrastructure / Location Quality Score /
@@ -451,7 +510,27 @@ def looks_like_unrelated_commerce(text: str) -> str | None:
     return text[start:end].strip()
 
 
-UNDER_CONSTRUCTION_RE = re.compile(r"\bunder[\s-]?construction\b|\bwork\s+in\s+progress\b|\bconstruction\s+(is\s+)?ongoing\b", re.IGNORECASE)
+# `off[\s-]?plan` — the Dubai/UAE market's standard term for exactly the
+# inventory this pipeline is restricted to. An off-plan sale is by
+# definition a unit sold before completion, i.e. a building that is not
+# finished. Without it EVERY Dubai listing classified UNKNOWN and was
+# rejected outright on the final eligibility pass (graph.py's
+# "Launch/construction status could not be confirmed as new-project
+# inventory even after deep research"), which is why a market=dubai search
+# returned zero properties however many real candidates discovery found.
+#
+# Nothing is fabricated by the mapping: evidence_text still quotes the
+# actual matched phrase, so a card backed by "off-plan" says so, and when a
+# handover date is close the possession_year fallback further down refines
+# this to NEAR_POSSESSION exactly as it already does for India.
+#
+# Deliberately NOT added: a bare "plan" or "payment plan" (a 60/40 payment
+# plan appears on completed inventory too), and "launch" phrasings, which
+# belong to NEW_LAUNCH_RE / PRE_LAUNCH_RE and work unchanged in Dubai.
+UNDER_CONSTRUCTION_RE = re.compile(
+    r"\bunder[\s-]?construction\b|\bwork\s+in\s+progress\b|\bconstruction\s+(is\s+)?ongoing\b"
+    r"|\boff[\s-]?plan\b|\bunder\s+development\b",
+    re.IGNORECASE)
 # `new\s+project\s+by` — live-caught on "1BHK in kandarpada Dahisar West
 # with gym nearby": a genuine developer-marketing Instagram caption ("New
 # Project by Pastonji Bliss Tower located near kandarpada metro station...")
@@ -476,8 +555,24 @@ NEW_LAUNCH_RE = re.compile(r"\bnew\s*launch\b|\bnewly\s+launched\b|\bjust\s+laun
 # NEW_LAUNCH) so the UI can tell a buyer "this hasn't launched yet" instead
 # of implying it already has.
 PRE_LAUNCH_RE = re.compile(r"\bpre[\s-]?launch\b|\bcoming\s+soon\b|\bregister\s+your\s+interest\b|\blaunching\s+soon\b", re.IGNORECASE)
-NEAR_POSSESSION_RE = re.compile(r"\bnear\s+possession\b|\bpossession\s+(soon|shortly|imminent)\b|\bready\s+(for|by)\s+possession\b", re.IGNORECASE)
-READY_TO_MOVE_RE = re.compile(r"\bready[\s-]?to[\s-]?move\b|\bready\s+possession\b|\bimmediate\s+possession\b|\bpossession\s+available\b|\bfully\s+occupied\b|\boccupancy\s+certificate\b", re.IGNORECASE)
+# "handover" is the Dubai word for possession. The mirrored clauses below
+# are the exact India ones with that word substituted — nothing looser.
+NEAR_POSSESSION_RE = re.compile(
+    r"\bnear\s+possession\b|\bpossession\s+(soon|shortly|imminent)\b|\bready\s+(for|by)\s+possession\b"
+    r"|\bhandover\s+(soon|shortly|imminent)\b|\bready\s+for\s+hand[\s-]?over\b|\bnearing\s+hand[\s-]?over\b",
+    re.IGNORECASE)
+# A COMPLETED Dubai building says "ready property" / "handover completed" /
+# "handed over". These must be recognised for the same reason the India
+# terms are: READY_TO_MOVE is checked BEFORE the eligible statuses, so
+# missing them would let completed inventory through as new-project stock —
+# the exact thing the lifecycle restriction exists to prevent. Adding Dubai
+# vocabulary to the ELIGIBLE side without adding it here would have made the
+# filter leak rather than merely fail closed.
+READY_TO_MOVE_RE = re.compile(
+    r"\bready[\s-]?to[\s-]?move\b|\bready\s+possession\b|\bimmediate\s+possession\b|\bpossession\s+available\b"
+    r"|\bfully\s+occupied\b|\boccupancy\s+certificate\b"
+    r"|\bready\s+propert(?:y|ies)\b|\bhand(?:ed|over)\s+(?:over\s+)?completed\b|\bhanded\s+over\b",
+    re.IGNORECASE)
 
 # A future possession year (e.g. "Possession by Dec 2027") is real, useful
 # lifecycle evidence even when none of the phrase-level markers above fire —
@@ -781,4 +876,48 @@ def normalize_all(raw_evidence: list[EvidenceItem]) -> list[NormalizedProperty]:
     # Evidence with no usable name at all can't be matched to anything
     # downstream — dropped here rather than silently confusing the
     # deduplicator with an empty-string merge key.
-    return [normalize_evidence_item(e) for e in expanded if (e.get("property_name") or e.get("title") or "").strip()]
+    #
+    # The candidate-name gate (fact_extraction.sanitize_candidate_name — see
+    # its block comment for the live trace that motivated it) runs at this
+    # same choke point, because this is the ONE place every candidate is
+    # born, whatever discovered it: a search snippet, a fetched page title, a
+    # Places result, or a category-page sub-listing. Gating only inside
+    # extract_sub_listings would still let a page title like "Builders in
+    # Bandra West, Mumbai | Top Real Estate Companies..." or a bare locality
+    # like "Bandra West" through, and those cost exactly as much research
+    # budget as any real project.
+    #
+    # The gate also REPLACES the name with its cleaned form, so a real
+    # project that arrived wearing a publisher's SEO tail is kept under its
+    # own name rather than dropped.
+    # Category/search-results WRAPPER pages are deliberately exempt from the
+    # gate. Their titles read exactly like the SEO junk it exists to reject
+    # ("Flats for Sale in Malad West"), but the wrapper is not a candidate
+    # pretending to be a project — it is evidence about the page, it is
+    # already flagged is_aggregator and rejected downstream, and it is what
+    # retrieval_metrics counts as `aggregator_pages` so the user can see
+    # "15 of these were category pages" rather than a silently smaller total.
+    # Dropping them here broke that count and the documented normalize_all
+    # contract (caught by test_lifecycle_and_eligibility, not by hand). Their
+    # SUB-LISTINGS are still gated normally — those are real candidates.
+    wrapper_pages = {id(e) for e in raw_evidence
+                     if classify_page_type(e) in ("CATEGORY_PAGE", "SEARCH_RESULTS_PAGE")}
+    kept: list[NormalizedProperty] = []
+    for e in expanded:
+        raw_name = (e.get("property_name") or e.get("title") or "").strip()
+        if not raw_name:
+            continue
+        if id(e) in wrapper_pages:
+            kept.append(normalize_evidence_item(e))
+            continue
+        gated = fact_extraction_mod.sanitize_candidate_name(raw_name)
+        if not gated:
+            logger.info(
+                "[candidate-gate] dropped %r (%s)",
+                raw_name[:120], fact_extraction_mod.candidate_name_reject_reason(raw_name),
+            )
+            continue
+        if gated != raw_name:
+            e = {**e, "property_name": gated, "title": e.get("title") or gated}
+        kept.append(normalize_evidence_item(e))
+    return kept

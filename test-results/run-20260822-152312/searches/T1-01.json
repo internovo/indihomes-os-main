@@ -1,0 +1,4333 @@
+{
+  "scenario_id": "T1-01",
+  "query": "1 BHK in Marol",
+  "started_at": "2026-08-22T09:54:00.302Z",
+  "finished_at": "2026-08-22T09:56:24.473Z",
+  "duration_ms": 144182,
+  "http_status": 200,
+  "error": null,
+  "pipeline": "agent",
+  "llm_degraded": false,
+  "warnings": null,
+  "result_count": 3,
+  "properties": [
+    {
+      "id": "istaytowerinmarol::marol",
+      "name": "I Stay Tower in Marol",
+      "rawName": "I Stay Tower in Marol",
+      "developer": "Read",
+      "location": "Marol",
+      "city": "Mumbai",
+      "config": "1 BHK & 2 BHK",
+      "price": "₹1,52,00,000",
+      "possession": "Jan 2026",
+      "rera": null,
+      "rera_verified": null,
+      "sourceName": "magicbricks.com",
+      "sourceUrl": "https://www.magicbricks.com/i-stay-tower-marol-mumbai-pdpid-4d4235343137323739",
+      "sources": [
+        {
+          "name": "magicbricks.com",
+          "url": "https://www.magicbricks.com/i-stay-tower-marol-mumbai-pdpid-4d4235343137323739",
+          "captured_at": "2026-08-22T09:54:52.836Z",
+          "source_type": "web"
+        },
+        {
+          "name": "99acres.com",
+          "url": "https://www.99acres.com/i-stay-project-faqs-marol-mumbai-andheri-dahisar-npxid-r405006",
+          "captured_at": "2026-08-22T09:54:52.836Z",
+          "source_type": "web"
+        },
+        {
+          "name": "magicbricks.com",
+          "url": "https://www.magicbricks.com/i-stay-tower-marol-mumbai-pdpid-4d4235343137323739",
+          "captured_at": "2026-08-22T09:54:56.022Z",
+          "source_type": "web"
+        },
+        {
+          "name": "magicbricks.com",
+          "url": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+          "captured_at": "2026-08-22T09:54:56.023Z",
+          "source_type": "web"
+        },
+        {
+          "name": "magicbricks.com",
+          "url": "https://www.magicbricks.com/i-stay-tower-photo-videos-marol-mumbai-pdpid-4d4235343137323739",
+          "captured_at": "2026-08-22T09:54:56.023Z",
+          "source_type": "web"
+        },
+        {
+          "name": "magicbricks.com",
+          "url": "https://www.magicbricks.com/i-stay-tower-marol-mumbai-pdpid-4d4235343137323739",
+          "captured_at": "2026-08-22T09:55:00.148Z",
+          "source_type": "web"
+        },
+        {
+          "name": "magicbricks.com",
+          "url": "https://www.magicbricks.com/i-stay-tower-marol-mumbai-pdpid-4d4235343137323739",
+          "captured_at": "2026-08-22T09:55:04.565Z",
+          "source_type": "web"
+        }
+      ],
+      "match_score": 97,
+      "why": "This 1 BHK in Marol is an exact location match and is corroborated by two independent sources.",
+      "match_tier": "PRIMARY",
+      "match_reasons": [
+        "Exact location match: Marol",
+        "1 BHK available",
+        "Corroborated by 2 independent sources"
+      ],
+      "key_match": "This 1 BHK in Marol is an exact location match and is corroborated by two independent sources.",
+      "limitations": [],
+      "project_intelligence": {
+        "official": null,
+        "rera": null,
+        "rera_confidence": 0,
+        "rera_conflict": false,
+        "rera_conflicting_values": [],
+        "configs": [
+          {
+            "type": "1 BHK",
+            "carpet": null,
+            "total": null,
+            "available": null,
+            "price": null
+          },
+          {
+            "type": "2 BHK",
+            "carpet": "611 sq ft",
+            "total": null,
+            "available": null,
+            "price": "₹1.52 Cr"
+          }
+        ],
+        "configuration_evidence": {
+          "2 BHK": {
+            "carpet_area_evidence": [
+              {
+                "value": "611 sq ft",
+                "source": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+                "source_url": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+                "confidence": "medium",
+                "evidence_text": "ing\nAll 2 BHK\n1 Sizes Super Area: 611 - 611 sq.ft\nView Floor Plan\nCarpet Area\n611 sq.ft 2"
+              }
+            ],
+            "carpet_area": "611 sq ft",
+            "price_evidence": [
+              {
+                "value": "₹1.52 Cr",
+                "source": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+                "source_url": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+                "confidence": "medium",
+                "evidence_text": "Floor Plan\nCarpet Area\n611 sq.ft 2 BHK\n₹ 1.52 Cr Onwards ₹ 72K EMI\nPossession by Nov&#x2"
+              }
+            ],
+            "price": "₹1.52 Cr"
+          }
+        },
+        "amenities": [
+          "spa",
+          "gymnasium",
+          "jogging track",
+          "kids play area",
+          "library",
+          "parking"
+        ],
+        "features": [
+          {
+            "feature": "balcony",
+            "scope": "unknown",
+            "configuration": null,
+            "evidence_text": "ties\nContact\nUnit & Floor Plans\nAll\n611 sq.ft\n2 Bathrooms\n1 Balconies\nSuper area\n611 sq.ft\nPrice range\nSale: ₹ 1.52 Cr\nNew Launch",
+            "source": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+            "source_url": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+            "confidence": "medium"
+          }
+        ],
+        "usps": [
+          "Corroborated across multiple independent sources",
+          "Spa",
+          "Gymnasium",
+          "Jogging Track"
+        ],
+        "usp_evidence": [
+          {
+            "insight": "Corroborated across multiple independent sources",
+            "reason": "7 evidence item(s) from independent portals/web sources",
+            "sources": [
+              "https://www.magicbricks.com/i-stay-tower-marol-mumbai-pdpid-4d4235343137323739",
+              "https://www.99acres.com/i-stay-project-faqs-marol-mumbai-andheri-dahisar-npxid-r405006",
+              "https://www.magicbricks.com/i-stay-tower-marol-mumbai-pdpid-4d4235343137323739"
+            ]
+          },
+          {
+            "insight": "Spa",
+            "reason": "Amenity confirmed in source listing text",
+            "sources": [
+              "https://www.magicbricks.com/i-stay-tower-marol-mumbai-pdpid-4d4235343137323739"
+            ]
+          },
+          {
+            "insight": "Gymnasium",
+            "reason": "Amenity confirmed in source listing text",
+            "sources": [
+              "https://www.magicbricks.com/i-stay-tower-marol-mumbai-pdpid-4d4235343137323739"
+            ]
+          },
+          {
+            "insight": "Jogging Track",
+            "reason": "Amenity confirmed in source listing text",
+            "sources": [
+              "https://www.magicbricks.com/i-stay-tower-marol-mumbai-pdpid-4d4235343137323739"
+            ]
+          }
+        ],
+        "competitors": [
+          {
+            "name": "I-Stay Tower, Andheri East",
+            "developer": "Oct",
+            "location": "Andheri East",
+            "configuration": [
+              "1 BHK",
+              "2 BHK"
+            ],
+            "price": "₹1,20,00,000",
+            "possession": "Oct 2028",
+            "rera": "P51800049840",
+            "comparison_basis": [
+              "also offers 1 BHK, 2 BHK",
+              "comparable price band"
+            ],
+            "sources": [
+              "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+              "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959"
+            ]
+          }
+        ],
+        "target_audience": {
+          "segments": [
+            {
+              "segment": "First-time buyers and single occupants",
+              "because": "smallest configuration offered is 1 BHK",
+              "derived_from": [
+                "configuration"
+              ]
+            },
+            {
+              "segment": "Value segment buyers",
+              "because": "price band averages ₹1.5 Cr",
+              "derived_from": [
+                "price"
+              ]
+            },
+            {
+              "segment": "Investors and buyers with a flexible move-in date",
+              "because": "lifecycle stage is under construction, possession Jan 2026",
+              "derived_from": [
+                "lifecycle_status",
+                "possession"
+              ]
+            }
+          ],
+          "method": "derived deterministically from this project's own extracted fields — never inferred from general knowledge"
+        },
+        "field_ledger": {
+          "fields": {
+            "rera": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "portal",
+                "developer-site"
+              ],
+              "status": "searched_not_found"
+            },
+            "price": {
+              "filled": true,
+              "answered_by": "magicbricks.com",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "portal",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "carpet_area": {
+              "filled": true,
+              "answered_by": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "configuration": {
+              "filled": true,
+              "answered_by": "magicbricks.com",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "portal",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "developer": {
+              "filled": true,
+              "answered_by": "magicbricks.com",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "possession": {
+              "filled": true,
+              "answered_by": "magicbricks.com",
+              "corroborating_sources": 2,
+              "possible_sources": [
+                "page-text",
+                "portal",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "project_status": {
+              "filled": true,
+              "answered_by": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text"
+              ],
+              "status": "filled"
+            },
+            "amenities": {
+              "filled": true,
+              "answered_by": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "property_type": {
+              "filled": true,
+              "answered_by": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "json-ld"
+              ],
+              "status": "filled"
+            },
+            "total_floors": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text",
+                "json-ld"
+              ],
+              "status": "searched_not_found"
+            },
+            "tower_count": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text"
+              ],
+              "status": "searched_not_found"
+            },
+            "connectivity": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "google-places-nearby",
+                "page-text"
+              ],
+              "status": "searched_not_found"
+            },
+            "nearby_landmarks": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "google-places-nearby",
+                "page-text"
+              ],
+              "status": "searched_not_found"
+            },
+            "location_score": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "google-places-nearby"
+              ],
+              "status": "searched_not_found"
+            },
+            "coordinates": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "google-places-verify",
+                "json-ld"
+              ],
+              "status": "searched_not_found"
+            }
+          },
+          "filled": 8,
+          "total": 15,
+          "never_researched": []
+        },
+        "location_score": null,
+        "location_intel": null,
+        "connectivity": null,
+        "nearby_landmarks": [],
+        "summary": "I Stay Tower in Marol offers 1 BHK, 2 BHK in Marol. It is currently under construction, with possession Jan 2026, by Read. Priced at ₹1,52,00,000.",
+        "possession": "Jan 2026",
+        "_provider": "ai-search-agent",
+        "_note": "Populated from AI Search Agent research evidence — no separate live-web research re-run.",
+        "_webSources": [
+          "https://www.magicbricks.com/i-stay-tower-marol-mumbai-pdpid-4d4235343137323739",
+          "https://www.99acres.com/i-stay-project-faqs-marol-mumbai-andheri-dahisar-npxid-r405006",
+          "https://www.magicbricks.com/i-stay-tower-marol-mumbai-pdpid-4d4235343137323739",
+          "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+          "https://www.magicbricks.com/i-stay-tower-photo-videos-marol-mumbai-pdpid-4d4235343137323739",
+          "https://www.magicbricks.com/i-stay-tower-marol-mumbai-pdpid-4d4235343137323739",
+          "https://www.magicbricks.com/i-stay-tower-marol-mumbai-pdpid-4d4235343137323739"
+        ],
+        "fetchedAt": "2026-08-22T09:56:12.212605+00:00"
+      },
+      "propertyType": "Villa",
+      "carpetArea": "611 sq ft",
+      "builtUpArea": null,
+      "pricePerSqFt": null,
+      "projectStatus": "Ready to move",
+      "totalFloors": null,
+      "towerCount": null,
+      "connectivity": null,
+      "nearbyLandmarks": [],
+      "amenities": [
+        "spa",
+        "gymnasium",
+        "jogging track",
+        "kids play area",
+        "library",
+        "parking"
+      ],
+      "deck": null,
+      "description": "I Stay Tower is a Under Construction project by I STAY HOUSING PRIVATE LIMITED in Marol Mumbai, offering 1,2 BHK Flats, Studio Apartment configuration. Below are the key details of I Stay Tower. I Stay Tower Price Rs. 1.52 Cr Onwards Property Types Flat Project Type Residential I Stay Tower Status Under Construction I Stay Tower Launch Date 01 January 2026 I Stay Tower Possession Date 01 November 2028 Towers in I Stay Tower 7 [...] Agent: Vishal Kapoor Contact Agent Image 12: Project View in I Stay Tower Posted Yesterday ₹1.52 Cr₹71.6K EMI 2 BHK Flat 611 sq.ft Nov '28 This nov '28 luxury flat in Marol is available for premium buyers at INR ₹1.52 Cr. Its possession date is Nov '28. P51800079406 is the RERA number of the project. Properties in I Stay Tower are available in 1,2 bhk flats , studio apartment, priced between ₹1.52 Cr Onwards. Agent: Ajay Tiwari Contact Agent Image 13: Project View in I Stay Tower Posted: Aug 13, '26 ₹99 Lac₹46.6K EMI 1 BHK Flat 406 sq.ft Under Construction [...] Agent: Vishal Kapoor View Floor Plan Contact Agent Image 20: Project View in I Stay Tower Posted Yesterday ₹1.52 Cr₹71.6K EMI 2 BHK Flat 611 sq.ft Nov '28 This nov '28 luxury flat in Marol is available for premium buyers at INR ₹1.52 Cr. Its possession date is Nov '28. P51800079406 is the RERA number of the project. Properties in I Stay Tower are available in 1,2 bhk flats , studio apartment, priced between ₹1.52 Cr Onwards. Agent: Ajay Tiwari View Floor Plan Contact Agent Image 21: Project View in I Stay Tower Posted: Aug 13, '26 ₹99 Lac₹46.6K EMI 1 BHK Flat 406 sq.ft Under Construction",
+      "warnings": [
+        "Sources disagree on possession_display: 2028, Jan 2026",
+        "Sources disagree on developer: Nov, Read"
+      ],
+      "evidence": [
+        {
+          "field": "price_display",
+          "value": "₹1,52,00,000",
+          "source": "magicbricks.com",
+          "url": "https://www.magicbricks.com/i-stay-tower-marol-mumbai-pdpid-4d4235343137323739",
+          "confidence": "medium"
+        },
+        {
+          "field": "configuration",
+          "value": [
+            "1 BHK",
+            "2 BHK"
+          ],
+          "source": "magicbricks.com",
+          "url": "https://www.magicbricks.com/i-stay-tower-marol-mumbai-pdpid-4d4235343137323739",
+          "confidence": "medium"
+        },
+        {
+          "field": "possession_display",
+          "value": "Jan 2026",
+          "source": "magicbricks.com",
+          "url": "https://www.magicbricks.com/i-stay-tower-marol-mumbai-pdpid-4d4235343137323739",
+          "confidence": "medium"
+        },
+        {
+          "field": "possession_display",
+          "value": "2028",
+          "source": "99acres.com",
+          "url": "https://www.99acres.com/i-stay-project-faqs-marol-mumbai-andheri-dahisar-npxid-r405006",
+          "confidence": "medium"
+        },
+        {
+          "field": "location",
+          "value": "Marol",
+          "source": "magicbricks.com",
+          "url": "https://www.magicbricks.com/i-stay-tower-marol-mumbai-pdpid-4d4235343137323739",
+          "confidence": "medium"
+        },
+        {
+          "field": "developer",
+          "value": "Read",
+          "source": "magicbricks.com",
+          "url": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+          "confidence": "medium"
+        },
+        {
+          "field": "developer",
+          "value": "Nov",
+          "source": "magicbricks.com",
+          "url": "https://www.magicbricks.com/i-stay-tower-marol-mumbai-pdpid-4d4235343137323739",
+          "confidence": "medium"
+        },
+        {
+          "field": "project_name",
+          "value": "I Stay Tower Mumbai Layouts Sizes Configurations",
+          "source": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+          "url": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+          "confidence": "medium"
+        },
+        {
+          "field": "project_name",
+          "value": "I Stay Tower Video Marol Mumbai",
+          "source": "https://www.magicbricks.com/i-stay-tower-photo-videos-marol-mumbai-pdpid-4d4235343137323739",
+          "url": "https://www.magicbricks.com/i-stay-tower-photo-videos-marol-mumbai-pdpid-4d4235343137323739",
+          "confidence": "medium"
+        },
+        {
+          "field": "lifecycle_status_from_page",
+          "value": "RENTAL",
+          "source": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+          "url": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+          "confidence": "high"
+        },
+        {
+          "field": "carpet_area",
+          "value": "611 sq ft",
+          "source": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+          "url": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+          "confidence": "medium"
+        },
+        {
+          "field": "price",
+          "value": "₹1.52 Cr",
+          "source": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+          "url": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+          "confidence": "medium"
+        },
+        {
+          "field": "possession",
+          "value": "Ready to Move",
+          "source": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+          "url": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+          "confidence": "medium"
+        },
+        {
+          "field": "project_status",
+          "value": "Ready to move",
+          "source": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+          "url": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+          "confidence": "medium"
+        },
+        {
+          "field": "property_type",
+          "value": "Villa",
+          "source": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+          "url": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+          "confidence": "medium"
+        },
+        {
+          "field": "amenities",
+          "value": [
+            "spa"
+          ],
+          "source": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+          "url": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+          "confidence": "medium"
+        }
+      ],
+      "dataQuality": "high",
+      "title": "I Stay Tower in Marol",
+      "projectName": "I Stay Tower in Marol",
+      "field_evidence": {
+        "price_display": [
+          {
+            "field": "price_display",
+            "value": "₹1,52,00,000",
+            "source": "magicbricks.com",
+            "source_url": "https://www.magicbricks.com/i-stay-tower-marol-mumbai-pdpid-4d4235343137323739",
+            "captured_at": "2026-08-22T09:54:52.836Z",
+            "confidence": "medium"
+          }
+        ],
+        "configuration": [
+          {
+            "field": "configuration",
+            "value": [
+              "1 BHK",
+              "2 BHK"
+            ],
+            "source": "magicbricks.com",
+            "source_url": "https://www.magicbricks.com/i-stay-tower-marol-mumbai-pdpid-4d4235343137323739",
+            "captured_at": "2026-08-22T09:54:52.836Z",
+            "confidence": "medium"
+          }
+        ],
+        "possession_display": [
+          {
+            "field": "possession_display",
+            "value": "Jan 2026",
+            "source": "magicbricks.com",
+            "source_url": "https://www.magicbricks.com/i-stay-tower-marol-mumbai-pdpid-4d4235343137323739",
+            "captured_at": "2026-08-22T09:54:52.836Z",
+            "confidence": "medium"
+          },
+          {
+            "field": "possession_display",
+            "value": "2028",
+            "source": "99acres.com",
+            "source_url": "https://www.99acres.com/i-stay-project-faqs-marol-mumbai-andheri-dahisar-npxid-r405006",
+            "captured_at": "2026-08-22T09:54:52.836Z",
+            "confidence": "medium"
+          }
+        ],
+        "location": [
+          {
+            "field": "location",
+            "value": "Marol",
+            "source": "magicbricks.com",
+            "source_url": "https://www.magicbricks.com/i-stay-tower-marol-mumbai-pdpid-4d4235343137323739",
+            "captured_at": "2026-08-22T09:54:52.836Z",
+            "confidence": "medium"
+          }
+        ],
+        "developer": [
+          {
+            "field": "developer",
+            "value": "Read",
+            "source": "magicbricks.com",
+            "source_url": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+            "captured_at": "2026-08-22T09:54:56.023Z",
+            "confidence": "medium"
+          },
+          {
+            "field": "developer",
+            "value": "Nov",
+            "source": "magicbricks.com",
+            "source_url": "https://www.magicbricks.com/i-stay-tower-marol-mumbai-pdpid-4d4235343137323739",
+            "captured_at": "2026-08-22T09:55:04.565Z",
+            "confidence": "medium"
+          }
+        ],
+        "project_name": [
+          {
+            "field": "project_name",
+            "value": "I Stay Tower Mumbai Layouts Sizes Configurations",
+            "source": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+            "source_url": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+            "captured_at": "2026-08-22T09:55:18.350Z",
+            "confidence": "medium"
+          },
+          {
+            "field": "project_name",
+            "value": "I Stay Tower Video Marol Mumbai",
+            "source": "https://www.magicbricks.com/i-stay-tower-photo-videos-marol-mumbai-pdpid-4d4235343137323739",
+            "source_url": "https://www.magicbricks.com/i-stay-tower-photo-videos-marol-mumbai-pdpid-4d4235343137323739",
+            "captured_at": "2026-08-22T09:55:17.816Z",
+            "confidence": "medium"
+          }
+        ],
+        "lifecycle_status_from_page": [
+          {
+            "field": "lifecycle_status_from_page",
+            "value": "RENTAL",
+            "source": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+            "source_url": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+            "captured_at": "2026-08-22T09:55:18.350Z",
+            "confidence": "high"
+          }
+        ],
+        "carpet_area": [
+          {
+            "field": "carpet_area",
+            "value": "611 sq ft",
+            "source": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+            "source_url": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+            "captured_at": "2026-08-22T09:55:18.350Z",
+            "confidence": "medium"
+          }
+        ],
+        "price": [
+          {
+            "field": "price",
+            "value": "₹1.52 Cr",
+            "source": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+            "source_url": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+            "captured_at": "2026-08-22T09:55:18.350Z",
+            "confidence": "medium"
+          }
+        ],
+        "possession": [
+          {
+            "field": "possession",
+            "value": "Ready to Move",
+            "source": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+            "source_url": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+            "captured_at": "2026-08-22T09:55:18.350Z",
+            "confidence": "medium"
+          }
+        ],
+        "project_status": [
+          {
+            "field": "project_status",
+            "value": "Ready to move",
+            "source": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+            "source_url": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+            "captured_at": "2026-08-22T09:55:18.350Z",
+            "confidence": "medium"
+          }
+        ],
+        "property_type": [
+          {
+            "field": "property_type",
+            "value": "Villa",
+            "source": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+            "source_url": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+            "captured_at": "2026-08-22T09:55:18.350Z",
+            "confidence": "medium"
+          }
+        ],
+        "amenities": [
+          {
+            "field": "amenities",
+            "value": [
+              "spa"
+            ],
+            "source": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+            "source_url": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+            "captured_at": "2026-08-22T09:55:18.350Z",
+            "confidence": "medium"
+          }
+        ]
+      },
+      "configuration_evidence": {
+        "2 BHK": {
+          "carpet_area_evidence": [
+            {
+              "value": "611 sq ft",
+              "source": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+              "source_url": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+              "confidence": "medium",
+              "evidence_text": "ing\nAll 2 BHK\n1 Sizes Super Area: 611 - 611 sq.ft\nView Floor Plan\nCarpet Area\n611 sq.ft 2"
+            }
+          ],
+          "carpet_area": "611 sq ft",
+          "price_evidence": [
+            {
+              "value": "₹1.52 Cr",
+              "source": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+              "source_url": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+              "confidence": "medium",
+              "evidence_text": "Floor Plan\nCarpet Area\n611 sq.ft 2 BHK\n₹ 1.52 Cr Onwards ₹ 72K EMI\nPossession by Nov&#x2"
+            }
+          ],
+          "price": "₹1.52 Cr"
+        }
+      },
+      "featureEvidence": [
+        {
+          "feature": "balcony",
+          "scope": "unknown",
+          "configuration": null,
+          "evidence_text": "ties\nContact\nUnit & Floor Plans\nAll\n611 sq.ft\n2 Bathrooms\n1 Balconies\nSuper area\n611 sq.ft\nPrice range\nSale: ₹ 1.52 Cr\nNew Launch",
+          "source": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+          "source_url": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+          "confidence": "medium"
+        }
+      ],
+      "sourceType": "external",
+      "lifecycleStatus": "UNDER_CONSTRUCTION",
+      "lifecycleEvidence": "Bricks I Stay Tower is a Under Construction project by I STAY HOUSIN",
+      "placesVerified": false,
+      "placesLat": null,
+      "placesLon": null,
+      "placesPlaceId": null,
+      "placesAddress": null
+    },
+    {
+      "id": "istaytowerandherieast::andherieast",
+      "name": "I-Stay Tower, Andheri East",
+      "rawName": "I-Stay Tower, Andheri East",
+      "developer": "Oct",
+      "location": "Andheri East",
+      "city": "Mumbai",
+      "config": "1 BHK & 2 BHK",
+      "price": "₹1,20,00,000",
+      "possession": "Oct 2028",
+      "rera": "P51800049840",
+      "rera_verified": null,
+      "sourceName": "nobrokerage.com",
+      "sourceUrl": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+      "sources": [
+        {
+          "name": "nobrokerage.com",
+          "url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "captured_at": "2026-08-22T09:55:00.148Z",
+          "source_type": "web"
+        },
+        {
+          "name": "houssed.com",
+          "url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+          "captured_at": "2026-08-22T09:55:04.566Z",
+          "source_type": "web"
+        }
+      ],
+      "match_score": 82,
+      "why": "Located in Andheri East; Marol not independently verified",
+      "match_tier": "PRIMARY",
+      "match_reasons": [
+        "Located in Andheri East; Marol not independently verified",
+        "1 BHK available",
+        "Corroborated by 2 independent sources"
+      ],
+      "key_match": "Located in Andheri East; Marol not independently verified",
+      "limitations": [],
+      "project_intelligence": {
+        "official": null,
+        "rera": "P51800049840",
+        "rera_confidence": 0.6,
+        "rera_conflict": false,
+        "rera_conflicting_values": [],
+        "configs": [
+          {
+            "type": "1 BHK",
+            "carpet": "406 sq ft",
+            "total": null,
+            "available": null,
+            "price": "₹1.20 Cr"
+          },
+          {
+            "type": "2 BHK",
+            "carpet": "611 sq ft",
+            "total": null,
+            "available": null,
+            "price": "₹1.57 Cr"
+          }
+        ],
+        "configuration_evidence": {
+          "1 BHK": {
+            "price_evidence": [
+              {
+                "value": "₹1.20 Cr",
+                "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+                "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+                "confidence": "medium",
+                "evidence_text": "shtra\nConfigurations\n1 BHK 454.99 sq.ft\n₹ 1.20 Crore\nInterested\n2 BHK 610.96 sq.ft\n₹ 1.57 Cr"
+              }
+            ],
+            "price": "₹1.20 Cr",
+            "carpet_area_evidence": [
+              {
+                "value": "406 sq ft",
+                "source": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+                "source_url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+                "confidence": "medium",
+                "evidence_text": "eri East, Mumbai\n1 BHK Flat\nCarpet Area\n406 Sq Ft\nPrice\n1.17 Cr\n2 BHK Flat\nCarpet Area\n61"
+              }
+            ],
+            "carpet_area": "406 sq ft"
+          },
+          "2 BHK": {
+            "price_evidence": [
+              {
+                "value": "₹1.57 Cr",
+                "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+                "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+                "confidence": "medium",
+                "evidence_text": ".20 Crore\nInterested\n2 BHK 610.96 sq.ft\n₹ 1.57 Crore\nInterested\nMumbai\nWant to Schedule a Si"
+              },
+              {
+                "value": "₹1.15 Cr",
+                "source": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+                "source_url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+                "confidence": "medium",
+                "evidence_text": "ssession\n30-Oct-2028\nProperty Type\nFlat\n₹ 1.15 Cr - 1.75 Cr\nCall Back Request Get Brochur"
+              }
+            ],
+            "price": "₹1.57 Cr",
+            "carpet_area_evidence": [
+              {
+                "value": "611 sq ft",
+                "source": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+                "source_url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+                "confidence": "medium",
+                "evidence_text": "Ft\nPrice\n1.17 Cr\n2 BHK Flat\nCarpet Area\n611 Sq Ft\nPrice\n1.73 Cr\nFloor Plan\nMaster Plan\nKe"
+              },
+              {
+                "value": "620 sq ft",
+                "source": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+                "source_url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+                "confidence": "medium",
+                "evidence_text": "ai 400059\nBHK\n1,2 BHK\nCarpet Area\n400 - 620 Sq Ft\nPossession\n30-Oct-2028\nProperty Type\nFl"
+              }
+            ],
+            "carpet_area": "611 sq ft"
+          }
+        },
+        "amenities": [
+          "parking",
+          "spa",
+          "security",
+          "swimming pool",
+          "gym",
+          "garden",
+          "jogging track",
+          "play area",
+          "yoga",
+          "badminton court",
+          "indoor games",
+          "senior citizen",
+          "library",
+          "kids play area",
+          "lift"
+        ],
+        "features": [
+          {
+            "feature": "deck",
+            "scope": "unknown",
+            "configuration": null,
+            "evidence_text": "Business Lounges, Garden, Cycling Track, Indoor Games, Yoga Deck, Senior Citizen Relaxation Zones, Outside Sitting, Gym.\nWha",
+            "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "confidence": "medium"
+          },
+          {
+            "feature": "balcony",
+            "scope": "unknown",
+            "configuration": null,
+            "evidence_text": "50+ lifestyle experiences. It offers Vastu-compliant 2-BHK\nbalcony homes with zero-wastage layouts and excellent ventilation.",
+            "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "confidence": "medium"
+          },
+          {
+            "feature": "balcony",
+            "scope": "project",
+            "configuration": null,
+            "evidence_text": "for a holistic lifestyle.\nThe project specializes in 2-BHK balcony homes that prioritize family togetherness and\nmaximum space",
+            "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "confidence": "medium"
+          },
+          {
+            "feature": "balcony",
+            "scope": "unit",
+            "configuration": null,
+            "evidence_text": "ferent family sizes and preferences.\nHow many bathrooms and balconies are included in each flat?\nFlats in I-Stay Tower include mu",
+            "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "confidence": "high"
+          },
+          {
+            "feature": "balcony",
+            "scope": "tower",
+            "configuration": null,
+            "evidence_text": "Stay Tower include multiple bathrooms and multiple spacious balconies, providing well-planned space for privacy and leisure.\nWhat",
+            "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "confidence": "medium"
+          },
+          {
+            "feature": "parking",
+            "scope": "project",
+            "configuration": "2 BHK",
+            "evidence_text": "1 & 2 BHK Apartments\nTotal Floors\n23\nAmenities\n21 Amenities\nParking\nAvailable\nLocality\nAndheri East\nPin Code\n400059\nLandmark\nNe",
+            "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "confidence": "medium"
+          },
+          {
+            "feature": "parking",
+            "scope": "tower",
+            "configuration": "2 BHK",
+            "evidence_text": "gned for modern comfortable living.\nDoes I-Stay Tower offer parking facilities?\nYes, I-Stay Tower offers dedicated parking for",
+            "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "confidence": "medium"
+          },
+          {
+            "feature": "parking",
+            "scope": "tower",
+            "configuration": null,
+            "evidence_text": "ffer parking facilities?\nYes, I-Stay Tower offers dedicated parking for residents, ensuring convenience and security for person",
+            "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "confidence": "medium"
+          },
+          {
+            "feature": "balcony",
+            "scope": "unknown",
+            "configuration": null,
+            "evidence_text": "that is 2.25 acres and offers well planned homes including balconies and efficient designs. There are a variety of lifestyle ame",
+            "source": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+            "source_url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+            "confidence": "medium"
+          },
+          {
+            "feature": "parking",
+            "scope": "tower",
+            "configuration": null,
+            "evidence_text": "owers / Floors\n1 Towers / 22 Floors\nProperty View\nOpen View\nParking\nTwo Wheeler, Four Wheeler\nStarwing I-Stay Tower F is a mode",
+            "source": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+            "source_url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+            "confidence": "medium"
+          },
+          {
+            "feature": "parking",
+            "scope": "unknown",
+            "configuration": null,
+            "evidence_text": "Mumbai\nConvenience\n24X7 Water Supply\nLift\nSecurity\nVisitor Parking\nMud Playing Zone\nChildren Playing Zone\nSenior Citizen Sitti",
+            "source": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+            "source_url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+            "confidence": "medium"
+          }
+        ],
+        "usps": [
+          "RERA registered (P51800049840)",
+          "Corroborated across multiple independent sources",
+          "Parking",
+          "Spa",
+          "Security"
+        ],
+        "usp_evidence": [
+          {
+            "insight": "RERA registered (P51800049840)",
+            "reason": "RERA number found in source evidence",
+            "sources": [
+              "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+              "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959"
+            ]
+          },
+          {
+            "insight": "Corroborated across multiple independent sources",
+            "reason": "2 evidence item(s) from independent portals/web sources",
+            "sources": [
+              "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+              "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959"
+            ]
+          },
+          {
+            "insight": "Parking",
+            "reason": "Amenity confirmed in source listing text",
+            "sources": [
+              "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o"
+            ]
+          },
+          {
+            "insight": "Spa",
+            "reason": "Amenity confirmed in source listing text",
+            "sources": [
+              "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o"
+            ]
+          },
+          {
+            "insight": "Security",
+            "reason": "Amenity confirmed in source listing text",
+            "sources": [
+              "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o"
+            ]
+          }
+        ],
+        "competitors": [
+          {
+            "name": "I Stay Tower in Marol",
+            "developer": "Read",
+            "location": "Marol",
+            "configuration": [
+              "1 BHK",
+              "2 BHK"
+            ],
+            "price": "₹1,52,00,000",
+            "possession": "Jan 2026",
+            "rera": null,
+            "comparison_basis": [
+              "also offers 1 BHK, 2 BHK",
+              "comparable price band"
+            ],
+            "sources": [
+              "https://www.magicbricks.com/i-stay-tower-marol-mumbai-pdpid-4d4235343137323739",
+              "https://www.99acres.com/i-stay-project-faqs-marol-mumbai-andheri-dahisar-npxid-r405006"
+            ]
+          }
+        ],
+        "target_audience": {
+          "segments": [
+            {
+              "segment": "First-time buyers and single occupants",
+              "because": "smallest configuration offered is 1 BHK",
+              "derived_from": [
+                "configuration"
+              ]
+            },
+            {
+              "segment": "Value segment buyers",
+              "because": "price band averages ₹1.2 Cr",
+              "derived_from": [
+                "price"
+              ]
+            },
+            {
+              "segment": "Investors and buyers with a flexible move-in date",
+              "because": "lifecycle stage is under construction, possession Oct 2028",
+              "derived_from": [
+                "lifecycle_status",
+                "possession"
+              ]
+            },
+            {
+              "segment": "Families with school-age children",
+              "because": "Hasanat High School is 366 m away",
+              "derived_from": [
+                "location_score.education"
+              ]
+            },
+            {
+              "segment": "Daily commuters",
+              "because": "Andheri is 317 m away",
+              "derived_from": [
+                "location_score.rail_metro"
+              ]
+            }
+          ],
+          "method": "derived deterministically from this project's own extracted fields — never inferred from general knowledge"
+        },
+        "field_ledger": {
+          "fields": {
+            "rera": {
+              "filled": true,
+              "answered_by": null,
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "portal",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "price": {
+              "filled": true,
+              "answered_by": "nobrokerage.com",
+              "corroborating_sources": 2,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "portal",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "carpet_area": {
+              "filled": true,
+              "answered_by": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "configuration": {
+              "filled": true,
+              "answered_by": "nobrokerage.com",
+              "corroborating_sources": 2,
+              "possible_sources": [
+                "page-text",
+                "portal",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "developer": {
+              "filled": true,
+              "answered_by": "nobrokerage.com",
+              "corroborating_sources": 3,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "possession": {
+              "filled": true,
+              "answered_by": "nobrokerage.com",
+              "corroborating_sources": 2,
+              "possible_sources": [
+                "page-text",
+                "portal",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "project_status": {
+              "filled": true,
+              "answered_by": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+              "corroborating_sources": 2,
+              "possible_sources": [
+                "page-text"
+              ],
+              "status": "filled"
+            },
+            "amenities": {
+              "filled": true,
+              "answered_by": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+              "corroborating_sources": 2,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "property_type": {
+              "filled": true,
+              "answered_by": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "json-ld"
+              ],
+              "status": "filled"
+            },
+            "total_floors": {
+              "filled": true,
+              "answered_by": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+              "corroborating_sources": 2,
+              "possible_sources": [
+                "page-text",
+                "json-ld"
+              ],
+              "status": "filled"
+            },
+            "tower_count": {
+              "filled": true,
+              "answered_by": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text"
+              ],
+              "status": "filled"
+            },
+            "connectivity": {
+              "filled": true,
+              "answered_by": "llm:Groq",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "google-places-nearby",
+                "page-text"
+              ],
+              "status": "filled"
+            },
+            "nearby_landmarks": {
+              "filled": true,
+              "answered_by": "llm:Groq",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "google-places-nearby",
+                "page-text"
+              ],
+              "status": "filled"
+            },
+            "location_score": {
+              "filled": true,
+              "answered_by": "google-places-nearby",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "google-places-nearby"
+              ],
+              "status": "filled"
+            },
+            "coordinates": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "google-places-verify",
+                "json-ld"
+              ],
+              "status": "searched_not_found"
+            }
+          },
+          "filled": 14,
+          "total": 15,
+          "never_researched": []
+        },
+        "location_score": {
+          "score": 100,
+          "out_of": 100,
+          "components": {
+            "rail_metro": {
+              "weight": 30,
+              "points": 30,
+              "nearest": {
+                "name": "Andheri",
+                "distance_m": 317,
+                "kind": "Subway Station"
+              },
+              "count_within_radius": 10,
+              "full_marks_within_m": 800,
+              "zero_marks_beyond_m": 3000
+            },
+            "bus": {
+              "weight": 10,
+              "points": 10,
+              "nearest": {
+                "name": "Sainath Nagar (MIDC -Marol)",
+                "distance_m": 227,
+                "kind": "Bus stop"
+              },
+              "count_within_radius": 10,
+              "full_marks_within_m": 300,
+              "zero_marks_beyond_m": 1200
+            },
+            "education": {
+              "weight": 15,
+              "points": 15,
+              "nearest": {
+                "name": "Hasanat High School",
+                "distance_m": 366,
+                "kind": "High school"
+              },
+              "count_within_radius": 10,
+              "full_marks_within_m": 800,
+              "zero_marks_beyond_m": 2500
+            },
+            "healthcare": {
+              "weight": 15,
+              "points": 15,
+              "nearest": {
+                "name": "Ot sub store",
+                "distance_m": 178,
+                "kind": "Hospital"
+              },
+              "count_within_radius": 10,
+              "full_marks_within_m": 1000,
+              "zero_marks_beyond_m": 3000
+            },
+            "retail": {
+              "weight": 20,
+              "points": 20,
+              "nearest": {
+                "name": "Apna Bazaar",
+                "distance_m": 178,
+                "kind": "Supermarket"
+              },
+              "count_within_radius": 10,
+              "full_marks_within_m": 1000,
+              "zero_marks_beyond_m": 3000
+            },
+            "green": {
+              "weight": 10,
+              "points": 10,
+              "nearest": {
+                "name": "Cats of Lok Raunak",
+                "distance_m": 309,
+                "kind": "Park"
+              },
+              "count_within_radius": 10,
+              "full_marks_within_m": 600,
+              "zero_marks_beyond_m": 2000
+            }
+          }
+        },
+        "location_intel": {
+          "by_dimension": {
+            "rail_metro": [
+              {
+                "name": "Andheri",
+                "kind": "Subway Station",
+                "lat": 19.117373,
+                "lon": 72.873829,
+                "distance_m": 317,
+                "placeId": "ChIJ8wCbbD3I5zsRx97JyHob3Gg",
+                "primary_match": true
+              },
+              {
+                "name": "Seepz",
+                "kind": "Subway Station",
+                "lat": 19.12578,
+                "lon": 72.873447,
+                "distance_m": 824,
+                "placeId": "ChIJhStJkiHI5zsRuC_ftPh9_Xg",
+                "primary_match": true
+              },
+              {
+                "name": "Airport Road",
+                "kind": "Subway Station",
+                "lat": 19.1101477,
+                "lon": 72.8742319,
+                "distance_m": 999,
+                "placeId": "ChIJAy3xzj_I5zsRuIoDiFGy_3M",
+                "primary_match": true
+              },
+              {
+                "name": "Chakala",
+                "kind": "Subway Station",
+                "lat": 19.112053799999998,
+                "lon": 72.8676571,
+                "distance_m": 1191,
+                "placeId": "ChIJcUAEZjnI5zsR7Im8G2DA8w0",
+                "primary_match": true
+              },
+              {
+                "name": "Marol Naka",
+                "kind": "Subway Station",
+                "lat": 19.1081288,
+                "lon": 72.8794774,
+                "distance_m": 1241,
+                "placeId": "ChIJI_mjzBTI5zsRiLEO92t62UQ",
+                "primary_match": true
+              },
+              {
+                "name": "Aarey JVLR",
+                "kind": "Subway Station",
+                "lat": 19.131079,
+                "lon": 72.88432399999999,
+                "distance_m": 1591,
+                "placeId": "ChIJDRGVeR3I5zsRaeV06NuhlIk",
+                "primary_match": true
+              },
+              {
+                "name": "CSMI Airport - T2",
+                "kind": "Subway Station",
+                "lat": 19.102033,
+                "lon": 72.874445,
+                "distance_m": 1887,
+                "placeId": "ChIJceoB-EHI5zsRscygAm__zm0",
+                "primary_match": true
+              },
+              {
+                "name": "Saki Naka",
+                "kind": "Subway Station",
+                "lat": 19.1034835,
+                "lon": 72.8879697,
+                "distance_m": 2103,
+                "placeId": "ChIJ8fz4BHLI5zsRUc3UbmiAwz8",
+                "primary_match": true
+              },
+              {
+                "name": "Western Exp Highway",
+                "kind": "Subway Station",
+                "lat": 19.115875,
+                "lon": 72.85647999999999,
+                "distance_m": 2117,
+                "placeId": "ChIJXf2GPzLI5zsRypf3ORf7hko",
+                "primary_match": true
+              },
+              {
+                "name": "Sahar Road",
+                "kind": "Subway Station",
+                "lat": 19.102128,
+                "lon": 72.864803,
+                "distance_m": 2227,
+                "placeId": "ChIJndBPE0bI5zsRirRc7Xk9y3Q",
+                "primary_match": true
+              }
+            ],
+            "bus": [
+              {
+                "name": "Sainath Nagar (MIDC -Marol)",
+                "kind": "Bus stop",
+                "lat": 19.12087,
+                "lon": 72.87579,
+                "distance_m": 227,
+                "placeId": "ChIJmZBGcxjI5zsRDaqLhZP1-wA",
+                "primary_match": true
+              },
+              {
+                "name": "Sainath Nagar (MIDC -Marol)",
+                "kind": "Bus stop",
+                "lat": 19.121047,
+                "lon": 72.87547099999999,
+                "distance_m": 257,
+                "placeId": "ChIJT9lPdBjI5zsRRITuacXeYtE",
+                "primary_match": true
+              },
+              {
+                "name": "Bhel Company",
+                "kind": "Bus stop",
+                "lat": 19.120839999999998,
+                "lon": 72.87474999999999,
+                "distance_m": 275,
+                "placeId": "ChIJmynEmCLI5zsR4QMPCWjYlgE",
+                "primary_match": true
+              },
+              {
+                "name": "Bhel Company",
+                "kind": "Bus stop",
+                "lat": 19.120929999999998,
+                "lon": 72.87459,
+                "distance_m": 293,
+                "placeId": "ChIJhaCvmSLI5zsRJN6zg1CKzT0",
+                "primary_match": true
+              },
+              {
+                "name": "Maheshwri Nagar",
+                "kind": "Bus stop",
+                "lat": 19.11798,
+                "lon": 72.87357,
+                "distance_m": 312,
+                "placeId": "ChIJQ-wQPz3I5zsRTGFzmkYPlqo",
+                "primary_match": true
+              },
+              {
+                "name": "Maheshwari Nagar",
+                "kind": "Bus stop",
+                "lat": 19.118,
+                "lon": 72.87348999999999,
+                "distance_m": 319,
+                "placeId": "ChIJc1vnPj3I5zsRHuF3Cv9rD3k",
+                "primary_match": true
+              },
+              {
+                "name": "Vijay Nagar (Marol Maroshi)",
+                "kind": "Bus stop",
+                "lat": 19.12026,
+                "lon": 72.87951699999999,
+                "distance_m": 363,
+                "placeId": "ChIJm5Zv5xnI5zsROPVuJ7fk4YI",
+                "primary_match": true
+              },
+              {
+                "name": "Marol Maroshi Bus Station",
+                "kind": "Bus stop",
+                "lat": 19.117649999999998,
+                "lon": 72.87966999999999,
+                "distance_m": 373,
+                "placeId": "ChIJAYYqOxfI5zsR4AnTIiKy8TY",
+                "primary_match": true
+              },
+              {
+                "name": "Vijay Nagar (Marol Maroshi)",
+                "kind": "Bus stop",
+                "lat": 19.120154,
+                "lon": 72.879737,
+                "distance_m": 379,
+                "placeId": "ChIJbz_S3RnI5zsR0RIh_CH_kLU",
+                "primary_match": true
+              },
+              {
+                "name": "Marol Maroshi Bus Station",
+                "kind": "Bus stop",
+                "lat": 19.118025,
+                "lon": 72.88014770000001,
+                "distance_m": 408,
+                "placeId": "ChIJf7ydORfI5zsRmGYK2tuJrEQ",
+                "primary_match": true
+              }
+            ],
+            "education": [
+              {
+                "name": "Hasanat High School",
+                "kind": "High school",
+                "lat": 19.1156157,
+                "lon": 72.8766354,
+                "distance_m": 366,
+                "placeId": "ChIJefMwORbI5zsRpQnexa44EN8",
+                "primary_match": true
+              },
+              {
+                "name": "Ryan Global School",
+                "kind": "School",
+                "lat": 19.1182706,
+                "lon": 72.8729002,
+                "distance_m": 372,
+                "placeId": "ChIJg3U9JT3I5zsRSvIwkSeQP0w",
+                "primary_match": true
+              },
+              {
+                "name": "Keys61",
+                "kind": "School",
+                "lat": 19.1195219,
+                "lon": 72.879873,
+                "distance_m": 374,
+                "placeId": "ChIJ11rlp-zJ5zsR5ofe5dAzhhc",
+                "primary_match": true
+              },
+              {
+                "name": "New Azam Motor Training School",
+                "kind": "School",
+                "lat": 19.116246999999998,
+                "lon": 72.8794358,
+                "distance_m": 436,
+                "placeId": "ChIJnVXe3BbI5zsRslu4SzWeQ7U",
+                "primary_match": true
+              },
+              {
+                "name": "St.Lawrence High School.",
+                "kind": "School",
+                "lat": 19.115258,
+                "lon": 72.87812800000002,
+                "distance_m": 445,
+                "placeId": "ChIJS8CQihbI5zsRVBkLtkmbKKU",
+                "primary_match": true
+              },
+              {
+                "name": "Music Classes in Andheri - Guitar, Piano, Drums (The Musician's Atelier)",
+                "kind": "School",
+                "lat": 19.1216991,
+                "lon": 72.880175,
+                "distance_m": 506,
+                "placeId": "ChIJx5nl0ubJ5zsR-SGH_nXu5oM",
+                "primary_match": true
+              },
+              {
+                "name": "Marol Education Academy's High School & Junior College",
+                "kind": "School",
+                "lat": 19.1191121,
+                "lon": 72.88136279999999,
+                "distance_m": 524,
+                "placeId": "ChIJVftDshDI5zsRm4o6Y70hzOs",
+                "primary_match": true
+              },
+              {
+                "name": "Starlit Ability Enhancement Services Pvt. Ltd.",
+                "kind": "Medical Clinic",
+                "lat": 19.119798799999998,
+                "lon": 72.8749754,
+                "distance_m": 178,
+                "placeId": "ChIJTWDgwjzI5zsRoe8iVufnAjU",
+                "primary_match": false
+              },
+              {
+                "name": "MUSCLE MADE FITNESS",
+                "kind": "Gym",
+                "lat": 19.1199229,
+                "lon": 72.8745326,
+                "distance_m": 225,
+                "placeId": "ChIJT-RL1rzJ5zsRn7dAMxtWW20",
+                "primary_match": false
+              },
+              {
+                "name": "Toddlers nursery and playgroup",
+                "kind": "Preschool",
+                "lat": 19.114845799999998,
+                "lon": 72.87903349999999,
+                "distance_m": 530,
+                "placeId": "ChIJX3j9SxTI5zsRXDzph7PYBS0",
+                "primary_match": false
+              }
+            ],
+            "healthcare": [
+              {
+                "name": "Ot sub store",
+                "kind": "Hospital",
+                "lat": 19.1184576,
+                "lon": 72.8780074,
+                "distance_m": 178,
+                "placeId": "ChIJbfIbvMfJ5zsRgRl8USXOQtI",
+                "primary_match": true
+              },
+              {
+                "name": "Seve",
+                "kind": "Hospital",
+                "lat": 19.119356,
+                "lon": 72.8780088,
+                "distance_m": 179,
+                "placeId": "ChIJRZ_mg_fJ5zsR3QZIt5bsfyw",
+                "primary_match": true
+              },
+              {
+                "name": "SevenHills Hospital",
+                "kind": "Hospital",
+                "lat": 19.1179997,
+                "lon": 72.8780374,
+                "distance_m": 201,
+                "placeId": "ChIJ690opxfI5zsR05T02iSmmZU",
+                "primary_match": true
+              },
+              {
+                "name": "Dr Tanmay Patil",
+                "kind": "Hospital",
+                "lat": 19.117981,
+                "lon": 72.8780385,
+                "distance_m": 202,
+                "placeId": "ChIJqaKDZjjJ5zsRcaLA45ONz00",
+                "primary_match": true
+              },
+              {
+                "name": "Salfihospital",
+                "kind": "Hospital",
+                "lat": 19.1185465,
+                "lon": 72.8735951,
+                "distance_m": 295,
+                "placeId": "ChIJ5aHlNz3I5zsRU-o8vUeiGjU",
+                "primary_match": true
+              },
+              {
+                "name": "New Shree Medical Stores",
+                "kind": "Medical Center",
+                "lat": 19.118586099999998,
+                "lon": 72.87512439999999,
+                "distance_m": 136,
+                "placeId": "ChIJY3eb_RfI5zsRnWHRkIrB90c",
+                "primary_match": false
+              },
+              {
+                "name": "Shanti medical",
+                "kind": "Medical Center",
+                "lat": 19.1187839,
+                "lon": 72.8750195,
+                "distance_m": 143,
+                "placeId": "ChIJUzSDbADJ5zsRVfzl8goLnwg",
+                "primary_match": false
+              },
+              {
+                "name": "paramedy",
+                "kind": "Medical Center",
+                "lat": 19.118637,
+                "lon": 72.8746858,
+                "distance_m": 180,
+                "placeId": "ChIJh6R4Wj3I5zsRGSbUcfUes5E",
+                "primary_match": false
+              },
+              {
+                "name": "Dr Hemalata Arora MD: General Physician",
+                "kind": "Doctor",
+                "lat": 19.1177138,
+                "lon": 72.87861699999999,
+                "distance_m": 270,
+                "placeId": "ChIJG3UwDxfI5zsRo4QRl8BX6Ac",
+                "primary_match": false
+              },
+              {
+                "name": "Modi Piles",
+                "kind": "Medical Center",
+                "lat": 19.1177429,
+                "lon": 72.8736802,
+                "distance_m": 311,
+                "placeId": "ChIJ____Pz3I5zsRWIlr2Rekn34",
+                "primary_match": false
+              }
+            ],
+            "retail": [
+              {
+                "name": "Apna Bazaar",
+                "kind": "Supermarket",
+                "lat": 19.119784799999998,
+                "lon": 72.87496349999999,
+                "distance_m": 178,
+                "placeId": "ChIJFcr_p-DJ5zsR31qGIUBvb6M",
+                "primary_match": true
+              },
+              {
+                "name": "Mayur Sales Services",
+                "kind": "Shopping Mall",
+                "lat": 19.11948,
+                "lon": 72.880078,
+                "distance_m": 394,
+                "placeId": "ChIJibFpRhfI5zsRuY8ylOymwOE",
+                "primary_match": true
+              },
+              {
+                "name": "G Mart",
+                "kind": "Supermarket",
+                "lat": 19.1193804,
+                "lon": 72.8801261,
+                "distance_m": 397,
+                "placeId": "ChIJNXwd4hnI5zsRL2uDwxdaucA",
+                "primary_match": true
+              },
+              {
+                "name": "Real Super Market",
+                "kind": "Supermarket",
+                "lat": 19.121322499999998,
+                "lon": 72.87981669999999,
+                "distance_m": 451,
+                "placeId": "ChIJoaK9lBnI5zsRGuuLGsEIVNU",
+                "primary_match": true
+              },
+              {
+                "name": "Kohinoor Bakeri &Genral Store",
+                "kind": "Supermarket",
+                "lat": 19.114907199999998,
+                "lon": 72.8778724,
+                "distance_m": 471,
+                "placeId": "ChIJ0e7cYxbI5zsR9_VVO40al4o",
+                "primary_match": true
+              },
+              {
+                "name": "MJM CREATIONS",
+                "kind": "Shopping Mall",
+                "lat": 19.114843399999998,
+                "lon": 72.8778923,
+                "distance_m": 479,
+                "placeId": "ChIJp9OcTL_J5zsRH6i1hp7oEsA",
+                "primary_match": true
+              },
+              {
+                "name": "Excel service center",
+                "kind": "Shopping Mall",
+                "lat": 19.1173599,
+                "lon": 72.87195670000001,
+                "distance_m": 495,
+                "placeId": "ChIJeRpi3NDJ5zsRNdz88YV5Zyo",
+                "primary_match": true
+              },
+              {
+                "name": "Mahavir Super Market",
+                "kind": "Supermarket",
+                "lat": 19.1145174,
+                "lon": 72.87824719999999,
+                "distance_m": 526,
+                "placeId": "ChIJIXj0hxbI5zsRbxxwYgC8jpo",
+                "primary_match": true
+              },
+              {
+                "name": "Sameer Egg Merchant",
+                "kind": "Shopping Mall",
+                "lat": 19.1141635,
+                "lon": 72.8782926,
+                "distance_m": 564,
+                "placeId": "ChIJi8bmgBbI5zsRBIhujum8RzE",
+                "primary_match": true
+              },
+              {
+                "name": "Yashvi Supermarket",
+                "kind": "General Store",
+                "lat": 19.1193851,
+                "lon": 72.8808392,
+                "distance_m": 472,
+                "placeId": "ChIJ48LIUxfI5zsRRQ877Yuu9Kg",
+                "primary_match": false
+              }
+            ],
+            "green": [
+              {
+                "name": "Cats of Lok Raunak",
+                "kind": "Park",
+                "lat": 19.1163526,
+                "lon": 72.87754749999999,
+                "distance_m": 309,
+                "placeId": "ChIJxQQ9BwDJ5zsRRApI2NBAg4U",
+                "primary_match": true
+              },
+              {
+                "name": "LT Garden and open Gym",
+                "kind": "Park",
+                "lat": 19.1213054,
+                "lon": 72.8783588,
+                "distance_m": 339,
+                "placeId": "ChIJe8cZAADJ5zsRUJunZhjVgRA",
+                "primary_match": true
+              },
+              {
+                "name": "ZENITH CO-OPERATIVE HOUSING SOCIETY-2",
+                "kind": "Park",
+                "lat": 19.1186914,
+                "lon": 72.8804318,
+                "distance_m": 427,
+                "placeId": "ChIJ_8K4SBfI5zsRaSzWOmApJCg",
+                "primary_match": true
+              },
+              {
+                "name": "Bhavani Nagar Private Garden",
+                "kind": "Park",
+                "lat": 19.121105699999998,
+                "lon": 72.8815474,
+                "distance_m": 596,
+                "placeId": "ChIJA72qGxrI5zsRxQh7MtVCntA",
+                "primary_match": true
+              },
+              {
+                "name": "Brihanmumbai Municipal Corporation",
+                "kind": "Park",
+                "lat": 19.1136289,
+                "lon": 72.8777861,
+                "distance_m": 605,
+                "placeId": "ChIJT6BEPBbI5zsRxLs4SeS496M",
+                "primary_match": true
+              },
+              {
+                "name": "Adarsh Nagar Park",
+                "kind": "Park",
+                "lat": 19.1193794,
+                "lon": 72.882252,
+                "distance_m": 620,
+                "placeId": "ChIJhc1poxDI5zsRl8Glfy5b3ds",
+                "primary_match": true
+              },
+              {
+                "name": "CTS NO 1189 Brihan mumbai mahanagar palika Marol church Rd. park",
+                "kind": "Park",
+                "lat": 19.113318,
+                "lon": 72.876837,
+                "distance_m": 623,
+                "placeId": "ChIJ2QjHvpHJ5zsRPzx_IbLoK6k",
+                "primary_match": true
+              },
+              {
+                "name": "Public Park",
+                "kind": "Park",
+                "lat": 19.1132417,
+                "lon": 72.8765949,
+                "distance_m": 630,
+                "placeId": "ChIJ6SaEUk_J5zsR-Jw_kqb9f7E",
+                "primary_match": true
+              },
+              {
+                "name": "Green park",
+                "kind": "Park",
+                "lat": 19.1149842,
+                "lon": 72.8821555,
+                "distance_m": 747,
+                "placeId": "ChIJwzvG0_rJ5zsRv5WpGBX7S3I",
+                "primary_match": true
+              },
+              {
+                "name": "Bhawani nagar Recreation Ground",
+                "kind": "Park",
+                "lat": 19.120452399999998,
+                "lon": 72.8835945,
+                "distance_m": 778,
+                "placeId": "ChIJAcFceRrI5zsRDjgErA0Cwtw",
+                "primary_match": true
+              }
+            ]
+          },
+          "source": "google-places-nearby"
+        },
+        "connectivity": "Located centrally near the airport and key transit hubs; provides access to the International Airport, Western Express Highway, and metro lines",
+        "nearby_landmarks": "Passport Seva Kendra",
+        "summary": "I-Stay Tower, Andheri East offers 1 BHK, 2 BHK in Andheri East. It is currently under construction, with possession Oct 2028, by Oct. Priced at ₹1,20,00,000. RERA registered (P51800049840).",
+        "possession": "Oct 2028",
+        "_provider": "ai-search-agent",
+        "_note": "Populated from AI Search Agent research evidence — no separate live-web research re-run.",
+        "_webSources": [
+          "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959"
+        ],
+        "fetchedAt": "2026-08-22T09:56:12.212726+00:00"
+      },
+      "propertyType": "Apartment",
+      "carpetArea": "406 sq ft",
+      "builtUpArea": null,
+      "pricePerSqFt": null,
+      "projectStatus": "Under construction",
+      "totalFloors": "23 floors",
+      "towerCount": 1,
+      "connectivity": "Located centrally near the airport and key transit hubs; provides access to the International Airport, Western Express Highway, and metro lines",
+      "nearbyLandmarks": "Passport Seva Kendra",
+      "amenities": [
+        "parking",
+        "spa",
+        "security",
+        "swimming pool",
+        "gym",
+        "garden",
+        "jogging track",
+        "play area",
+        "yoga",
+        "badminton court",
+        "indoor games",
+        "senior citizen",
+        "library",
+        "kids play area",
+        "lift"
+      ],
+      "deck": "Not verified",
+      "description": "I-Stay Tower is conveniently located near major transport hubs, ensuring seamless connectivity for daily travel. You can view the exact map location of I-Stay Tower at available coordinates for better navigation and site visit planning. The expected possession date of I-Stay Tower is expected by Oct 2028, as per the RERA filing. I-Stay Tower falls under the STANDALONE housing segment, making it an ideal choice for homebuyers and investors. The RERA registration number(s) for I-Stay Tower are P51800049840. You can verify these details on the official state RERA portal. The total plot area of I-Stay Tower is 7916.9 SQM, thoughtfully planned for maximum green and recreational spaces. [...] 23 Amenities #### Amenities 21 Amenities Parking #### Parking Available Locality #### Locality Andheri East Pin code #### Pin Code 400059 Landmark #### Landmark Near Passport Seva Kendra, Andheri Address #### Address I-Stay Project, Marol Maroshi Rd, Behind Seven Hills Hospital, Marol, Andheri East, Mumbai, Maharashtra ## Configurations 1 BHK454.99 sq.ft ₹ 1.20 Crore 2 BHK610.96 sq.ft ₹ 1.57 Crore background pattern Mumbai ## Want to Schedule a Site Visit? Explore the property in person at your convenience. schedule illustration ## FloorPlans 1 BHK₹ 1.20 Cr 454.99 sq.ftCarpet Area 1 BHK floor plan Possession in Oct 2028 ### 1 BHK ₹ 1.20 Cr 454.99sq.ft Carpet Area ₹ 1.20 Cr Possession in Oct 2028 ## AboutProject [...] Under Construction Completion In 31 Oct 2028 Onwards I-Stay in Marol, Andheri East, is a 2.25-acre premium project by Starwing Group, featuring 21-storey towers and 50+ lifestyle experiences. It offers Vastu-compliant 2-BHK balcony homes with zero-wastage layouts and excellent ventilation. Located centrally near the airport and key transit hubs, it provides a perfect mix of modern amenities and strategic connectivity for families seeking a high-quality \"first home.\" ## ProjectDetails Project Type #### Project Type Residential Status #### Status Under Construction Project Area #### Project Area 7916.9 SQM Towers #### Towers 1 Configurations #### Configurations 1 & 2 BHK Apartments Total Floors #### Total Floors 23 Amenities #### Amenities 21 Amenities Parking",
+      "warnings": [
+        "Sources disagree on price_display: ₹1,17,00,000, ₹1,20,00,000",
+        "Sources disagree on configuration: ['1 BHK', '2 BHK'], ['1 BHK']",
+        "Sources disagree on possession_display: 2021, Oct 2028"
+      ],
+      "evidence": [
+        {
+          "field": "price_display",
+          "value": "₹1,20,00,000",
+          "source": "nobrokerage.com",
+          "url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "confidence": "medium"
+        },
+        {
+          "field": "price_display",
+          "value": "₹1,17,00,000",
+          "source": "houssed.com",
+          "url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+          "confidence": "medium"
+        },
+        {
+          "field": "configuration",
+          "value": [
+            "1 BHK",
+            "2 BHK"
+          ],
+          "source": "nobrokerage.com",
+          "url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "confidence": "medium"
+        },
+        {
+          "field": "configuration",
+          "value": [
+            "1 BHK"
+          ],
+          "source": "houssed.com",
+          "url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+          "confidence": "medium"
+        },
+        {
+          "field": "possession_display",
+          "value": "Oct 2028",
+          "source": "nobrokerage.com",
+          "url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "confidence": "medium"
+        },
+        {
+          "field": "possession_display",
+          "value": "2021",
+          "source": "houssed.com",
+          "url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+          "confidence": "medium"
+        },
+        {
+          "field": "location",
+          "value": "Andheri East",
+          "source": "nobrokerage.com",
+          "url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "confidence": "medium"
+        },
+        {
+          "field": "developer",
+          "value": "Oct",
+          "source": "nobrokerage.com",
+          "url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "confidence": "medium"
+        },
+        {
+          "field": "developer",
+          "value": "Starwing Group",
+          "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "confidence": "medium"
+        },
+        {
+          "field": "developer",
+          "value": "Starwing Developer Read More",
+          "source": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+          "url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+          "confidence": "medium"
+        },
+        {
+          "field": "project_name",
+          "value": "I-Stay Tower Andheri East Mumbai NoBrokerage.com",
+          "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "confidence": "medium"
+        },
+        {
+          "field": "project_name",
+          "value": "Starwing I-Stay Tower F",
+          "source": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+          "url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+          "confidence": "high"
+        },
+        {
+          "field": "lifecycle_status_from_page",
+          "value": "UNDER_CONSTRUCTION",
+          "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "confidence": "high"
+        },
+        {
+          "field": "lifecycle_status_from_page",
+          "value": "NEW_LAUNCH",
+          "source": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+          "url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+          "confidence": "high"
+        },
+        {
+          "field": "rera_number",
+          "value": "P51800049840",
+          "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "confidence": "high"
+        },
+        {
+          "field": "price",
+          "value": "₹1.57 Cr",
+          "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "confidence": "medium"
+        },
+        {
+          "field": "price",
+          "value": "₹1.73 Cr",
+          "source": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+          "url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+          "confidence": "medium"
+        },
+        {
+          "field": "possession",
+          "value": "Oct 2028",
+          "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "confidence": "medium"
+        },
+        {
+          "field": "possession",
+          "value": "Ready to Move",
+          "source": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+          "url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+          "confidence": "medium"
+        },
+        {
+          "field": "project_status",
+          "value": "Under construction",
+          "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "confidence": "medium"
+        }
+      ],
+      "dataQuality": "high",
+      "title": "I-Stay Tower, Andheri East",
+      "projectName": "I-Stay Tower, Andheri East",
+      "field_evidence": {
+        "price_display": [
+          {
+            "field": "price_display",
+            "value": "₹1,20,00,000",
+            "source": "nobrokerage.com",
+            "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "captured_at": "2026-08-22T09:55:00.148Z",
+            "confidence": "medium"
+          },
+          {
+            "field": "price_display",
+            "value": "₹1,17,00,000",
+            "source": "houssed.com",
+            "source_url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+            "captured_at": "2026-08-22T09:55:04.566Z",
+            "confidence": "medium"
+          }
+        ],
+        "configuration": [
+          {
+            "field": "configuration",
+            "value": [
+              "1 BHK",
+              "2 BHK"
+            ],
+            "source": "nobrokerage.com",
+            "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "captured_at": "2026-08-22T09:55:00.148Z",
+            "confidence": "medium"
+          },
+          {
+            "field": "configuration",
+            "value": [
+              "1 BHK"
+            ],
+            "source": "houssed.com",
+            "source_url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+            "captured_at": "2026-08-22T09:55:04.566Z",
+            "confidence": "medium"
+          }
+        ],
+        "possession_display": [
+          {
+            "field": "possession_display",
+            "value": "Oct 2028",
+            "source": "nobrokerage.com",
+            "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "captured_at": "2026-08-22T09:55:00.148Z",
+            "confidence": "medium"
+          },
+          {
+            "field": "possession_display",
+            "value": "2021",
+            "source": "houssed.com",
+            "source_url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+            "captured_at": "2026-08-22T09:55:04.566Z",
+            "confidence": "medium"
+          }
+        ],
+        "location": [
+          {
+            "field": "location",
+            "value": "Andheri East",
+            "source": "nobrokerage.com",
+            "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "captured_at": "2026-08-22T09:55:00.148Z",
+            "confidence": "medium"
+          }
+        ],
+        "developer": [
+          {
+            "field": "developer",
+            "value": "Oct",
+            "source": "nobrokerage.com",
+            "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "captured_at": "2026-08-22T09:55:00.148Z",
+            "confidence": "medium"
+          },
+          {
+            "field": "developer",
+            "value": "Starwing Group",
+            "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "captured_at": "2026-08-22T09:55:18.495Z",
+            "confidence": "medium"
+          },
+          {
+            "field": "developer",
+            "value": "Starwing Developer Read More",
+            "source": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+            "source_url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+            "captured_at": "2026-08-22T09:55:18.690Z",
+            "confidence": "medium"
+          }
+        ],
+        "project_name": [
+          {
+            "field": "project_name",
+            "value": "I-Stay Tower Andheri East Mumbai NoBrokerage.com",
+            "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "captured_at": "2026-08-22T09:55:18.495Z",
+            "confidence": "medium"
+          },
+          {
+            "field": "project_name",
+            "value": "Starwing I-Stay Tower F",
+            "source": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+            "source_url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+            "captured_at": "2026-08-22T09:55:18.690Z",
+            "confidence": "high"
+          }
+        ],
+        "lifecycle_status_from_page": [
+          {
+            "field": "lifecycle_status_from_page",
+            "value": "UNDER_CONSTRUCTION",
+            "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "captured_at": "2026-08-22T09:55:18.495Z",
+            "confidence": "high"
+          },
+          {
+            "field": "lifecycle_status_from_page",
+            "value": "NEW_LAUNCH",
+            "source": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+            "source_url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+            "captured_at": "2026-08-22T09:55:18.690Z",
+            "confidence": "high"
+          }
+        ],
+        "rera_number": [
+          {
+            "field": "rera_number",
+            "value": "P51800049840",
+            "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "captured_at": "2026-08-22T09:55:18.495Z",
+            "confidence": "high"
+          }
+        ],
+        "price": [
+          {
+            "field": "price",
+            "value": "₹1.57 Cr",
+            "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "captured_at": "2026-08-22T09:55:18.495Z",
+            "confidence": "medium"
+          },
+          {
+            "field": "price",
+            "value": "₹1.73 Cr",
+            "source": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+            "source_url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+            "captured_at": "2026-08-22T09:55:18.690Z",
+            "confidence": "medium"
+          }
+        ],
+        "possession": [
+          {
+            "field": "possession",
+            "value": "Oct 2028",
+            "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "captured_at": "2026-08-22T09:55:18.495Z",
+            "confidence": "medium"
+          },
+          {
+            "field": "possession",
+            "value": "Ready to Move",
+            "source": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+            "source_url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+            "captured_at": "2026-08-22T09:55:18.690Z",
+            "confidence": "medium"
+          }
+        ],
+        "project_status": [
+          {
+            "field": "project_status",
+            "value": "Under construction",
+            "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "captured_at": "2026-08-22T09:55:18.495Z",
+            "confidence": "medium"
+          },
+          {
+            "field": "project_status",
+            "value": "Ready to move",
+            "source": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+            "source_url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+            "captured_at": "2026-08-22T09:55:18.690Z",
+            "confidence": "medium"
+          }
+        ],
+        "property_type": [
+          {
+            "field": "property_type",
+            "value": "Apartment",
+            "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "captured_at": "2026-08-22T09:55:18.495Z",
+            "confidence": "medium"
+          }
+        ],
+        "total_floors": [
+          {
+            "field": "total_floors",
+            "value": "23 floors",
+            "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "captured_at": "2026-08-22T09:55:18.495Z",
+            "confidence": "medium"
+          },
+          {
+            "field": "total_floors",
+            "value": "22 floors",
+            "source": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+            "source_url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+            "captured_at": "2026-08-22T09:55:18.690Z",
+            "confidence": "medium"
+          }
+        ],
+        "tower_count": [
+          {
+            "field": "tower_count",
+            "value": 1,
+            "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "captured_at": "2026-08-22T09:55:18.495Z",
+            "confidence": "medium"
+          }
+        ],
+        "amenities": [
+          {
+            "field": "amenities",
+            "value": [
+              "swimming pool",
+              "gym",
+              "garden",
+              "jogging track",
+              "play area",
+              "security",
+              "yoga",
+              "badminton court",
+              "indoor games",
+              "senior citizen",
+              "spa",
+              "library"
+            ],
+            "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "captured_at": "2026-08-22T09:55:18.495Z",
+            "confidence": "medium"
+          },
+          {
+            "field": "amenities",
+            "value": [
+              "kids play area",
+              "security",
+              "lift",
+              "indoor games",
+              "senior citizen",
+              "spa"
+            ],
+            "source": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+            "source_url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+            "captured_at": "2026-08-22T09:55:18.690Z",
+            "confidence": "medium"
+          }
+        ],
+        "location_from_structured_data": [
+          {
+            "field": "location_from_structured_data",
+            "value": "Andheri East",
+            "source": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+            "source_url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+            "captured_at": "2026-08-22T09:55:18.690Z",
+            "confidence": "high"
+          }
+        ],
+        "latitude": [
+          {
+            "field": "latitude",
+            "value": "19.118902600000002",
+            "source": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+            "source_url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+            "captured_at": "2026-08-22T09:55:18.690Z",
+            "confidence": "high"
+          }
+        ],
+        "longitude": [
+          {
+            "field": "longitude",
+            "value": "72.87637696805344",
+            "source": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+            "source_url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+            "captured_at": "2026-08-22T09:55:18.690Z",
+            "confidence": "high"
+          }
+        ],
+        "carpet_area": [
+          {
+            "field": "carpet_area",
+            "value": "406 sq ft",
+            "source": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+            "source_url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+            "captured_at": "2026-08-22T09:55:18.690Z",
+            "confidence": "medium"
+          }
+        ],
+        "nearby_landmarks": [
+          {
+            "field": "nearby_landmarks",
+            "value": "Passport Seva Kendra",
+            "source": "llm:Groq",
+            "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "captured_at": "2026-08-22T09:55:18.495Z",
+            "confidence": "medium"
+          }
+        ],
+        "connectivity": [
+          {
+            "field": "connectivity",
+            "value": "Located centrally near the airport and key transit hubs; provides access to the International Airport, Western Express Highway, and metro lines",
+            "source": "llm:Groq",
+            "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+            "captured_at": "2026-08-22T09:55:18.495Z",
+            "confidence": "medium"
+          }
+        ]
+      },
+      "configuration_evidence": {
+        "1 BHK": {
+          "price_evidence": [
+            {
+              "value": "₹1.20 Cr",
+              "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+              "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+              "confidence": "medium",
+              "evidence_text": "shtra\nConfigurations\n1 BHK 454.99 sq.ft\n₹ 1.20 Crore\nInterested\n2 BHK 610.96 sq.ft\n₹ 1.57 Cr"
+            }
+          ],
+          "price": "₹1.20 Cr",
+          "carpet_area_evidence": [
+            {
+              "value": "406 sq ft",
+              "source": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+              "source_url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+              "confidence": "medium",
+              "evidence_text": "eri East, Mumbai\n1 BHK Flat\nCarpet Area\n406 Sq Ft\nPrice\n1.17 Cr\n2 BHK Flat\nCarpet Area\n61"
+            }
+          ],
+          "carpet_area": "406 sq ft"
+        },
+        "2 BHK": {
+          "price_evidence": [
+            {
+              "value": "₹1.57 Cr",
+              "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+              "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+              "confidence": "medium",
+              "evidence_text": ".20 Crore\nInterested\n2 BHK 610.96 sq.ft\n₹ 1.57 Crore\nInterested\nMumbai\nWant to Schedule a Si"
+            },
+            {
+              "value": "₹1.15 Cr",
+              "source": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+              "source_url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+              "confidence": "medium",
+              "evidence_text": "ssession\n30-Oct-2028\nProperty Type\nFlat\n₹ 1.15 Cr - 1.75 Cr\nCall Back Request Get Brochur"
+            }
+          ],
+          "price": "₹1.57 Cr",
+          "carpet_area_evidence": [
+            {
+              "value": "611 sq ft",
+              "source": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+              "source_url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+              "confidence": "medium",
+              "evidence_text": "Ft\nPrice\n1.17 Cr\n2 BHK Flat\nCarpet Area\n611 Sq Ft\nPrice\n1.73 Cr\nFloor Plan\nMaster Plan\nKe"
+            },
+            {
+              "value": "620 sq ft",
+              "source": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+              "source_url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+              "confidence": "medium",
+              "evidence_text": "ai 400059\nBHK\n1,2 BHK\nCarpet Area\n400 - 620 Sq Ft\nPossession\n30-Oct-2028\nProperty Type\nFl"
+            }
+          ],
+          "carpet_area": "611 sq ft"
+        }
+      },
+      "featureEvidence": [
+        {
+          "feature": "deck",
+          "scope": "unknown",
+          "configuration": null,
+          "evidence_text": "Business Lounges, Garden, Cycling Track, Indoor Games, Yoga Deck, Senior Citizen Relaxation Zones, Outside Sitting, Gym.\nWha",
+          "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "confidence": "medium"
+        },
+        {
+          "feature": "balcony",
+          "scope": "unknown",
+          "configuration": null,
+          "evidence_text": "50+ lifestyle experiences. It offers Vastu-compliant 2-BHK\nbalcony homes with zero-wastage layouts and excellent ventilation.",
+          "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "confidence": "medium"
+        },
+        {
+          "feature": "balcony",
+          "scope": "project",
+          "configuration": null,
+          "evidence_text": "for a holistic lifestyle.\nThe project specializes in 2-BHK balcony homes that prioritize family togetherness and\nmaximum space",
+          "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "confidence": "medium"
+        },
+        {
+          "feature": "balcony",
+          "scope": "unit",
+          "configuration": null,
+          "evidence_text": "ferent family sizes and preferences.\nHow many bathrooms and balconies are included in each flat?\nFlats in I-Stay Tower include mu",
+          "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "confidence": "high"
+        },
+        {
+          "feature": "balcony",
+          "scope": "tower",
+          "configuration": null,
+          "evidence_text": "Stay Tower include multiple bathrooms and multiple spacious balconies, providing well-planned space for privacy and leisure.\nWhat",
+          "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "confidence": "medium"
+        },
+        {
+          "feature": "parking",
+          "scope": "project",
+          "configuration": "2 BHK",
+          "evidence_text": "1 & 2 BHK Apartments\nTotal Floors\n23\nAmenities\n21 Amenities\nParking\nAvailable\nLocality\nAndheri East\nPin Code\n400059\nLandmark\nNe",
+          "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "confidence": "medium"
+        },
+        {
+          "feature": "parking",
+          "scope": "tower",
+          "configuration": "2 BHK",
+          "evidence_text": "gned for modern comfortable living.\nDoes I-Stay Tower offer parking facilities?\nYes, I-Stay Tower offers dedicated parking for",
+          "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "confidence": "medium"
+        },
+        {
+          "feature": "parking",
+          "scope": "tower",
+          "configuration": null,
+          "evidence_text": "ffer parking facilities?\nYes, I-Stay Tower offers dedicated parking for residents, ensuring convenience and security for person",
+          "source": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "source_url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "confidence": "medium"
+        },
+        {
+          "feature": "balcony",
+          "scope": "unknown",
+          "configuration": null,
+          "evidence_text": "that is 2.25 acres and offers well planned homes including balconies and efficient designs. There are a variety of lifestyle ame",
+          "source": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+          "source_url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+          "confidence": "medium"
+        },
+        {
+          "feature": "parking",
+          "scope": "tower",
+          "configuration": null,
+          "evidence_text": "owers / Floors\n1 Towers / 22 Floors\nProperty View\nOpen View\nParking\nTwo Wheeler, Four Wheeler\nStarwing I-Stay Tower F is a mode",
+          "source": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+          "source_url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+          "confidence": "medium"
+        },
+        {
+          "feature": "parking",
+          "scope": "unknown",
+          "configuration": null,
+          "evidence_text": "Mumbai\nConvenience\n24X7 Water Supply\nLift\nSecurity\nVisitor Parking\nMud Playing Zone\nChildren Playing Zone\nSenior Citizen Sitti",
+          "source": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+          "source_url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+          "confidence": "medium"
+        }
+      ],
+      "sourceType": "external",
+      "lifecycleStatus": "UNDER_CONSTRUCTION",
+      "lifecycleEvidence": "28 ## AboutProject [...] Under Construction Completion In 31 Oct 202",
+      "placesVerified": false,
+      "placesLat": null,
+      "placesLon": null,
+      "placesPlaceId": null,
+      "placesAddress": null
+    },
+    {
+      "id": "underconstructionprojectsbyistayhousingprivatelimited::underconstructionprojectsstayhousingprivatelimited",
+      "name": "Under Construction Projects by I STAY HOUSING PRIVATE LIMITED",
+      "rawName": "Under Construction Projects by I STAY HOUSING PRIVATE LIMITED",
+      "developer": "Relevance Relevance Price",
+      "location": "Under Construction Projects, STAY Housing Private, Limited",
+      "city": null,
+      "config": "",
+      "price": "₹1.52 Cr",
+      "possession": "Ready to Move",
+      "rera": null,
+      "rera_verified": null,
+      "sourceName": "magicbricks.com",
+      "sourceUrl": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+      "sources": [
+        {
+          "name": "magicbricks.com",
+          "url": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+          "captured_at": "2026-08-22T09:54:56.022Z",
+          "source_type": "web"
+        },
+        {
+          "name": "magicbricks.com",
+          "url": "https://www.magicbricks.com/I-STAY-HOUSING-PRIVATE-LIMITED-buid-4d42313030343533",
+          "captured_at": "2026-08-22T09:54:56.025Z",
+          "source_type": "web"
+        }
+      ],
+      "match_score": 8,
+      "why": "Matches your search on available evidence.",
+      "match_tier": "TERTIARY",
+      "match_reasons": [],
+      "key_match": "Matches your search on available evidence.",
+      "limitations": [
+        "Location does not match your requested area",
+        "Requested configuration not listed"
+      ],
+      "project_intelligence": {
+        "official": null,
+        "rera": null,
+        "rera_confidence": 0,
+        "rera_conflict": false,
+        "rera_conflicting_values": [],
+        "configs": [],
+        "configuration_evidence": {},
+        "amenities": [
+          "spa"
+        ],
+        "features": [],
+        "usps": [
+          "Spa"
+        ],
+        "usp_evidence": [
+          {
+            "insight": "Spa",
+            "reason": "Amenity confirmed in source listing text",
+            "sources": [
+              "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp"
+            ]
+          }
+        ],
+        "competitors": [],
+        "target_audience": {
+          "segments": [
+            {
+              "segment": "Investors and buyers with a flexible move-in date",
+              "because": "lifecycle stage is under construction, possession Ready to Move",
+              "derived_from": [
+                "lifecycle_status",
+                "possession"
+              ]
+            }
+          ],
+          "method": "derived deterministically from this project's own extracted fields — never inferred from general knowledge"
+        },
+        "field_ledger": {
+          "fields": {
+            "rera": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "portal",
+                "developer-site"
+              ],
+              "status": "searched_not_found"
+            },
+            "price": {
+              "filled": true,
+              "answered_by": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "portal",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "carpet_area": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "developer-site"
+              ],
+              "status": "searched_not_found"
+            },
+            "configuration": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text",
+                "portal",
+                "developer-site"
+              ],
+              "status": "searched_not_found"
+            },
+            "developer": {
+              "filled": true,
+              "answered_by": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "possession": {
+              "filled": true,
+              "answered_by": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "portal",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "project_status": {
+              "filled": true,
+              "answered_by": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text"
+              ],
+              "status": "filled"
+            },
+            "amenities": {
+              "filled": true,
+              "answered_by": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "property_type": {
+              "filled": true,
+              "answered_by": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "json-ld"
+              ],
+              "status": "filled"
+            },
+            "total_floors": {
+              "filled": true,
+              "answered_by": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "json-ld"
+              ],
+              "status": "filled"
+            },
+            "tower_count": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text"
+              ],
+              "status": "searched_not_found"
+            },
+            "connectivity": {
+              "filled": true,
+              "answered_by": "llm:Groq",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "google-places-nearby",
+                "page-text"
+              ],
+              "status": "filled"
+            },
+            "nearby_landmarks": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "google-places-nearby",
+                "page-text"
+              ],
+              "status": "searched_not_found"
+            },
+            "location_score": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "google-places-nearby"
+              ],
+              "status": "searched_not_found"
+            },
+            "coordinates": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "google-places-verify",
+                "json-ld"
+              ],
+              "status": "searched_not_found"
+            }
+          },
+          "filled": 8,
+          "total": 15,
+          "never_researched": []
+        },
+        "location_score": null,
+        "location_intel": null,
+        "connectivity": "great connectivity",
+        "nearby_landmarks": [],
+        "summary": "Under Construction Projects by I STAY HOUSING PRIVATE LIMITED is located in Under Construction Projects, STAY Housing Private, Limited. It is currently under construction, with possession Ready to Move, by Relevance Relevance Price. Priced at ₹1.52 Cr.",
+        "possession": "Ready to Move",
+        "_provider": "ai-search-agent",
+        "_note": "Populated from AI Search Agent research evidence — no separate live-web research re-run.",
+        "_webSources": [
+          "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+          "https://www.magicbricks.com/I-STAY-HOUSING-PRIVATE-LIMITED-buid-4d42313030343533"
+        ],
+        "fetchedAt": "2026-08-22T09:56:12.212792+00:00"
+      },
+      "propertyType": "Villa",
+      "carpetArea": null,
+      "builtUpArea": null,
+      "pricePerSqFt": null,
+      "projectStatus": "Ready to move",
+      "totalFloors": "1 floors",
+      "towerCount": null,
+      "connectivity": "great connectivity",
+      "nearbyLandmarks": [],
+      "amenities": [
+        "spa"
+      ],
+      "deck": null,
+      "description": "Did you mean? Please select one of the following Please enter a Valid Location Please enter a Location Select at least one property type Loader # Under Construction Projects by I STAY HOUSING PRIVATE LIMITED I Stay Tower -Image I Stay Tower in Marol , Mumbai by I STAY HOUSING PRIVATE LIMITED | | | \"I-Stay Projects is a thoughtfully designed residential project spread across 2.25 acres. With 21-storey towers offering stunning views, it features over 50 experiences for a holistic lifestyle. Smart layouts maximize space and comfort, while vastu-compliant homes ensure harmony and well-being. Experience modern living infused with timeless traditions\" | Loader loader Loader Click on 'Add to compare' to compare. Add to compare Click on 'Add to compare' to compare. [...] Add to compare Click on 'Add to compare' to compare. Add to compare Click on 'Shortlist button' to add. Shortlist Click on 'Shortlist button' to add. Shortlist",
+      "warnings": [
+        "Location does not match your requested area",
+        "Requested configuration not listed",
+        "Sources disagree on location: STAY Housing Private, Limited, Under Construction Projects, STAY Housing Private, Limited"
+      ],
+      "evidence": [
+        {
+          "field": "location",
+          "value": "Under Construction Projects, STAY Housing Private, Limited",
+          "source": "magicbricks.com",
+          "url": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+          "confidence": "medium"
+        },
+        {
+          "field": "location",
+          "value": "STAY Housing Private, Limited",
+          "source": "magicbricks.com",
+          "url": "https://www.magicbricks.com/I-STAY-HOUSING-PRIVATE-LIMITED-buid-4d42313030343533",
+          "confidence": "medium"
+        },
+        {
+          "field": "project_name",
+          "value": "Under Construction Projects by I STAY HOUSING PRIVATE LIMITED",
+          "source": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+          "url": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+          "confidence": "medium"
+        },
+        {
+          "field": "project_name",
+          "value": "I STAY HOUSING PRIVATE LIMITED Find New Upcoming Projects by I STAY HOUSING PRIVATE LIMITED",
+          "source": "https://www.magicbricks.com/I-STAY-HOUSING-PRIVATE-LIMITED-buid-4d42313030343533",
+          "url": "https://www.magicbricks.com/I-STAY-HOUSING-PRIVATE-LIMITED-buid-4d42313030343533",
+          "confidence": "medium"
+        },
+        {
+          "field": "lifecycle_status_from_page",
+          "value": "RENTAL",
+          "source": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+          "url": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+          "confidence": "high"
+        },
+        {
+          "field": "lifecycle_status_from_page",
+          "value": "UNDER_CONSTRUCTION",
+          "source": "https://www.magicbricks.com/I-STAY-HOUSING-PRIVATE-LIMITED-buid-4d42313030343533",
+          "url": "https://www.magicbricks.com/I-STAY-HOUSING-PRIVATE-LIMITED-buid-4d42313030343533",
+          "confidence": "high"
+        },
+        {
+          "field": "price",
+          "value": "₹1.52 Cr",
+          "source": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+          "url": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+          "confidence": "medium"
+        },
+        {
+          "field": "possession",
+          "value": "Ready to Move",
+          "source": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+          "url": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+          "confidence": "medium"
+        },
+        {
+          "field": "project_status",
+          "value": "Ready to move",
+          "source": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+          "url": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+          "confidence": "medium"
+        },
+        {
+          "field": "developer",
+          "value": "Relevance Relevance Price",
+          "source": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+          "url": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+          "confidence": "medium"
+        },
+        {
+          "field": "property_type",
+          "value": "Villa",
+          "source": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+          "url": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+          "confidence": "medium"
+        },
+        {
+          "field": "total_floors",
+          "value": "1 floors",
+          "source": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+          "url": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+          "confidence": "medium"
+        },
+        {
+          "field": "amenities",
+          "value": [
+            "spa"
+          ],
+          "source": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+          "url": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+          "confidence": "medium"
+        },
+        {
+          "field": "connectivity",
+          "value": "great connectivity",
+          "source": "llm:Groq",
+          "url": "https://www.magicbricks.com/I-STAY-HOUSING-PRIVATE-LIMITED-buid-4d42313030343533",
+          "confidence": "medium"
+        }
+      ],
+      "dataQuality": "high",
+      "title": "Under Construction Projects by I STAY HOUSING PRIVATE LIMITED",
+      "projectName": "Under Construction Projects by I STAY HOUSING PRIVATE LIMITED",
+      "field_evidence": {
+        "location": [
+          {
+            "field": "location",
+            "value": "Under Construction Projects, STAY Housing Private, Limited",
+            "source": "magicbricks.com",
+            "source_url": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+            "captured_at": "2026-08-22T09:54:56.022Z",
+            "confidence": "medium"
+          },
+          {
+            "field": "location",
+            "value": "STAY Housing Private, Limited",
+            "source": "magicbricks.com",
+            "source_url": "https://www.magicbricks.com/I-STAY-HOUSING-PRIVATE-LIMITED-buid-4d42313030343533",
+            "captured_at": "2026-08-22T09:54:56.025Z",
+            "confidence": "medium"
+          }
+        ],
+        "project_name": [
+          {
+            "field": "project_name",
+            "value": "Under Construction Projects by I STAY HOUSING PRIVATE LIMITED",
+            "source": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+            "source_url": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+            "captured_at": "2026-08-22T09:55:27.310Z",
+            "confidence": "medium"
+          },
+          {
+            "field": "project_name",
+            "value": "I STAY HOUSING PRIVATE LIMITED Find New Upcoming Projects by I STAY HOUSING PRIVATE LIMITED",
+            "source": "https://www.magicbricks.com/I-STAY-HOUSING-PRIVATE-LIMITED-buid-4d42313030343533",
+            "source_url": "https://www.magicbricks.com/I-STAY-HOUSING-PRIVATE-LIMITED-buid-4d42313030343533",
+            "captured_at": "2026-08-22T09:55:27.176Z",
+            "confidence": "medium"
+          }
+        ],
+        "lifecycle_status_from_page": [
+          {
+            "field": "lifecycle_status_from_page",
+            "value": "RENTAL",
+            "source": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+            "source_url": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+            "captured_at": "2026-08-22T09:55:27.310Z",
+            "confidence": "high"
+          },
+          {
+            "field": "lifecycle_status_from_page",
+            "value": "UNDER_CONSTRUCTION",
+            "source": "https://www.magicbricks.com/I-STAY-HOUSING-PRIVATE-LIMITED-buid-4d42313030343533",
+            "source_url": "https://www.magicbricks.com/I-STAY-HOUSING-PRIVATE-LIMITED-buid-4d42313030343533",
+            "captured_at": "2026-08-22T09:55:27.176Z",
+            "confidence": "high"
+          }
+        ],
+        "price": [
+          {
+            "field": "price",
+            "value": "₹1.52 Cr",
+            "source": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+            "source_url": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+            "captured_at": "2026-08-22T09:55:27.310Z",
+            "confidence": "medium"
+          }
+        ],
+        "possession": [
+          {
+            "field": "possession",
+            "value": "Ready to Move",
+            "source": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+            "source_url": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+            "captured_at": "2026-08-22T09:55:27.310Z",
+            "confidence": "medium"
+          }
+        ],
+        "project_status": [
+          {
+            "field": "project_status",
+            "value": "Ready to move",
+            "source": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+            "source_url": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+            "captured_at": "2026-08-22T09:55:27.310Z",
+            "confidence": "medium"
+          }
+        ],
+        "developer": [
+          {
+            "field": "developer",
+            "value": "Relevance Relevance Price",
+            "source": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+            "source_url": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+            "captured_at": "2026-08-22T09:55:27.310Z",
+            "confidence": "medium"
+          }
+        ],
+        "property_type": [
+          {
+            "field": "property_type",
+            "value": "Villa",
+            "source": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+            "source_url": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+            "captured_at": "2026-08-22T09:55:27.310Z",
+            "confidence": "medium"
+          }
+        ],
+        "total_floors": [
+          {
+            "field": "total_floors",
+            "value": "1 floors",
+            "source": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+            "source_url": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+            "captured_at": "2026-08-22T09:55:27.310Z",
+            "confidence": "medium"
+          }
+        ],
+        "amenities": [
+          {
+            "field": "amenities",
+            "value": [
+              "spa"
+            ],
+            "source": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+            "source_url": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+            "captured_at": "2026-08-22T09:55:27.310Z",
+            "confidence": "medium"
+          }
+        ],
+        "connectivity": [
+          {
+            "field": "connectivity",
+            "value": "great connectivity",
+            "source": "llm:Groq",
+            "source_url": "https://www.magicbricks.com/I-STAY-HOUSING-PRIVATE-LIMITED-buid-4d42313030343533",
+            "captured_at": "2026-08-22T09:55:27.176Z",
+            "confidence": "medium"
+          }
+        ]
+      },
+      "configuration_evidence": {},
+      "featureEvidence": [],
+      "sourceType": "external",
+      "lifecycleStatus": "UNDER_CONSTRUCTION",
+      "lifecycleEvidence": "Under Construction Projects by I STAY HOUSI",
+      "placesVerified": false,
+      "placesLat": null,
+      "placesLon": null,
+      "placesPlaceId": null,
+      "placesAddress": null
+    }
+  ],
+  "field_ledger": {
+    "fields": {
+      "rera": {
+        "filled": false,
+        "answered_by": null,
+        "corroborating_sources": 0,
+        "possible_sources": [
+          "page-text",
+          "json-ld",
+          "portal",
+          "developer-site"
+        ],
+        "status": "searched_not_found"
+      },
+      "price": {
+        "filled": true,
+        "answered_by": "magicbricks.com",
+        "corroborating_sources": 1,
+        "possible_sources": [
+          "page-text",
+          "json-ld",
+          "portal",
+          "developer-site"
+        ],
+        "status": "filled"
+      },
+      "carpet_area": {
+        "filled": true,
+        "answered_by": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+        "corroborating_sources": 1,
+        "possible_sources": [
+          "page-text",
+          "json-ld",
+          "developer-site"
+        ],
+        "status": "filled"
+      },
+      "configuration": {
+        "filled": true,
+        "answered_by": "magicbricks.com",
+        "corroborating_sources": 1,
+        "possible_sources": [
+          "page-text",
+          "portal",
+          "developer-site"
+        ],
+        "status": "filled"
+      },
+      "developer": {
+        "filled": true,
+        "answered_by": "magicbricks.com",
+        "corroborating_sources": 1,
+        "possible_sources": [
+          "page-text",
+          "json-ld",
+          "developer-site"
+        ],
+        "status": "filled"
+      },
+      "possession": {
+        "filled": true,
+        "answered_by": "magicbricks.com",
+        "corroborating_sources": 2,
+        "possible_sources": [
+          "page-text",
+          "portal",
+          "developer-site"
+        ],
+        "status": "filled"
+      },
+      "project_status": {
+        "filled": true,
+        "answered_by": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+        "corroborating_sources": 1,
+        "possible_sources": [
+          "page-text"
+        ],
+        "status": "filled"
+      },
+      "amenities": {
+        "filled": true,
+        "answered_by": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+        "corroborating_sources": 1,
+        "possible_sources": [
+          "page-text",
+          "json-ld",
+          "developer-site"
+        ],
+        "status": "filled"
+      },
+      "property_type": {
+        "filled": true,
+        "answered_by": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+        "corroborating_sources": 1,
+        "possible_sources": [
+          "page-text",
+          "json-ld"
+        ],
+        "status": "filled"
+      },
+      "total_floors": {
+        "filled": false,
+        "answered_by": null,
+        "corroborating_sources": 0,
+        "possible_sources": [
+          "page-text",
+          "json-ld"
+        ],
+        "status": "searched_not_found"
+      },
+      "tower_count": {
+        "filled": false,
+        "answered_by": null,
+        "corroborating_sources": 0,
+        "possible_sources": [
+          "page-text"
+        ],
+        "status": "searched_not_found"
+      },
+      "connectivity": {
+        "filled": false,
+        "answered_by": null,
+        "corroborating_sources": 0,
+        "possible_sources": [
+          "google-places-nearby",
+          "page-text"
+        ],
+        "status": "searched_not_found"
+      },
+      "nearby_landmarks": {
+        "filled": false,
+        "answered_by": null,
+        "corroborating_sources": 0,
+        "possible_sources": [
+          "google-places-nearby",
+          "page-text"
+        ],
+        "status": "searched_not_found"
+      },
+      "location_score": {
+        "filled": false,
+        "answered_by": null,
+        "corroborating_sources": 0,
+        "possible_sources": [
+          "google-places-nearby"
+        ],
+        "status": "searched_not_found"
+      },
+      "coordinates": {
+        "filled": false,
+        "answered_by": null,
+        "corroborating_sources": 0,
+        "possible_sources": [
+          "google-places-verify",
+          "json-ld"
+        ],
+        "status": "searched_not_found"
+      }
+    },
+    "filled": 8,
+    "total": 15,
+    "never_researched": []
+  },
+  "rejected": null,
+  "agent_log_excerpt": null,
+  "raw_response_top_level_keys": [
+    "filters",
+    "reportId",
+    "market",
+    "configured",
+    "enabled",
+    "properties",
+    "sources",
+    "warning",
+    "summary",
+    "citations",
+    "research_metadata",
+    "retrieval_metrics",
+    "llm_degraded",
+    "_agent",
+    "pipeline"
+  ],
+  "retrieval_metrics": {
+    "total_candidates": 58,
+    "individual_project_candidates": 30,
+    "aggregator_pages": 28,
+    "resale_candidates": 2,
+    "rental_candidates": 1,
+    "unknown_candidates": 22,
+    "invalid_name_candidates": 0,
+    "eligible_candidates": 5,
+    "rejected_candidates": 55,
+    "places_configured": true,
+    "places_contributed_candidates": 18
+  },
+  "research_metadata": {
+    "sources_used": [
+      "apify_search",
+      "bridge_preflight",
+      "fetch_page",
+      "places_nearby",
+      "places_search",
+      "places_verify",
+      "portal_search",
+      "serper_search",
+      "tavily_search"
+    ],
+    "tool_calls": [
+      {
+        "tool": "bridge_preflight",
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 0,
+        "error": null
+      },
+      {
+        "tool": "apify_search",
+        "args": {
+          "query": "1 BHK in Marol",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 15,
+        "duration_ms": 35981,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "developer_search",
+        "args": {
+          "query": "1 BHK in Marol",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 765,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "tavily_search",
+        "args": {
+          "query": "1 BHK in Marol under construction OR new launch OR near possession",
+          "market": "india",
+          "depth": "basic"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 3679,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_search",
+        "args": {
+          "query": "1 BHK in Marol",
+          "market": "india",
+          "locations": [
+            "Marol"
+          ],
+          "configuration": "1 BHK"
+        },
+        "status": "ok",
+        "count": 18,
+        "duration_ms": 0,
+        "error": null,
+        "cache_hit": true
+      },
+      {
+        "tool": "portal_search",
+        "args": {
+          "query": "1 BHK in Marol",
+          "market": "india",
+          "locations": [
+            "Marol"
+          ],
+          "configuration": "1 BHK",
+          "budgetMax": null
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 768,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "serper_search",
+        "args": {
+          "query": "1 BHK in Marol",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 2290,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "tavily_search",
+        "args": {
+          "query": "1 BHK in Marol",
+          "market": "india",
+          "depth": "basic"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 6941,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "web_search",
+        "args": {
+          "query": "1 BHK in Marol",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 1739,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.magicbricks.com/1-bhk-flats-in-marol-mumbai-for-sale-pppfs",
+          "candidate": "Stay Tower",
+          "candidate_id": "staytower::staytower"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 950,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.magicbricks.com/1-bhk-flats-in-marol-maroshi-road-mumbai-for-sale-pppfs",
+          "candidate": "Stay Tower",
+          "candidate_id": "staytower::staytower"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 1549,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Stay Tower",
+          "locality": "Stay Tower",
+          "city": null
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 541,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Dudhwala Proxima",
+          "locality": "Dudhwala Proxima",
+          "city": null
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 1094,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Guest Accommodation",
+          "locality": "Guest Accommodation",
+          "city": null
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 1884,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "web_search",
+        "args": {
+          "query": "Stay Tower Stay Tower under construction new launch possession status RERA",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 371,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "tavily_search",
+        "args": {
+          "query": "Stay Tower Stay Tower under construction new launch possession status RERA",
+          "market": "india",
+          "depth": "advanced"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 4004,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "web_search",
+        "args": {
+          "query": "Stay Tower Stay Tower developer builder",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 572,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "tavily_search",
+        "args": {
+          "query": "Stay Tower Stay Tower developer builder",
+          "market": "india",
+          "depth": "advanced"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 2937,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "web_search",
+        "args": {
+          "query": "Stay Tower Stay Tower possession date",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 580,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "tavily_search",
+        "args": {
+          "query": "Stay Tower Stay Tower possession date",
+          "market": "india",
+          "depth": "advanced"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 3872,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "web_search",
+        "args": {
+          "query": "Stay Tower Stay Tower carpet area sq ft",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 585,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "tavily_search",
+        "args": {
+          "query": "Stay Tower Stay Tower carpet area sq ft",
+          "market": "india",
+          "depth": "advanced"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 4157,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.magicbricks.com/i-stay-tower-marol-mumbai-pdpid-4d4235343137323739",
+          "candidate": "Stay Tower",
+          "candidate_id": "staytower::staytower"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 1593,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.magicbricks.com/i-stay-tower-e-rera-details-nprid-4d4235343137323739",
+          "candidate": "Stay Tower",
+          "candidate_id": "staytower::staytower"
+        },
+        "status": "error",
+        "count": 0,
+        "duration_ms": 341,
+        "error": "HTTP 400",
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.99acres.com/i-stay-project-faqs-marol-mumbai-andheri-dahisar-npxid-r405006",
+          "candidate": "Stay Tower",
+          "candidate_id": "staytower::staytower"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 868,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "web_search",
+        "args": {
+          "query": "Dudhwala Proxima Dudhwala Proxima under construction new launch possession status RERA",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 590,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "tavily_search",
+        "args": {
+          "query": "Dudhwala Proxima Dudhwala Proxima under construction new launch possession status RERA",
+          "market": "india",
+          "depth": "advanced"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 4403,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.realestatemumbai.com/proxima-andheri-east-project-6148",
+          "candidate": "Dudhwala Proxima",
+          "candidate_id": "dudhwalaproxima::dudhwalaproxima"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 768,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.magicbricks.com/dudhwala-proxima-rera-details-nprid-4d4235303031333039",
+          "candidate": "Dudhwala Proxima",
+          "candidate_id": "dudhwalaproxima::dudhwalaproxima"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 1190,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.99acres.com/dudhwala-optima-marol-mumbai-andheri-dahisar-npxid-r204179",
+          "candidate": "Dudhwala Proxima",
+          "candidate_id": "dudhwalaproxima::dudhwalaproxima"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 742,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.squareyards.com/mumbai-residential-property/dudhawala-proxima-residences/26664/project",
+          "candidate": "Dudhawala Proxima Residences Andheri East",
+          "candidate_id": "dudhawalaproximaresidencesandherieast::andherieast"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 1645,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Dudhawala Proxima Residences Andheri East",
+          "locality": "Andheri East",
+          "city": "Mumbai"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 930,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.reddit.com/r/indianrealestate/comments/1qqyxuo/anyone_booked_in_mana_skanda_right_life_need",
+          "candidate": "Anyone booked in Mana Skanda Right Life? Need inputs ...",
+          "candidate_id": "anyonebookedinmanaskandarightlifeneedinputs::anyonemanaskandarightlifeneed"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 9433,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Anyone booked in Mana Skanda Right Life? Need inputs ...",
+          "locality": "Anyone, Mana Skanda Right, Life, Need",
+          "city": null
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 455,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Guest Accommodation",
+          "locality": "Guest Accommodation",
+          "city": null
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 2124,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.magicbricks.com/i-stay-tower-e-rera-details-nprid-4d4235343137323739",
+          "candidate": "I Stay Tower E RERA Details",
+          "candidate_id": "istaytowerereradetails::staytowerreradetailslegaldocumentsconstruction"
+        },
+        "status": "error",
+        "count": 0,
+        "duration_ms": 682,
+        "error": "HTTP 400",
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "I Stay Tower E RERA Details",
+          "locality": "Stay Tower, RERA Details, Legal Documents, Construction",
+          "city": null
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 2667,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.magicbricks.com/i-stay-tower-floor-plan-marol-mumbai-pdpid-4d4235343137323739",
+          "candidate": "I Stay Tower in Marol",
+          "candidate_id": "istaytowerinmarol::marol"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 2480,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.magicbricks.com/i-stay-tower-photo-videos-marol-mumbai-pdpid-4d4235343137323739",
+          "candidate": "I Stay Tower in Marol",
+          "candidate_id": "istaytowerinmarol::marol"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 1845,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "I Stay Tower in Marol",
+          "locality": "Marol",
+          "city": "Mumbai"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 843,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://nobrokerage.com/project/details/istay-tower-andheri-east-cmmiropy501mdsanxpwbh0m3o",
+          "candidate": "I-Stay Tower, Andheri East",
+          "candidate_id": "istaytowerandherieast::andherieast"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 1037,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://houssed.com/mumbai/starwing-developer/starwing-i-stay-tower-f-144959",
+          "candidate": "I-Stay Tower, Andheri East",
+          "candidate_id": "istaytowerandherieast::andherieast"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 780,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "I-Stay Tower, Andheri East",
+          "locality": "Andheri East",
+          "city": "Mumbai"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 876,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.magicbricks.com/sunyuga-eco-stay-tower-a-medchal-hyderabad-pdpid-4d4235343238323735",
+          "candidate": "Sunyuga Eco Stay Tower A in Medchal, Hyderabad",
+          "candidate_id": "sunyugaecostaytowerainmedchalhyderabad::medchal"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 2169,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Sunyuga Eco Stay Tower A",
+          "locality": "Medchal",
+          "city": null
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 543,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.propsoch.com/property-for-sale-in/bengaluru/i-stay-tower-d-1-bhk/772?view=tower-info",
+          "candidate": "I-stay Tower - D (1-bhk), Bandra West Bengaluru",
+          "candidate_id": "istaytowerd1bhkbandrawestbengaluru::bandrawest"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 1199,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.propsoch.com/property-for-sale-in/bengaluru/i-stay-tower-e/746",
+          "candidate": "I-stay Tower - D (1-bhk), Bandra West Bengaluru",
+          "candidate_id": "istaytowerd1bhkbandrawestbengaluru::bandrawest"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 1429,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "I-stay Tower - D (1-bhk), Bandra West Bengaluru",
+          "locality": "Bandra West",
+          "city": "Mumbai"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 860,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.magicbricks.com/i-stay-housing-private-limited-under-construction-projects-pppsp",
+          "candidate": "Under Construction Projects by I STAY HOUSING PRIVATE LIMITED",
+          "candidate_id": "underconstructionprojectsbyistayhousingprivatelimited::underconstructionprojectsstayhousingprivatelimited"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 784,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.magicbricks.com/I-STAY-HOUSING-PRIVATE-LIMITED-buid-4d42313030343533",
+          "candidate": "Under Construction Projects by I STAY HOUSING PRIVATE LIMITED",
+          "candidate_id": "underconstructionprojectsbyistayhousingprivatelimited::underconstructionprojectsstayhousingprivatelimited"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 430,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Under Construction Projects by I STAY HOUSING PRIVATE LIMITED",
+          "locality": "Under Construction Projects, STAY Housing Private, Limited",
+          "city": null
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 834,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "display_enrichment",
+        "status": "error",
+        "count": 0,
+        "duration_ms": 288,
+        "error": "timed out"
+      },
+      {
+        "tool": "places_nearby",
+        "args": {
+          "lat": 19.118902600000002,
+          "lon": 72.87637696805344
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 943,
+        "error": null,
+        "cache_hit": false
+      }
+    ],
+    "retrieved_at": "2026-08-22T09:56:24.359034+00:00",
+    "research_iterations": 1,
+    "llm_curator_used": "Local/open-source model",
+    "metrics": {
+      "total_searches": 53,
+      "successful_searches": 50,
+      "failed_searches": 3,
+      "cache_hits": 1,
+      "candidate_count": 3,
+      "verified_candidate_count": 3,
+      "pages_fetched": 18,
+      "facts_extracted": 580,
+      "research_iterations": 1,
+      "sources_used": [
+        "apify_search",
+        "bridge_preflight",
+        "fetch_page",
+        "places_nearby",
+        "places_search",
+        "places_verify",
+        "portal_search",
+        "serper_search",
+        "tavily_search"
+      ],
+      "source_conflicts": 9,
+      "missing_field_count": 53,
+      "bridge_unavailable": false,
+      "llm_calls": 19,
+      "llm_failures": 1,
+      "llm_fallbacks": 6
+    },
+    "limits": {
+      "max_research_iterations": 2,
+      "max_candidates_for_deep_research": 3,
+      "max_fetches_per_candidate": 3,
+      "max_targeted_searches_per_iteration": 5
+    },
+    "research_gaps": [
+      {
+        "candidate": "Dudhawala Proxima Residences Andheri East",
+        "missing_fields": [
+          "lifecycle",
+          "rera",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Anyone booked in Mana Skanda Right Life? Need inputs ...",
+        "missing_fields": [
+          "lifecycle",
+          "rera",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Guest Accommodation",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "possession",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "I Stay Tower E RERA Details",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "rera",
+          "possession",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "I Stay Tower in Marol",
+        "missing_fields": [
+          "rera",
+          "carpet_area"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": [
+          "possession_display",
+          "developer"
+        ]
+      },
+      {
+        "candidate": "I-Stay Tower, Andheri East",
+        "missing_fields": [
+          "rera",
+          "carpet_area"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": [
+          "price_display",
+          "configuration",
+          "possession_display"
+        ]
+      },
+      {
+        "candidate": "Sunyuga Eco Stay Tower A in Medchal, Hyderabad",
+        "missing_fields": [
+          "rera",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": [
+          "possession_display"
+        ]
+      },
+      {
+        "candidate": "I-stay Tower - D (1-bhk), Bandra West Bengaluru",
+        "missing_fields": [
+          "developer",
+          "rera",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Under Construction Projects by I STAY HOUSING PRIVATE LIMITED",
+        "missing_fields": [
+          "developer",
+          "rera",
+          "possession",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": [
+          "location"
+        ]
+      },
+      {
+        "candidate": "A 1 Enterprises",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "rera",
+          "possession",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Ashok Vihar CHSL",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "rera",
+          "possession",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "BLUE FORTUNA CHS Ltd",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "rera",
+          "possession",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      }
+    ],
+    "verification_results": [
+      {
+        "candidate": "BHK Flat for Sale in Marol Maroshi Road, Mumbai",
+        "conflicts": {
+          "configuration": [
+            "['1 BHK', '2 BHK']",
+            "['2 BHK']"
+          ]
+        },
+        "corroborated_fields": []
+      },
+      {
+        "candidate": "Dudhwala Proxima",
+        "conflicts": {
+          "configuration": [
+            "['1 BHK']",
+            "['2 BHK', '3 BHK', '4 BHK']",
+            "['3 BHK']"
+          ],
+          "location": [
+            "Dudhwala Proxima",
+            "Dudhwala Proxima RERA, Details, Legal Documents, Construction Status"
+          ]
+        },
+        "corroborated_fields": []
+      },
+      {
+        "candidate": "I Stay Tower in Marol",
+        "conflicts": {
+          "possession_display": [
+            "2028",
+            "Jan 2026"
+          ],
+          "developer": [
+            "Nov",
+            "Read"
+          ]
+        },
+        "corroborated_fields": []
+      },
+      {
+        "candidate": "Under Construction Projects by I STAY HOUSING PRIVATE LIMITED",
+        "conflicts": {
+          "location": [
+            "STAY Housing Private, Limited",
+            "Under Construction Projects, STAY Housing Private, Limited"
+          ]
+        },
+        "corroborated_fields": []
+      },
+      {
+        "candidate": "Flats for Sale in I Stay Tower, Mumbai",
+        "conflicts": {
+          "configuration": [
+            "['1 BHK', '2 BHK']",
+            "['1 BHK']"
+          ]
+        },
+        "corroborated_fields": []
+      },
+      {
+        "candidate": "Sunyuga Eco Stay Tower A in Medchal, Hyderabad",
+        "conflicts": {
+          "possession_display": [
+            "2026",
+            "May 2024"
+          ]
+        },
+        "corroborated_fields": []
+      },
+      {
+        "candidate": "I-Stay Tower, Andheri East",
+        "conflicts": {
+          "price_display": [
+            "₹1,17,00,000",
+            "₹1,20,00,000"
+          ],
+          "configuration": [
+            "['1 BHK', '2 BHK']",
+            "['1 BHK']"
+          ],
+          "possession_display": [
+            "2021",
+            "Oct 2028"
+          ]
+        },
+        "corroborated_fields": []
+      },
+      {
+        "candidate": "Proxima by Dudhwala Group in Andheri East",
+        "conflicts": {
+          "possession_display": [
+            "Dec 2021",
+            "Feb 2014"
+          ]
+        },
+        "corroborated_fields": []
+      },
+      {
+        "candidate": "BHK Flats for Sale in Dudhwala Proxima, Mumbai",
+        "conflicts": {
+          "price_display": [
+            "₹1,00,00,000",
+            "₹1,98,00,000"
+          ],
+          "configuration": [
+            "['2 BHK', '3 BHK', '4 BHK']",
+            "['3 BHK']"
+          ]
+        },
+        "corroborated_fields": []
+      }
+    ],
+    "duration_ms": 143580,
+    "agent_version": "2.0.0"
+  },
+  "provider_inference": {
+    "inferred": "mixed_groq_then_fallback",
+    "reason": "groq breaker closed at start, open at end -- TPM exhausted during this search",
+    "note": "Backfilled from real /health?probe=true snapshots captured live during this conversation, immediately before/after this search ran (not a synthetic/estimated value)."
+  },
+  "groq_circuit_before": {},
+  "groq_circuit_after": {
+    "groq": {
+      "reason": "openai/gpt-oss-120b: Error code: 429 - Rate limit reached for model openai/gpt-oss-120b in organization org_01k6a5fp3jemqr0e45atjmayce service tier on_demand on tokens per minute (TPM): Limit",
+      "seconds_remaining": 26.1
+    }
+  }
+}

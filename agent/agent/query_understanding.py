@@ -17,7 +17,7 @@ from __future__ import annotations
 import re
 from typing import Optional
 
-from .gazetteer import base_locality, load_gazetteer, resolve_location
+from .gazetteer import GAZETTEER_PATHS, base_locality, load_gazetteer, resolve_location
 from .state import ParsedRequirements, ResolvedLocation
 
 BHK_STOPWORDS = {
@@ -37,7 +37,17 @@ def _clean(s: str) -> str:
 
 
 def _proper_case(s: str) -> str:
-    return " ".join(w[:1].upper() + w[1:].lower() for w in _clean(s).split(" ") if w)
+    # An all-caps short token is an acronym, not a word to title-case. Dubai
+    # localities are routinely written this way — JVC, JLT, JBR, DIFC, DSO —
+    # and "JVC" -> "Jvc" is what the user then sees quoted back in the
+    # results header and in the "not in the gazetteer" warning. Resolution
+    # itself is case-insensitive so it worked either way; this is about not
+    # showing the user a mangled version of what they typed.
+    def _word(w: str) -> str:
+        if 2 <= len(w) <= 5 and w.isupper() and w.isalpha():
+            return w
+        return w[:1].upper() + w[1:].lower()
+    return " ".join(_word(w) for w in _clean(s).split(" ") if w)
 
 
 def extract_budget_max_cr(text: str) -> Optional[float]:
@@ -58,11 +68,17 @@ def extract_budget_max_cr(text: str) -> Optional[float]:
 
 
 def extract_configuration(text: str) -> str:
-    m = re.search(r"(\d+(?:\s*[&,]\s*\d+)+)\s*(?:BHK|bed(?:room)?s?)", text, re.IGNORECASE)
+    # `BR` is how the UAE market writes it — "2BR apartment in JVC". Without
+    # it a Dubai query extracted NO configuration at all, so config matching
+    # in scoring and the targeted-research field hints both went blind.
+    # Anchored with \b and required to follow a digit, so it cannot match the
+    # "br" inside an ordinary word.
+    _units = r"(?:BHK|BR\b|bed(?:room)?s?)"
+    m = re.search(rf"(\d+(?:\s*[&,]\s*\d+)+)\s*{_units}", text, re.IGNORECASE)
     if m:
         nums = re.findall(r"\d+", m.group(1))
         return " & ".join(f"{n} BHK" for n in nums)
-    m = re.search(r"(\d+)\s*(?:BHK|bed(?:room)?s?)", text, re.IGNORECASE)
+    m = re.search(rf"(\d+)\s*{_units}", text, re.IGNORECASE)
     if m:
         return f"{m.group(1)} BHK"
     if re.search(r"\bstudio\b", text, re.IGNORECASE):
@@ -150,15 +166,26 @@ def _known_gazetteer_terms() -> list[str]:
     """Every locality/alias name the shared gazetteer actually knows about,
     longest-first so "Malad West" is tried before the shorter "Malad" and
     "Liberty Garden" is found as its own term rather than swallowed into a
-    longer generic capture. Purely data-driven (reads mmr-gazetteer.json),
+    longer generic capture. Purely data-driven (reads the gazetteer files),
     not a hardcoded place list.
+
+    Reads EVERY market's gazetteer, not just India's. This scan is what lets
+    "2bhk in Dubai Marina" extract "Dubai Marina" as one term instead of
+    falling through to the Title-Case tier — and it is safe to union because
+    the files share no term (asserted in test_search_harness.test_gazetteer).
+    Longest-first ordering already handles the overlap that does exist WITHIN
+    a market ("Dubai Marina" before "Dubai", "Malad West" before "Malad").
     """
-    g = load_gazetteer()
     terms: set[str] = set()
-    for locs in (g.get("cities") or {}).values():
-        terms.update(locs)
-    for alias in (g.get("aliases") or {}).values():
-        terms.add(alias["canonical"])
+    for market in GAZETTEER_PATHS:
+        g = load_gazetteer(market)
+        for locs in (g.get("cities") or {}).values():
+            terms.update(locs)
+        for alias in (g.get("aliases") or {}).values():
+            # A value is a LIST when the same locality name exists in more
+            # than one place (Samata Nagar: Kandivali East and Thane).
+            for entry in (alias if isinstance(alias, list) else [alias]):
+                terms.add(entry["canonical"])
     return sorted(terms, key=len, reverse=True)
 
 
@@ -199,9 +226,14 @@ def extract_locations(text: str) -> list[str]:
 
     found: list[str] = []
 
+    # `handover|off[\s-]?plan|aed|br\b` — the Dubai half of this lookahead.
+    # Live: "villa in Arjan handover 2027" extracted the locality as
+    # "Arjan Handover", because `possession` was listed here and its Dubai
+    # synonym was not. No candidate on earth contains that string, so the
+    # geography gate rejected everything the search found.
     phrase_re = re.compile(
         r"\b(?:in|at|near|around)\s+([A-Za-z][A-Za-z\s]{1,30}?)"
-        r"(?=\s+(?:under|for|with|by|possession|budget|bhk|ready|\d)|[,.]|$)",
+        r"(?=\s+(?:under|for|with|by|possession|budget|bhk|ready|handover|off[\s-]?plan|aed|starting|from|\d)|[,.]|$)",
         re.IGNORECASE,
     )
     for m in phrase_re.finditer(text):

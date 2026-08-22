@@ -25,6 +25,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import time
 from typing import Optional
 
 logger = logging.getLogger("ai-search-agent.deep_research")
@@ -43,7 +44,28 @@ from .state import CandidateGap, EvidenceItem, ExtractedFact, FeatureEvidence, F
 # eligibility now go first within this budget), 5 gives a realistic query
 # with several individual-project candidates a real chance to actually get
 # verified, without turning this into "fetch every result".
-MAX_CANDIDATES_FOR_DEEP_RESEARCH = int(os.getenv("AI_SEARCH_MAX_CANDIDATES_FOR_DEEP_RESEARCH", "5"))
+# Raised 5 -> 12, and made safe to raise by the two changes below (bounded
+# concurrency + a wall-clock deadline). The cap was the funnel: a live
+# "2 BHK in Chikuwadi" run found 70 candidates, 45 of which stayed
+# lifecycle-UNKNOWN purely because nothing ever fetched a page for them, and
+# the strict eligibility policy then rejected all 45. That is not extraction
+# failing — it is never having looked.
+#
+# Raising a SERIAL loop would simply have moved the failure to the 180s
+# request timeout, so the cap alone was never the fix; see
+# DEEP_RESEARCH_BUDGET_S and DEEP_RESEARCH_CONCURRENCY.
+MAX_CANDIDATES_FOR_DEEP_RESEARCH = int(os.getenv("AI_SEARCH_MAX_CANDIDATES_FOR_DEEP_RESEARCH", "12"))
+# How many candidates are researched at once. Pages WITHIN one candidate were
+# already fetched in parallel (_fetch_and_extract); the candidates themselves
+# ran strictly one after another, which is why 3 candidates took ~30s and 12
+# would have taken two minutes.
+DEEP_RESEARCH_CONCURRENCY = int(os.getenv("AI_SEARCH_DEEP_RESEARCH_CONCURRENCY", "4"))
+# Wall-clock ceiling for ONE deep-research pass. When it expires, whatever
+# finished is kept and the rest are returned unresearched — a partial result
+# inside the timeout beats a complete result the caller never receives,
+# because a request that overruns AI_SEARCH_TIMEOUT_MS falls through to the
+# shallower Places-direct pipeline and the user sees nothing of this work.
+DEEP_RESEARCH_BUDGET_S = float(os.getenv("AI_SEARCH_DEEP_RESEARCH_BUDGET_MS", "45000")) / 1000
 MAX_FETCHES_PER_CANDIDATE = int(os.getenv("AI_SEARCH_MAX_FETCHES_PER_CANDIDATE", "3"))
 MAX_TARGETED_SEARCHES_PER_ITERATION = int(os.getenv("AI_SEARCH_MAX_TARGETED_SEARCHES_PER_ITERATION", "5"))
 # Phase 2.5c — llm_assist_extract's own per-call window stays 4000 chars
@@ -73,8 +95,55 @@ _SOURCE_PRIORITY = {"official": 0, "developer": 1, "portal": 2, "web": 3, "categ
 # Excluded from source-URL selection entirely; a candidate whose ONLY known
 # source is a cid link simply gets zero fetches, same as a candidate with no
 # sources at all, rather than wasting a fetch attempt on it.
+# Google Maps place links carry no readable page content — fetching one gets a
+# JS shell, never the project's details. Two forms were listed; the one Places
+# (New) actually returns is `googleMapsUri`, which is
+# https://www.google.com/maps/place/?q=place_id:... — and it was NOT matched,
+# so every Places-sourced candidate looked fetchable, filled a deep-research
+# budget slot and produced nothing. Caught by test_search_harness's
+# prioritisation case, which failed against the real function after passing
+# against a stub that guessed this was already handled.
+_UNFETCHABLE_URL_MARKERS = (
+    "maps.google.com/?cid=",
+    "maps.google.com/place?cid=",
+    "google.com/maps/place",
+    "google.com/maps/search",
+    "goo.gl/maps",
+    "maps.app.goo.gl",
+)
+
+
+# Extensions the /fetch-page route refuses outright with "Unsupported
+# content-type: application/json" (and application/pdf). Measured live: 40+
+# such failures across 7 of 10 test searches, each one having already spent
+# a research slot and a network round-trip to learn what the URL itself
+# said up front. Deep research is budget-bounded and its slots are the
+# scarcest thing in the run, so a slot spent on a JSON endpoint is a page
+# of real evidence not read.
+#
+# Extension-only, deliberately. A path merely CONTAINING "/api/" is not
+# enough — plenty of real project pages sit under marketing paths that
+# include such words, and wrongly discarding a readable page is the more
+# expensive mistake. The true fix for the remainder is upstream, in
+# whichever search connector is surfacing data endpoints as results; this
+# stops the budget bleeding meanwhile.
+_NON_HTML_URL_SUFFIXES = (
+    ".json", ".pdf", ".xml", ".csv", ".rss", ".atom",
+    ".zip", ".doc", ".docx", ".xls", ".xlsx",
+    ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".mp4", ".mp3",
+)
+
+
+def _is_non_html_url(url: str) -> bool:
+    path = (url or "").lower().split("?", 1)[0].split("#", 1)[0].rstrip("/")
+    return path.endswith(_NON_HTML_URL_SUFFIXES)
+
+
 def _is_unfetchable_url(url: str) -> bool:
-    return "maps.google.com/?cid=" in url or "maps.google.com/place?cid=" in url
+    lowered = (url or "").lower()
+    if any(marker in lowered for marker in _UNFETCHABLE_URL_MARKERS):
+        return True
+    return _is_non_html_url(url)
 
 
 # Phase 2.5c — chosen over a "select the section most likely to hold the
@@ -91,6 +160,37 @@ def _is_unfetchable_url(url: str) -> bool:
 # mention straddling a chunk boundary isn't silently split in half.
 _CHUNK_SIZE = 4000
 _CHUNK_OVERLAP = 200
+
+
+# ── Chunking guards ─────────────────────────────────────────────────────────
+# Chunking was bounded by BUDGET, not by EVIDENCE: it kept spending calls until
+# every field filled or the per-candidate cap ran out. Two live traces showed
+# what that costs:
+#   * an LLM call on a chunk_len=9 page, and three in a row on chunk_len=128
+#   * tower_count consuming 6/6 calls on each of three candidates — 12 of a
+#     27-call run — and never being found on any of them
+# Roughly a third of all LLM spend, on a free tier that allows ~5 searches a
+# day. Two guards, both narrow:
+#
+# 1. A chunk too small to contain a stated fact is not worth a network call.
+#    A page fragment of 9 or 128 characters is a cookie banner or an error
+#    stub, not a specification table.
+# 2. A FIELD that N consecutive chunks have failed to yield is dropped from
+#    the ask — per field, never per page. Chunk 5 may still answer a DIFFERENT
+#    field, so the page keeps being read; we just stop paying to re-ask the
+#    one question this page has already declined to answer N times.
+#
+# Both are deliberately conservative: the guards only ever REMOVE calls that
+# produced nothing in the observed traces, and chunk 1 of page 1 still behaves
+# exactly as it always did.
+MIN_CHUNK_CHARS_FOR_LLM = int(os.getenv("AI_SEARCH_MIN_CHUNK_CHARS_FOR_LLM", "200"))
+# 3, not 2. Measured on the real traces: a live "Bandra West" candidate did
+# eventually yield tower_count on chunk 6, so an aggressive cutoff genuinely
+# can lose a late-page field. 3 still removes half the waste of the
+# never-answered case while leaving a real page room to answer, and the
+# tradeoff is one env var away for anyone who wants to retune it against
+# their own numbers.
+MAX_EMPTY_CHUNKS_PER_FIELD = int(os.getenv("AI_SEARCH_MAX_EMPTY_CHUNKS_PER_FIELD", "3"))
 
 
 def _chunk_text(text: str, size: int = _CHUNK_SIZE, overlap: int = _CHUNK_OVERLAP) -> list[str]:
@@ -167,6 +267,12 @@ async def _fetch_and_extract(name: str, urls: list[tuple[str, str]], candidate_i
         found_fields = {f["field"] for f in facts}
         still_missing = [f for f in fact_extraction.LLM_ASSISTABLE_FIELDS if f not in found_fields]
         calls_made = 0
+        skipped_tiny = 0
+        # Per-field tally of consecutive chunks that failed to yield it — see
+        # the chunking-guards comment above. Reset for a field the moment any
+        # chunk does yield it.
+        empty_streak: dict[str, int] = {f: 0 for f in still_missing}
+        abandoned: list[str] = []
         for page in pages:
             if not still_missing or calls_made >= MAX_LLM_ASSIST_CALLS_PER_CANDIDATE:
                 break
@@ -174,6 +280,12 @@ async def _fetch_and_extract(name: str, urls: list[tuple[str, str]], candidate_i
             for chunk in _chunk_text(page_text):
                 if not still_missing or calls_made >= MAX_LLM_ASSIST_CALLS_PER_CANDIDATE:
                     break
+                # GUARD 1 — a chunk too small to state a fact. Not counted as
+                # a call, and not counted against any field's streak: nothing
+                # was asked, so nothing was declined.
+                if len(chunk) < MIN_CHUNK_CHARS_FOR_LLM:
+                    skipped_tiny += 1
+                    continue
                 calls_made += 1
                 # A shallow copy with `content` swapped for this chunk —
                 # NOT just {"content", "title"}: llm_assist_extract reads
@@ -197,8 +309,27 @@ async def _fetch_and_extract(name: str, urls: list[tuple[str, str]], candidate_i
                 if new_facts:
                     facts.extend(new_facts)
                     still_missing = [f for f in still_missing if f not in found_here]
-        if calls_made:
-            logger.warning("[fetch_and_extract] candidate=%r TOTAL calls=%d still_missing_after=%s", name, calls_made, still_missing)
+                # GUARD 2 — retire a field this page keeps declining to
+                # answer. Per FIELD, not per page: the loop carries on
+                # reading, it just stops re-asking the same dead question.
+                newly_abandoned = []
+                for field in list(still_missing):
+                    if field in found_here:
+                        empty_streak[field] = 0
+                        continue
+                    empty_streak[field] = empty_streak.get(field, 0) + 1
+                    if empty_streak[field] >= MAX_EMPTY_CHUNKS_PER_FIELD:
+                        newly_abandoned.append(field)
+                if newly_abandoned:
+                    still_missing = [f for f in still_missing if f not in newly_abandoned]
+                    abandoned.extend(newly_abandoned)
+        if calls_made or skipped_tiny:
+            logger.warning(
+                "[fetch_and_extract] candidate=%r TOTAL calls=%d (skipped %d chunk(s) under %d chars; "
+                "stopped asking for %s after %d empty chunk(s)) still_missing_after=%s",
+                name, calls_made, skipped_tiny, MIN_CHUNK_CHARS_FOR_LLM,
+                sorted(abandoned) or "nothing", MAX_EMPTY_CHUNKS_PER_FIELD,
+                sorted(set(still_missing) | set(abandoned)))
 
     return pages, facts, features, tool_calls
 
@@ -206,58 +337,123 @@ async def _fetch_and_extract(name: str, urls: list[tuple[str, str]], candidate_i
 async def research_candidates(
     candidates: list[RankedProperty], *, market: str, already_fetched: set[str],
     max_candidates: int = MAX_CANDIDATES_FOR_DEEP_RESEARCH, max_fetches_per_candidate: int = MAX_FETCHES_PER_CANDIDATE,
+    budget_s: Optional[float] = None,
 ) -> tuple[list[NormalizedProperty], list[ToolCallRecord], list[FetchedPage], list[ExtractedFact]]:
     updated: list[NormalizedProperty] = []
     all_tool_calls: list[ToolCallRecord] = []
     all_pages: list[FetchedPage] = []
     all_facts: list[ExtractedFact] = []
 
-    for prop in candidates[:max_candidates]:
-        name = prop.get("name", "")
+    batch = candidates[:max_candidates]
+    if not batch:
+        return updated, all_tool_calls, all_pages, all_facts
+
+    # URL planning happens FIRST, serially and with no awaits between the
+    # reads and the writes. `already_fetched` is what stops two candidates
+    # paying for the same page, and computing every candidate's URL list up
+    # front preserves that exactly — interleaving the plan with the fetches
+    # would let two candidates each claim the same URL before either recorded
+    # it. Nothing here does I/O, so this is cheap.
+    planned: list[tuple] = []
+    for prop in batch:
         urls = _prioritized_source_urls(prop, max_fetches_per_candidate, already_fetched)
+        already_fetched.update(u for u, _ in urls)
+        planned.append((prop, urls))
+
+    semaphore = asyncio.Semaphore(max(1, DEEP_RESEARCH_CONCURRENCY))
+    # `budget_s` is this pass's share of the RUN's remaining wall clock
+    # (graph._budget_for). Without it each pass would spend its own full
+    # allowance regardless of how little time the request had left — which is
+    # exactly how three 45s passes plus two enrichment nodes came to exceed a
+    # 180s request timeout.
+    effective_budget = DEEP_RESEARCH_BUDGET_S if budget_s is None else max(0.0, budget_s)
+    # time.monotonic(), matching graph.py's run clock exactly — see
+    # _remaining_budget's docstring for why not loop.time().
+    deadline = time.monotonic() + effective_budget
+
+    async def _research_one(prop: RankedProperty, urls: list) -> tuple:
+        """Returns (candidate, tool_calls, pages, facts). Never raises — one
+        candidate failing must not lose the whole batch.
+        """
+        local_calls: list[ToolCallRecord] = []
+        local_pages: list[FetchedPage] = []
+        local_facts: list[ExtractedFact] = []
         current = prop
-        if urls:
-            pages, facts, features, tool_calls = await _fetch_and_extract(name, urls, candidate_id=prop.get("id"))
-            already_fetched.update(u for u, _ in urls)
-            all_tool_calls.extend(tool_calls)
-            all_pages.extend(pages)
-            all_facts.extend(facts)
-            current = dedupe_mod.merge_extracted_facts(prop, facts, features)
+        async with semaphore:
+            # Checked after acquiring the slot, not before: a candidate that
+            # waited out the budget is returned unresearched rather than
+            # started and abandoned mid-fetch.
+            if time.monotonic() >= deadline:
+                return prop, local_calls, local_pages, local_facts
+            try:
+                if urls:
+                    pages, facts, features, tool_calls = await _fetch_and_extract(
+                        prop.get("name", ""), urls, candidate_id=prop.get("id"))
+                    local_calls.extend(tool_calls)
+                    local_pages.extend(pages)
+                    local_facts.extend(facts)
+                    current = dedupe_mod.merge_extracted_facts(prop, facts, features)
 
-        # Part 2 (Places-augmented pipeline) — per-candidate name
-        # verification, on EVERY candidate reaching this bounded loop
-        # regardless of source or whether a page was even fetchable (a
-        # candidate's name can already be final even with no fetchable
-        # URL). Skipped whenever a verification attempt was ALREADY made —
-        # `places_verified` already present as True (discovered by
-        # places_search itself, or a prior iteration's lookup resolved it)
-        # OR False (a prior iteration already tried and found nothing) —
-        # `is None` (the key genuinely never set) is the only case that
-        # still runs it. This loop can re-enter across the gap-driven
-        # research iterations (Part 3/12); without this, a candidate
-        # already checked in iteration 1 was being re-verified — a real,
-        # observed, wasteful duplicate call live-caught during this pass —
-        # every iteration, burning real Places API quota for a result
-        # already known. A candidate that does NOT resolve is NOT itself
-        # rejected (see places_verify's own scope comment) — only graph.py's
-        # hard-eligibility filter's separate looks_like_invalid_name()
-        # check, consulted ONLY when this is False, actually gates anything.
-        if current.get("places_verified") is None:
-            locality = current.get("micro_location") or current.get("location")
-            city = current.get("city")
-            match, verify_record = await tools_mod.places_verify(current.get("name", ""), locality, city)
-            all_tool_calls.append(verify_record)
-            current = dict(current)
-            if match:
-                current["places_verified"] = True
-                current["places_lat"] = match.get("lat")
-                current["places_lon"] = match.get("lon")
-                current["places_place_id"] = match.get("placeId")
-                current["places_address"] = match.get("address")
-            else:
-                current["places_verified"] = False
+                # Part 2 (Places-augmented pipeline) — per-candidate name
+                # verification, on EVERY candidate reaching this bounded loop
+                # regardless of source or whether a page was even fetchable (a
+                # candidate's name can already be final even with no fetchable
+                # URL). Skipped whenever a verification attempt was ALREADY
+                # made — `places_verified` already True (discovered by
+                # places_search itself, or a prior iteration's lookup resolved
+                # it) OR False (a prior iteration already tried and found
+                # nothing); `is None` is the only case that still runs it.
+                # Without this, a candidate checked in iteration 1 was
+                # re-verified every iteration — a real, observed, wasteful
+                # duplicate call — burning Places quota for a known result.
+                # A candidate that does NOT resolve is NOT itself rejected
+                # (see places_verify's own scope comment); only graph.py's
+                # hard-eligibility filter's looks_like_invalid_name() check,
+                # consulted ONLY when this is False, gates anything.
+                if current.get("places_verified") is None:
+                    locality = current.get("micro_location") or current.get("location")
+                    city = current.get("city")
+                    match, verify_record = await tools_mod.places_verify(current.get("name", ""), locality, city)
+                    local_calls.append(verify_record)
+                    current = dict(current)
+                    if match:
+                        current["places_verified"] = True
+                        current["places_lat"] = match.get("lat")
+                        current["places_lon"] = match.get("lon")
+                        current["places_place_id"] = match.get("placeId")
+                        current["places_address"] = match.get("address")
+                    else:
+                        current["places_verified"] = False
+            except Exception as e:  # noqa: BLE001 — degrade the candidate, never the batch
+                logger.warning("[deep_research] %s failed: %s", prop.get("name"), e)
+                return prop, local_calls, local_pages, local_facts
+        return current, local_calls, local_pages, local_facts
 
+    results = await asyncio.gather(*[_research_one(prop, urls) for prop, urls in planned],
+                                   return_exceptions=True)
+
+    researched = 0
+    for (prop, _urls), result in zip(planned, results):
+        if isinstance(result, Exception):
+            logger.warning("[deep_research] %s raised: %s", prop.get("name"), result)
+            updated.append(prop)
+            continue
+        current, calls, pages, facts = result
+        # Order is preserved: gather returns results positionally, so the
+        # caller's prioritisation (graph._prioritize_for_deep_research) still
+        # holds regardless of which candidate happened to finish first.
         updated.append(current)
+        all_tool_calls.extend(calls)
+        all_pages.extend(pages)
+        all_facts.extend(facts)
+        if pages or calls:
+            researched += 1
+
+    no_source = sum(1 for _p, urls in planned if not urls)
+    logger.warning(
+        "[deep_research] researched %d/%d candidates (%d had no fetchable source URL) "
+        "(cap %d, concurrency %d, budget %.0fs)",
+        researched, len(batch), no_source, max_candidates, DEEP_RESEARCH_CONCURRENCY, effective_budget)
 
     return updated, all_tool_calls, all_pages, all_facts
 

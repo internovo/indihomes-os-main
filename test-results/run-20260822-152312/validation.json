@@ -1,0 +1,1227 @@
+{
+  "run_id": "run-20260822-152312",
+  "started_at": "2026-08-22T09:54:00.302Z",
+  "finished_at": "2026-08-22T10:53:52.969Z",
+  "preflight": {
+    "langgraph_enabled": true,
+    "banner": "AI Search pipeline: LangGraph agent PRIMARY (http://localhost:8008), Places-direct as fallback (derived from confirmed env values, not raw console capture -- backend process was already running before this session attached)",
+    "health": {
+      "ok": true,
+      "llm": {
+        "reasoning_configured": true,
+        "reasoning_providers": [
+          "Groq",
+          "Local/open-source model",
+          "Gemini (Google)"
+        ],
+        "extraction_configured": true,
+        "extraction_providers": [
+          "Groq",
+          "Local/open-source model",
+          "Gemini (Google)"
+        ],
+        "probe": [
+          {
+            "key": "gemini",
+            "label": "Gemini (Google)",
+            "model": "gemini-3.6-flash",
+            "ok": false,
+            "error": "429: RESOURCE_EXHAUSTED",
+            "latency_ms": 2939
+          },
+          {
+            "key": "groq",
+            "label": "Groq",
+            "model": "openai/gpt-oss-120b",
+            "ok": true,
+            "error": null,
+            "latency_ms": 708
+          },
+          {
+            "key": "local",
+            "label": "Local/open-source model",
+            "model": "nvidia/nemotron-3-super-120b-a12b:free",
+            "ok": true,
+            "error": null,
+            "latency_ms": 1117
+          }
+        ]
+      },
+      "circuit_breaker": {},
+      "langsmith": {
+        "tracing_enabled": true,
+        "api_key_configured": true,
+        "project": "Property_Ai-search",
+        "endpoint": "https://api.smith.langchain.com"
+      }
+    },
+    "legacy_portal_scraping_permanently_disabled": true,
+    "legacy_portal_scraping_enabled_env_value": true,
+    "legacy_portal_scraping_note": "PORTAL_SCRAPING_PERMANENTLY_DISABLED=true at legacy-portal-connector.cjs:301; search() returns [] unconditionally at line 304. LEGACY_PORTAL_SCRAPING_ENABLED env value is inert.",
+    "suites": {
+      "test_search_harness.py": {
+        "passed": 151,
+        "failed": 0
+      },
+      "test_lifecycle_and_eligibility.py": {
+        "result": "all checks passed"
+      },
+      "test_bridge_circuit_breaker.py": {
+        "result": "all checks passed"
+      }
+    }
+  },
+  "scenarios": [
+    {
+      "scenario_id": "T1-01",
+      "query": "1 BHK in Marol",
+      "pipeline": "agent",
+      "valid": true,
+      "duration_ms": 144182,
+      "result_count": 3,
+      "checks": {
+        "V1": {
+          "pass": 1,
+          "fail": 0,
+          "failures": []
+        },
+        "V2": {
+          "pass": 2,
+          "fail": 1,
+          "failures": [
+            {
+              "index": 2,
+              "name": "Under Construction Projects by I STAY HOUSING PRIVATE LIMITED",
+              "location": "Under Construction Projects, STAY Housing Private, Limited",
+              "city": null
+            }
+          ]
+        },
+        "V3": {
+          "pass": 3,
+          "fail": 0,
+          "failures": []
+        },
+        "V4": {
+          "pass": 3,
+          "fail": 0,
+          "failures": []
+        },
+        "V5": {
+          "pass": 1,
+          "fail": 0,
+          "failures": []
+        },
+        "V6": {
+          "pass": 3,
+          "fail": 0,
+          "failures": []
+        },
+        "V7": {
+          "pass": 1,
+          "fail": 2,
+          "failures": [
+            {
+              "index": 0,
+              "name": "I Stay Tower in Marol",
+              "propertyType": "Villa",
+              "query": "1 BHK in Marol"
+            },
+            {
+              "index": 2,
+              "name": "Under Construction Projects by I STAY HOUSING PRIVATE LIMITED",
+              "propertyType": "Villa",
+              "query": "1 BHK in Marol"
+            }
+          ]
+        },
+        "V8": {
+          "pass": 3,
+          "fail": 0,
+          "failures": []
+        },
+        "V9": {
+          "pass": 0,
+          "fail": 2,
+          "failures": [
+            {
+              "index": 1,
+              "name": "I-Stay Tower, Andheri East",
+              "placesLat": null,
+              "placesLon": null
+            },
+            {
+              "index": 2,
+              "name": "Under Construction Projects by I STAY HOUSING PRIVATE LIMITED",
+              "placesLat": null,
+              "placesLon": null
+            }
+          ]
+        },
+        "V10": {
+          "pass": 5,
+          "fail": 3,
+          "filled_panels": [
+            "inventory_config",
+            "ai_summary",
+            "usp",
+            "target_audience",
+            "competitors"
+          ],
+          "empty_panels": [
+            "rera_compliance",
+            "location_score",
+            "location_map"
+          ]
+        },
+        "V11": {
+          "ledger_totals": {
+            "filled": 8,
+            "searched_not_found": 7,
+            "never_researched": 0
+          },
+          "raw_present": true
+        },
+        "V12": {
+          "pass": 3,
+          "fail": 0,
+          "failures": []
+        }
+      },
+      "pi_coverage": "5/8",
+      "ledger_totals": {
+        "filled": 8,
+        "searched_not_found": 7,
+        "never_researched": 0
+      },
+      "provider_inferred": "mixed_groq_then_fallback",
+      "provider_reason": "groq breaker closed at start, open at end -- TPM exhausted during this search"
+    },
+    {
+      "scenario_id": "T1-02",
+      "query": "2 BHK in Andheri West",
+      "pipeline": "agent",
+      "valid": true,
+      "duration_ms": 166762,
+      "result_count": 5,
+      "checks": {
+        "V1": {
+          "pass": 1,
+          "fail": 0,
+          "failures": []
+        },
+        "V2": {
+          "pass": 0,
+          "fail": 5,
+          "failures": [
+            {
+              "index": 0,
+              "name": "Linkbay Residences",
+              "location": "Linkbay Residences",
+              "city": null
+            },
+            {
+              "index": 1,
+              "name": "Spenta Anthea",
+              "location": "Spenta Anthea",
+              "city": null
+            },
+            {
+              "index": 2,
+              "name": "Sunbeam Heights",
+              "location": "Sunbeam Heights",
+              "city": null
+            },
+            {
+              "index": 3,
+              "name": "Transcon Triumph",
+              "location": "Transcon Triumph",
+              "city": null
+            },
+            {
+              "index": 4,
+              "name": "Western",
+              "location": "Western",
+              "city": null
+            }
+          ]
+        },
+        "V3": {
+          "pass": 5,
+          "fail": 0,
+          "failures": []
+        },
+        "V4": {
+          "pass": 5,
+          "fail": 0,
+          "failures": []
+        },
+        "V5": {
+          "pass": 5,
+          "fail": 0,
+          "failures": []
+        },
+        "V6": {
+          "pass": 5,
+          "fail": 0,
+          "failures": []
+        },
+        "V7": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        },
+        "V8": {
+          "pass": 5,
+          "fail": 0,
+          "failures": []
+        },
+        "V9": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        },
+        "V10": {
+          "pass": 6,
+          "fail": 2,
+          "filled_panels": [
+            "rera_compliance",
+            "inventory_config",
+            "ai_summary",
+            "usp",
+            "target_audience",
+            "competitors"
+          ],
+          "empty_panels": [
+            "location_score",
+            "location_map"
+          ]
+        },
+        "V11": {
+          "ledger_totals": {
+            "filled": 4,
+            "searched_not_found": 11,
+            "never_researched": 0
+          },
+          "raw_present": true
+        },
+        "V12": {
+          "pass": 5,
+          "fail": 0,
+          "failures": []
+        }
+      },
+      "pi_coverage": "6/8",
+      "ledger_totals": {
+        "filled": 4,
+        "searched_not_found": 11,
+        "never_researched": 0
+      },
+      "provider_inferred": "mixed_groq_then_fallback",
+      "provider_reason": "groq breaker closed at start, open at end -- TPM exhausted during this search"
+    },
+    {
+      "scenario_id": "T1-03",
+      "query": "2 BHK in Chikuwadi",
+      "pipeline": "agent",
+      "valid": true,
+      "duration_ms": 138913,
+      "result_count": 0,
+      "checks": {
+        "V1": {
+          "pass": 1,
+          "fail": 0,
+          "failures": []
+        },
+        "V2": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        },
+        "V3": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        },
+        "V4": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        },
+        "V5": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        },
+        "V6": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        },
+        "V7": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        },
+        "V8": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        },
+        "V9": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        },
+        "V10": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        },
+        "V11": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        },
+        "V12": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        }
+      },
+      "pi_coverage": null,
+      "ledger_totals": {
+        "filled": 0,
+        "searched_not_found": 0,
+        "never_researched": 0
+      },
+      "provider_inferred": "mixed_groq_then_fallback",
+      "provider_reason": "groq breaker closed at start, open at end — TPM exhausted during this search"
+    },
+    {
+      "scenario_id": "T1-04",
+      "query": "1 BHK in Kandarpada under 1.5 Cr",
+      "pipeline": "agent",
+      "valid": true,
+      "duration_ms": 144710,
+      "result_count": 1,
+      "checks": {
+        "V1": {
+          "pass": 1,
+          "fail": 0,
+          "failures": []
+        },
+        "V2": {
+          "pass": 1,
+          "fail": 0,
+          "failures": []
+        },
+        "V3": {
+          "pass": 1,
+          "fail": 0,
+          "failures": []
+        },
+        "V4": {
+          "pass": 1,
+          "fail": 0,
+          "failures": []
+        },
+        "V5": {
+          "pass": 1,
+          "fail": 0,
+          "failures": []
+        },
+        "V6": {
+          "pass": 1,
+          "fail": 0,
+          "failures": []
+        },
+        "V7": {
+          "pass": 1,
+          "fail": 0,
+          "failures": []
+        },
+        "V8": {
+          "pass": 1,
+          "fail": 0,
+          "failures": []
+        },
+        "V9": {
+          "pass": 1,
+          "fail": 0,
+          "failures": []
+        },
+        "V10": {
+          "pass": 7,
+          "fail": 1,
+          "filled_panels": [
+            "rera_compliance",
+            "inventory_config",
+            "location_score",
+            "ai_summary",
+            "usp",
+            "target_audience",
+            "location_map"
+          ],
+          "empty_panels": [
+            "competitors"
+          ]
+        },
+        "V11": {
+          "ledger_totals": {
+            "filled": 15,
+            "searched_not_found": 0,
+            "never_researched": 0
+          },
+          "raw_present": true
+        },
+        "V12": {
+          "pass": 1,
+          "fail": 0,
+          "failures": []
+        }
+      },
+      "pi_coverage": "7/8",
+      "ledger_totals": {
+        "filled": 15,
+        "searched_not_found": 0,
+        "never_researched": 0
+      },
+      "provider_inferred": "local_openrouter_fallback_throughout",
+      "provider_reason": "groq breaker open both before and after this search"
+    },
+    {
+      "scenario_id": "T1-05",
+      "query": "3 BHK in Malad West with gym and swimming pool",
+      "pipeline": "agent",
+      "valid": true,
+      "duration_ms": 136104,
+      "result_count": 0,
+      "checks": {
+        "V1": {
+          "pass": 1,
+          "fail": 0,
+          "failures": []
+        },
+        "V2": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        },
+        "V3": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        },
+        "V4": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        },
+        "V5": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        },
+        "V6": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        },
+        "V7": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        },
+        "V8": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        },
+        "V9": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        },
+        "V10": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        },
+        "V11": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        },
+        "V12": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        }
+      },
+      "pi_coverage": null,
+      "ledger_totals": {
+        "filled": 0,
+        "searched_not_found": 0,
+        "never_researched": 0
+      },
+      "provider_inferred": "groq_likely_throughout",
+      "provider_reason": "groq breaker closed both before and after (two-sample check — a trip-then-recovery inside the run cannot be fully ruled out)"
+    },
+    {
+      "scenario_id": "T1-06",
+      "query": "2 BHK in Vashi Navi Mumbai",
+      "pipeline": "agent",
+      "valid": true,
+      "duration_ms": 145014,
+      "result_count": 5,
+      "checks": {
+        "V1": {
+          "pass": 1,
+          "fail": 0,
+          "failures": []
+        },
+        "V2": {
+          "pass": 5,
+          "fail": 0,
+          "failures": []
+        },
+        "V3": {
+          "pass": 5,
+          "fail": 0,
+          "failures": []
+        },
+        "V4": {
+          "pass": 5,
+          "fail": 0,
+          "failures": []
+        },
+        "V5": {
+          "pass": 3,
+          "fail": 0,
+          "failures": []
+        },
+        "V6": {
+          "pass": 5,
+          "fail": 0,
+          "failures": []
+        },
+        "V7": {
+          "pass": 3,
+          "fail": 0,
+          "failures": []
+        },
+        "V8": {
+          "pass": 5,
+          "fail": 0,
+          "failures": []
+        },
+        "V9": {
+          "pass": 3,
+          "fail": 1,
+          "failures": [
+            {
+              "index": 2,
+              "name": "Gami Avant - Vashi",
+              "placesLat": null,
+              "placesLon": null
+            }
+          ]
+        },
+        "V10": {
+          "pass": 7,
+          "fail": 1,
+          "filled_panels": [
+            "inventory_config",
+            "location_score",
+            "ai_summary",
+            "usp",
+            "target_audience",
+            "competitors",
+            "location_map"
+          ],
+          "empty_panels": [
+            "rera_compliance"
+          ]
+        },
+        "V11": {
+          "ledger_totals": {
+            "filled": 8,
+            "searched_not_found": 7,
+            "never_researched": 0
+          },
+          "raw_present": true
+        },
+        "V12": {
+          "pass": 4,
+          "fail": 1,
+          "failures": [
+            {
+              "a": "Gami Avant",
+              "b": "Gami Avant - Vashi",
+              "matched_on": "rera=P51700079740"
+            }
+          ]
+        }
+      },
+      "pi_coverage": "7/8",
+      "ledger_totals": {
+        "filled": 8,
+        "searched_not_found": 7,
+        "never_researched": 0
+      },
+      "provider_inferred": "mixed_groq_then_fallback",
+      "provider_reason": "groq breaker closed at start, open at end — TPM exhausted during this search"
+    },
+    {
+      "scenario_id": "T1-07",
+      "query": "2 BHK in Thane West possession 2027",
+      "pipeline": "agent",
+      "valid": true,
+      "duration_ms": 134707,
+      "result_count": 3,
+      "checks": {
+        "V1": {
+          "pass": 1,
+          "fail": 0,
+          "failures": []
+        },
+        "V2": {
+          "pass": 3,
+          "fail": 0,
+          "failures": []
+        },
+        "V3": {
+          "pass": 3,
+          "fail": 0,
+          "failures": []
+        },
+        "V4": {
+          "pass": 3,
+          "fail": 0,
+          "failures": []
+        },
+        "V5": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        },
+        "V6": {
+          "pass": 3,
+          "fail": 0,
+          "failures": []
+        },
+        "V7": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        },
+        "V8": {
+          "pass": 3,
+          "fail": 0,
+          "failures": []
+        },
+        "V9": {
+          "pass": 1,
+          "fail": 0,
+          "failures": []
+        },
+        "V10": {
+          "pass": 6,
+          "fail": 2,
+          "filled_panels": [
+            "inventory_config",
+            "location_score",
+            "ai_summary",
+            "target_audience",
+            "competitors",
+            "location_map"
+          ],
+          "empty_panels": [
+            "rera_compliance",
+            "usp"
+          ]
+        },
+        "V11": {
+          "ledger_totals": {
+            "filled": 8,
+            "searched_not_found": 7,
+            "never_researched": 0
+          },
+          "raw_present": true
+        },
+        "V12": {
+          "pass": 3,
+          "fail": 0,
+          "failures": []
+        }
+      },
+      "pi_coverage": "6/8",
+      "ledger_totals": {
+        "filled": 8,
+        "searched_not_found": 7,
+        "never_researched": 0
+      },
+      "provider_inferred": "local_openrouter_fallback_throughout",
+      "provider_reason": "groq breaker open both before and after this search"
+    },
+    {
+      "scenario_id": "T1-08",
+      "query": "1 BHK in Borivali East",
+      "pipeline": "agent",
+      "valid": true,
+      "duration_ms": 146995,
+      "result_count": 3,
+      "checks": {
+        "V1": {
+          "pass": 1,
+          "fail": 0,
+          "failures": []
+        },
+        "V2": {
+          "pass": 2,
+          "fail": 1,
+          "failures": [
+            {
+              "index": 2,
+              "name": "24k Residences by Hirani Group",
+              "location": "Residences, Hirani Group, Under Construction",
+              "city": null
+            }
+          ]
+        },
+        "V3": {
+          "pass": 3,
+          "fail": 0,
+          "failures": []
+        },
+        "V4": {
+          "pass": 3,
+          "fail": 0,
+          "failures": []
+        },
+        "V5": {
+          "pass": 3,
+          "fail": 0,
+          "failures": []
+        },
+        "V6": {
+          "pass": 3,
+          "fail": 0,
+          "failures": []
+        },
+        "V7": {
+          "pass": 2,
+          "fail": 0,
+          "failures": []
+        },
+        "V8": {
+          "pass": 3,
+          "fail": 0,
+          "failures": []
+        },
+        "V9": {
+          "pass": 2,
+          "fail": 0,
+          "failures": []
+        },
+        "V10": {
+          "pass": 8,
+          "fail": 0,
+          "filled_panels": [
+            "rera_compliance",
+            "inventory_config",
+            "location_score",
+            "ai_summary",
+            "usp",
+            "target_audience",
+            "competitors",
+            "location_map"
+          ],
+          "empty_panels": []
+        },
+        "V11": {
+          "ledger_totals": {
+            "filled": 15,
+            "searched_not_found": 0,
+            "never_researched": 0
+          },
+          "raw_present": true
+        },
+        "V12": {
+          "pass": 2,
+          "fail": 1,
+          "failures": [
+            {
+              "a": "24K residence Hirani",
+              "b": "24k Residences by Hirani Group",
+              "matched_on": "rera=P51800047979"
+            }
+          ]
+        }
+      },
+      "pi_coverage": "8/8",
+      "ledger_totals": {
+        "filled": 15,
+        "searched_not_found": 0,
+        "never_researched": 0
+      },
+      "provider_inferred": "mixed_groq_then_fallback",
+      "provider_reason": "groq breaker closed at start, open at end — TPM exhausted during this search"
+    },
+    {
+      "scenario_id": "T1-09",
+      "query": "studio apartment in Powai",
+      "pipeline": "agent",
+      "valid": true,
+      "duration_ms": 134204,
+      "result_count": 5,
+      "checks": {
+        "V1": {
+          "pass": 1,
+          "fail": 0,
+          "failures": []
+        },
+        "V2": {
+          "pass": 5,
+          "fail": 0,
+          "failures": []
+        },
+        "V3": {
+          "pass": 5,
+          "fail": 0,
+          "failures": []
+        },
+        "V4": {
+          "pass": 5,
+          "fail": 0,
+          "failures": []
+        },
+        "V5": {
+          "pass": 4,
+          "fail": 0,
+          "failures": []
+        },
+        "V6": {
+          "pass": 5,
+          "fail": 0,
+          "failures": []
+        },
+        "V7": {
+          "pass": 2,
+          "fail": 0,
+          "failures": []
+        },
+        "V8": {
+          "pass": 5,
+          "fail": 0,
+          "failures": []
+        },
+        "V9": {
+          "pass": 2,
+          "fail": 1,
+          "failures": [
+            {
+              "index": 2,
+              "name": "Isle Of Calm - Whispering Woods",
+              "placesLat": null,
+              "placesLon": null
+            }
+          ]
+        },
+        "V10": {
+          "pass": 8,
+          "fail": 0,
+          "filled_panels": [
+            "rera_compliance",
+            "inventory_config",
+            "location_score",
+            "ai_summary",
+            "usp",
+            "target_audience",
+            "competitors",
+            "location_map"
+          ],
+          "empty_panels": []
+        },
+        "V11": {
+          "ledger_totals": {
+            "filled": 14,
+            "searched_not_found": 1,
+            "never_researched": 0
+          },
+          "raw_present": true
+        },
+        "V12": {
+          "pass": 5,
+          "fail": 0,
+          "failures": []
+        }
+      },
+      "pi_coverage": "8/8",
+      "ledger_totals": {
+        "filled": 14,
+        "searched_not_found": 1,
+        "never_researched": 0
+      },
+      "provider_inferred": "local_openrouter_fallback_throughout",
+      "provider_reason": "groq breaker open both before and after this search"
+    },
+    {
+      "scenario_id": "T1-10",
+      "query": "1 BHK in Marol",
+      "pipeline": "agent",
+      "valid": true,
+      "duration_ms": 133855,
+      "result_count": 3,
+      "checks": {
+        "V1": {
+          "pass": 1,
+          "fail": 0,
+          "failures": []
+        },
+        "V2": {
+          "pass": 2,
+          "fail": 1,
+          "failures": [
+            {
+              "index": 2,
+              "name": "Under Construction Projects by I STAY HOUSING PRIVATE LIMITED",
+              "location": "Under Construction Projects, STAY Housing Private, Limited",
+              "city": null
+            }
+          ]
+        },
+        "V3": {
+          "pass": 3,
+          "fail": 0,
+          "failures": []
+        },
+        "V4": {
+          "pass": 3,
+          "fail": 0,
+          "failures": []
+        },
+        "V5": {
+          "pass": 1,
+          "fail": 0,
+          "failures": []
+        },
+        "V6": {
+          "pass": 3,
+          "fail": 0,
+          "failures": []
+        },
+        "V7": {
+          "pass": 1,
+          "fail": 2,
+          "failures": [
+            {
+              "index": 0,
+              "name": "I Stay Tower in Marol",
+              "propertyType": "Villa",
+              "query": "1 BHK in Marol"
+            },
+            {
+              "index": 2,
+              "name": "Under Construction Projects by I STAY HOUSING PRIVATE LIMITED",
+              "propertyType": "Villa",
+              "query": "1 BHK in Marol"
+            }
+          ]
+        },
+        "V8": {
+          "pass": 3,
+          "fail": 0,
+          "failures": []
+        },
+        "V9": {
+          "pass": 0,
+          "fail": 1,
+          "failures": [
+            {
+              "index": 1,
+              "name": "I-Stay Tower, Andheri East",
+              "placesLat": null,
+              "placesLon": null
+            }
+          ]
+        },
+        "V10": {
+          "pass": 5,
+          "fail": 3,
+          "filled_panels": [
+            "inventory_config",
+            "ai_summary",
+            "usp",
+            "target_audience",
+            "competitors"
+          ],
+          "empty_panels": [
+            "rera_compliance",
+            "location_score",
+            "location_map"
+          ]
+        },
+        "V11": {
+          "ledger_totals": {
+            "filled": 8,
+            "searched_not_found": 7,
+            "never_researched": 0
+          },
+          "raw_present": true
+        },
+        "V12": {
+          "pass": 3,
+          "fail": 0,
+          "failures": []
+        }
+      },
+      "pi_coverage": "5/8",
+      "ledger_totals": {
+        "filled": 8,
+        "searched_not_found": 7,
+        "never_researched": 0
+      },
+      "provider_inferred": "local_openrouter_fallback_throughout",
+      "provider_reason": "groq breaker open both before and after this search"
+    },
+    {
+      "scenario_id": "T2-06",
+      "query": "ready to move 2 BHK in Mulund",
+      "pipeline": "agent",
+      "valid": true,
+      "duration_ms": 145606,
+      "result_count": 0,
+      "checks": {
+        "V1": {
+          "pass": 1,
+          "fail": 0,
+          "failures": []
+        },
+        "V2": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        },
+        "V3": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        },
+        "V4": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        },
+        "V5": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        },
+        "V6": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        },
+        "V7": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        },
+        "V8": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        },
+        "V9": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        },
+        "V10": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        },
+        "V11": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        },
+        "V12": {
+          "pass": 0,
+          "fail": 0,
+          "failures": []
+        }
+      },
+      "pi_coverage": null,
+      "ledger_totals": {
+        "filled": 0,
+        "searched_not_found": 0,
+        "never_researched": 0
+      },
+      "provider_inferred": "mixed_groq_then_fallback",
+      "provider_reason": "groq breaker closed at start, open at end — TPM exhausted during this search"
+    }
+  ],
+  "totals": {
+    "valid_searches": 11,
+    "invalid_searches": 0,
+    "checks": {
+      "V1": {
+        "pass": 11,
+        "fail": 0
+      },
+      "V2": {
+        "pass": 20,
+        "fail": 8
+      },
+      "V3": {
+        "pass": 28,
+        "fail": 0
+      },
+      "V4": {
+        "pass": 28,
+        "fail": 0
+      },
+      "V5": {
+        "pass": 18,
+        "fail": 0
+      },
+      "V6": {
+        "pass": 28,
+        "fail": 0
+      },
+      "V7": {
+        "pass": 10,
+        "fail": 4
+      },
+      "V8": {
+        "pass": 28,
+        "fail": 0
+      },
+      "V9": {
+        "pass": 9,
+        "fail": 5
+      },
+      "V10": {
+        "pass": 52,
+        "fail": 12
+      },
+      "V11": {
+        "pass": 0,
+        "fail": 0
+      },
+      "V12": {
+        "pass": 26,
+        "fail": 2
+      }
+    },
+    "provider_breakdown": {
+      "mixed_groq_then_fallback": 6,
+      "local_openrouter_fallback_throughout": 4,
+      "groq_likely_throughout": 1
+    }
+  }
+}

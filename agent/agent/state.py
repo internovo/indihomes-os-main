@@ -270,6 +270,18 @@ class ResearchState(TypedDict, total=False):
     # independently retrying a dependency already known to be down.
     bridge_unavailable: bool
 
+    # Global wall-clock deadline for the WHOLE run, as an event-loop
+    # monotonic timestamp. Set once by the preflight node; every bounded node
+    # clamps its own budget to what is actually left.
+    #
+    # Real failure this exists to prevent: the per-node budgets summed to more
+    # than any caller would wait. deep_research 45s x 3 passes + display_
+    # enrichment 90s + location_enrichment 20s = 245s of allowance before a
+    # single search or fetch, against a 180s request timeout. Every node was
+    # individually well-behaved; nothing owned the total. A live "1 BHK in
+    # Marol" call to /agent/ai-search timed out at 200s because of it.
+    deadline_at: float
+
     # Understanding
     parsed_requirements: ParsedRequirements
     locations: list[str]

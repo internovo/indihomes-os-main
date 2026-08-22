@@ -22,18 +22,26 @@ const KIND = {
   // many real listings, not a failure or a warning about anything. No
   // warning icon, deliberately more muted than `unverified`.
   none:       { icon: '–', label: 'Not available', color: 'var(--pg-ink-4)',       bg: 'var(--pg-shell)' },
+  // A plainly stated fact, making no provenance claim in either direction.
+  // For values where the number IS the point and any icon reads as a
+  // verdict on it — a ⚠ next to a real RERA registration number tells the
+  // user something is wrong with the number, which is not what was meant.
+  // Where a field's provenance genuinely matters (Project Intelligence's
+  // RERA & Compliance panel), keep using `verified`/`unverified`/`none`.
+  fact:       { icon: '',  label: '',              color: 'var(--pg-ink-2)',       bg: 'var(--pg-shell)' },
 }
 
-export default function FieldBadge({ kind = 'unverified', label, compact = false }) {
+export default function FieldBadge({ kind = 'unverified', label, compact = false, title }) {
   const k = KIND[kind] || KIND.unverified
+  const text = label || k.label
   return (
-    <span style={{
+    <span title={title || undefined} style={{
       display: 'inline-flex', alignItems: 'center', gap: 3,
       background: k.bg, color: k.color, padding: compact ? '2px 6px' : '2px 7px', borderRadius: 'var(--pg-r-sm)',
       fontSize: 10, fontWeight: 700, fontFamily: 'var(--pg-font-mono)',
       letterSpacing: '0.03em', flexShrink: 0, whiteSpace: 'nowrap',
     }}>
-      {k.icon} {label || k.label}
+      {k.icon ? `${k.icon} ${text}` : text}
     </span>
   )
 }

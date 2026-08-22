@@ -121,9 +121,15 @@ for (const [city, locs] of Object.entries(GAZETTEER.cities || {})) {
   for (const l of locs) if (!LOCALITY_TO_CITY[l.toLowerCase()]) LOCALITY_TO_CITY[l.toLowerCase()] = city
 }
 // Gazetteer micro-locality aliases (Gawamin -> Vasai-Virar, Kandarpada -> Mumbai, ...).
-for (const alias of Object.values(GAZETTEER.aliases || {})) {
-  const k = alias.canonical.toLowerCase()
-  if (!LOCALITY_TO_CITY[k]) LOCALITY_TO_CITY[k] = alias.city
+// An entry is a LIST when the same locality name exists in more than one
+// place (Samata Nagar is in both Kandivali East and Thane). First wins here,
+// matching gazetteer.py's "primary answer" — this map is city-lookup only.
+for (const entry of Object.values(GAZETTEER.aliases || {})) {
+  for (const alias of (Array.isArray(entry) ? entry : [entry])) {
+    if (!alias || !alias.canonical) continue
+    const k = alias.canonical.toLowerCase()
+    if (!LOCALITY_TO_CITY[k]) LOCALITY_TO_CITY[k] = alias.city
+  }
 }
 const KNOWN_CITIES = new Set(['Mumbai', 'Thane', 'Pune', 'Navi Mumbai', 'Vasai-Virar', 'Mira-Bhayandar'])
 
@@ -275,7 +281,33 @@ function toExternalProject(item, market) {
   }
 }
 
+// ── PORTAL SCRAPING IS PERMANENTLY OFF ──────────────────────────────────────
+// Product decision, recorded here rather than only in an env var: this app
+// does not scrape 99acres or MagicBricks.
+//
+// The reason is not that reading a public page is inherently wrong — it is
+// that THIS code did it by deliberately defeating the portals' bot
+// detection. scrapeCityPage's own comment says so outright: headless "got 0
+// results here — 99acres' WAF blocks headless outright", so the launch was
+// changed to a real, visible, off-screen window specifically to get through
+// "undetected". Reading a page a site serves you is one conversation;
+// detecting that you have been blocked and changing method so you stop
+// being blocked is a different one.
+//
+// Enforced HERE, in code, not by LEGACY_PORTAL_SCRAPING_ENABLED. An env var
+// is a setting someone flips back on in six months without knowing why it
+// was off; a hard return is a decision. That flag now buys page RENDERING
+// for non-portal sites (see fetchRenderedPage) and nothing else.
+//
+// What replaces it: licensed sources the harness already uses — Tavily and
+// Serper (search APIs, reading THEIR index), Google Places (paid API), and
+// JSON-LD structured data published by developers' own sites, which exists
+// precisely to be machine-read. Expect fewer candidates; that is the trade,
+// and it was made knowingly.
+const PORTAL_SCRAPING_PERMANENTLY_DISABLED = true
+
 async function search(query, filters = {}, market = 'india') {
+  if (PORTAL_SCRAPING_PERMANENTLY_DISABLED) return []
   if (market !== 'india' || !isConfigured()) return []
 
   const locations = filters.locations?.length ? filters.locations : extractLocations(query)
@@ -337,48 +369,124 @@ async function search(query, filters = {}, market = 'india') {
   }
 }
 
-// ── Generic single-URL rendered fetch — reused by agent-tools-bridge.cjs's
-// /fetch-page route as the "JavaScript-heavy page" escalation path (AI
-// Search agent Part 6). Deliberately the SAME browser-launch config as
-// scrapeCityPage above (non-headless, off-screen window — this is what
-// actually gets through 99acres/MagicBricks' WAF; a headless launch is
-// blocked outright) rather than a second, independent Playwright setup —
-// only the extraction step differs: this reads whatever generic page
-// content is present (document.title/innerText), not the city-listing
-// card-specific selectors scrapeCityPage's DOM path uses, since a
-// developer/project page has no predictable card structure to select
-// against. Gated by the exact same isConfigured() (LEGACY_PORTAL_SCRAPING_
-// ENABLED + Playwright installed) as every other capability in this file —
-// a real browser launch is exactly the kind of cost/risk that flag exists
-// to gate, whether the caller is the city-listing scraper or a one-off
-// page fetch.
+// ── Generic single-URL rendered fetch ───────────────────────────────────────
+// Used by agent-tools-bridge.cjs's /fetch-page route as the "JavaScript-heavy
+// page" escalation path. A developer's own site (Lodha, Godrej, Kanakia)
+// often renders its price table and configuration list client-side, so a
+// plain HTTP GET returns an empty shell. Reading it in a browser is exactly
+// what those sites intend — it is the same content they publish as JSON-LD
+// for machines.
+//
+// THREE THINGS CHANGED HERE, and they are one fix, not three:
+//
+// 1. headless: true. The old comment said headless was needed because it
+//    "actually gets through 99acres/MagicBricks' WAF". That was the WAF
+//    circumvention, and the portals are no longer fetched at all, so the
+//    reason is gone. A headless browser is also several times cheaper.
+// 2. ONE reused browser, a fresh context per call. The old code called
+//    chromium.launch() per request — a brand-new GUI Chromium every time,
+//    no pool, no cap. deep_research drives this 12 wide, so a live run put
+//    12 headful Chromiums on the machine at once. That is what produced the
+//    `[bridge] ConnectTimeout` x12 storm: not a slow upstream, but a host
+//    too starved to complete a loopback TCP handshake in 3 seconds.
+// 3. A render budget UNDER the caller's timeout, and a concurrency cap.
+//    The old path budgeted 20s + 2.5s = 22.5s against Python's 15s bridge
+//    timeout, so a render could never finish in time. Python gave up, Express
+//    does not abort a handler on client disconnect, the Chromium kept
+//    running, and the next request launched another. They accumulated for
+//    the whole run.
+//
+// A blocklist stays as a backstop: even with the flag on, the two portals
+// are never rendered. Nothing should be able to reintroduce that by editing
+// a URL list somewhere else.
+const RENDER_BLOCKED_HOSTS = [/(^|\.)99acres\.com$/i, /(^|\.)magicbricks\.com$/i]
+// Below /fetch-page's own 15s bridge timeout on the Python side, so a render
+// that is going to be abandoned is abandoned HERE, releasing the page.
+const RENDER_NAV_TIMEOUT_MS = Number(process.env.RENDER_NAV_TIMEOUT_MS || 9000)
+const RENDER_SETTLE_MS = Number(process.env.RENDER_SETTLE_MS || 1200)
+const RENDER_MAX_CONCURRENT = Number(process.env.RENDER_MAX_CONCURRENT || 3)
+
+let _sharedBrowser = null
+let _browserStarting = null
+let _inFlight = 0
+const _waiters = []
+
+async function _getBrowser() {
+  if (_sharedBrowser && _sharedBrowser.isConnected()) return _sharedBrowser
+  if (_browserStarting) return _browserStarting
+  _browserStarting = chromium
+    .launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] })
+    .then(b => {
+      _sharedBrowser = b
+      // If Chromium dies (crash, OOM, someone kills it), drop the handle so
+      // the next call launches a fresh one instead of throwing forever.
+      b.on('disconnected', () => { _sharedBrowser = null })
+      _browserStarting = null
+      return b
+    })
+    .catch(e => { _browserStarting = null; throw e })
+  return _browserStarting
+}
+
+function _acquire() {
+  if (_inFlight < RENDER_MAX_CONCURRENT) { _inFlight++; return Promise.resolve() }
+  return new Promise(resolve => _waiters.push(resolve))
+}
+
+function _release() {
+  const next = _waiters.shift()
+  if (next) next()
+  else _inFlight = Math.max(0, _inFlight - 1)
+}
+
+async function closeRenderer() {
+  const b = _sharedBrowser
+  _sharedBrowser = null
+  if (b) await b.close().catch(() => {})
+}
+
 async function fetchRenderedPage(url) {
   if (!isConfigured()) throw new Error('Browser rendering not configured (LEGACY_PORTAL_SCRAPING_ENABLED, or Playwright Chromium not installed).')
-  let browser
+  let host = ''
+  try { host = new URL(url).hostname } catch (_) { throw new Error(`Not a fetchable URL: ${url}`) }
+  if (RENDER_BLOCKED_HOSTS.some(re => re.test(host))) {
+    throw new Error(`Rendering is not performed for ${host} — portal scraping is permanently disabled in this app.`)
+  }
+
+  await _acquire()
+  let ctx
   try {
-    const launchArgs = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled']
-    if (process.platform === 'win32') launchArgs.push('--window-position=-3000,-3000')
-    browser = await chromium.launch({ headless: false, args: launchArgs })
-    const ctx = await browser.newContext({ userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' })
+    const browser = await _getBrowser()
+    ctx = await browser.newContext({ userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' })
     const page = await ctx.newPage()
     await page.route('**/*.{png,jpg,jpeg,gif,woff,woff2,mp4,svg}', r => r.abort())
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 })
-    await page.waitForTimeout(2500)
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: RENDER_NAV_TIMEOUT_MS })
+    await page.waitForTimeout(RENDER_SETTLE_MS)
     return await page.evaluate(() => ({
       title: document.title || '',
       text: (document.body?.innerText || '').replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n').trim().slice(0, 8000),
       html: document.documentElement.outerHTML.slice(0, 250000),
     }))
   } finally {
-    if (browser) await browser.close().catch(() => {})
+    // Close the CONTEXT, never the shared browser — closing the browser here
+    // is what made this per-call in the first place.
+    if (ctx) await ctx.close().catch(() => {})
+    _release()
   }
 }
 
 module.exports = {
   id: 'legacy-portal-scraper',
-  name: '99acres / MagicBricks (direct)',
+  // Renamed: this module no longer contributes portal listings at all
+  // (search() returns [] unconditionally). What it still provides is generic
+  // page rendering for JS-heavy developer sites, with the two portals
+  // blocklisted. The old name appeared in operator-facing connector lists
+  // and would have kept claiming a capability that has been removed.
+  name: 'Page renderer (developer sites)',
   market: ['india'],
   isConfigured,
   search,
   fetchRenderedPage,
+  closeRenderer,
+  PORTAL_SCRAPING_PERMANENTLY_DISABLED,
 }

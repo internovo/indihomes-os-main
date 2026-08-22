@@ -22,6 +22,16 @@ from .gazetteer import base_locality, resolve_location
 from .state import NormalizedProperty, ParsedRequirements, RankedProperty
 
 WEIGHTS = {"location": 30, "configuration": 25, "possession": 20, "budget": 15, "amenity": 10, "quality": 10}
+
+# Plain-English labels for the eligibility gate, for the card's "why this
+# was listed" list. Only the four ALLOWED statuses appear — the excluded
+# ones never reach a user, so there is nothing to explain about them.
+_LIFECYCLE_REASON = {
+    "UNDER_CONSTRUCTION": "Under construction — new-project inventory",
+    "NEAR_POSSESSION": "Nearing possession — new-project inventory",
+    "NEW_LAUNCH": "Newly launched project",
+    "PRE_LAUNCH": "Pre-launch — not yet released for sale",
+}
 NEARBY_LOCATION_CREDIT = 0.35   # same calibration as scoring.cjs — keeps a sibling-locality match below PRIMARY
 # Confirmed only at the PARENT locality level when a more specific micro-
 # locality was requested (Part 3.6) — real signal (being in the right
@@ -285,11 +295,42 @@ def score_property(prop: NormalizedProperty, parsed: ParsedRequirements) -> Rank
     mismatches: list[str] = []
     matched_requirements: list[str] = []
 
-    location_pts = _score_location(prop, parsed, reasons, mismatches)
-    config_pts = _score_configuration(prop, parsed, reasons, mismatches)
-    possession_pts = _score_possession(prop, parsed, reasons, mismatches)
-    budget_pts = _score_budget(prop, parsed, reasons, mismatches)
-    amenity_pts = _score_amenities(prop, parsed, reasons, mismatches)
+    # Each reason now carries the FIELD that produced it, captured here
+    # rather than re-derived from the sentence downstream. Three separate
+    # places were already string-sniffing these: graph._location_match_strength
+    # greps for "not independently verified"/"Nearby locality", curator's
+    # key_match fallback greps for "location"/"locality"/"bhk", and Node's
+    # pickPrimaryMatchReason has its own version. Every one of those breaks
+    # silently the moment a sentence is reworded.
+    #
+    # Captured by watching what each _score_* appends, so all twelve append
+    # sites are untouched and `match_reasons` stays byte-identical — every
+    # existing consumer keeps working and this is purely additive.
+    # `credit` distinguishes a full match from a partial one (parent
+    # locality, close-but-outside possession, slightly over budget), which
+    # `matched_requirements` cannot express: it only records >=99% credit,
+    # so a partial reason was previously invisible to any structured reader.
+    structured: list[dict] = []
+
+    def _scored(field: str, fn):
+        before = len(reasons)
+        pts = fn(prop, parsed, reasons, mismatches)
+        maximum = WEIGHTS.get(field, 0)
+        for text in reasons[before:]:
+            credit = "none"
+            if pts is not None and maximum:
+                credit = "full" if pts >= maximum * 0.99 else "partial"
+            structured.append({
+                "field": field, "reason": text, "credit": credit,
+                "points": pts if pts is not None else 0, "max_points": maximum,
+            })
+        return pts
+
+    location_pts = _scored("location", _score_location)
+    config_pts = _scored("configuration", _score_configuration)
+    possession_pts = _scored("possession", _score_possession)
+    budget_pts = _scored("budget", _score_budget)
+    amenity_pts = _scored("amenity", _score_amenities)
 
     parts = [
         ("location", location_pts), ("configuration", config_pts), ("possession", possession_pts),
@@ -305,6 +346,12 @@ def score_property(prop: NormalizedProperty, parsed: ParsedRequirements) -> Rank
     quality_mismatches: list[str] = []
     quality_pts = _score_evidence_quality(prop, quality_reasons, quality_mismatches)
     mismatches = mismatches + quality_mismatches
+    for text in quality_reasons:
+        structured.append({
+            "field": "evidence", "reason": text,
+            "credit": "full" if quality_pts >= WEIGHTS["quality"] * 0.99 else "partial",
+            "points": quality_pts, "max_points": WEIGHTS["quality"],
+        })
 
     if applicable == 0:
         score = round((quality_pts / WEIGHTS["quality"]) * 100)
@@ -331,6 +378,22 @@ def score_property(prop: NormalizedProperty, parsed: ParsedRequirements) -> Rank
     ranked["match_score"] = score
     ranked["match_tier"] = tier
     ranked["match_reasons"] = reasons + quality_reasons
+    # Same reasons, same order, same wording — each tagged with its field,
+    # its credit level and the points it actually contributed. This is what
+    # the card's "why this was listed" list renders.
+    ranked["match_reasons_structured"] = structured
+    # The lifecycle IS a reason the property qualified — it is the single
+    # hard eligibility gate this product enforces — but it is decided in
+    # normalize/graph, never in scoring, so it never appeared in a reason
+    # list. A user looking at "why was I shown this" should see it.
+    lifecycle = prop.get("lifecycle_status")
+    if lifecycle and lifecycle not in ("UNKNOWN", "READY_TO_MOVE", "RESALE", "RENTAL"):
+        ranked["match_reasons_structured"].append({
+            "field": "lifecycle",
+            "reason": _LIFECYCLE_REASON.get(lifecycle, lifecycle.replace("_", " ").title()),
+            "credit": "full", "points": 0, "max_points": 0,
+            "evidence_text": prop.get("lifecycle_evidence_text") or None,
+        })
     ranked["mismatches"] = mismatches
     ranked["matched_requirements"] = matched_requirements
     ranked["limitations"] = mismatches  # same list, distinct field name for the curator/API contract

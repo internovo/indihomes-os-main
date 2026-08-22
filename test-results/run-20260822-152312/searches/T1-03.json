@@ -1,0 +1,818 @@
+{
+  "scenario_id": "T1-03",
+  "query": "2 BHK in Chikuwadi",
+  "started_at": "2026-08-22T10:09:57.757Z",
+  "finished_at": "2026-08-22T10:12:16.671Z",
+  "duration_ms": 138913,
+  "http_status": 200,
+  "error": null,
+  "pipeline": "agent",
+  "llm_degraded": false,
+  "warnings": null,
+  "result_count": 0,
+  "properties": [],
+  "field_ledger": null,
+  "rejected": null,
+  "agent_log_excerpt": null,
+  "raw_response_top_level_keys": [
+    "filters",
+    "reportId",
+    "market",
+    "configured",
+    "enabled",
+    "properties",
+    "sources",
+    "warning",
+    "summary",
+    "citations",
+    "research_metadata",
+    "retrieval_metrics",
+    "llm_degraded",
+    "_agent",
+    "pipeline"
+  ],
+  "retrieval_metrics": {
+    "total_candidates": 58,
+    "individual_project_candidates": 26,
+    "aggregator_pages": 32,
+    "resale_candidates": 2,
+    "rental_candidates": 2,
+    "unknown_candidates": 20,
+    "invalid_name_candidates": 0,
+    "eligible_candidates": 2,
+    "rejected_candidates": 58,
+    "places_configured": true,
+    "places_contributed_candidates": 20
+  },
+  "research_metadata": {
+    "sources_used": [
+      "apify_search",
+      "bridge_preflight",
+      "fetch_page",
+      "places_search",
+      "places_verify",
+      "portal_search",
+      "serper_search",
+      "tavily_search"
+    ],
+    "tool_calls": [
+      {
+        "tool": "bridge_preflight",
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 0,
+        "error": null
+      },
+      {
+        "tool": "apify_search",
+        "args": {
+          "query": "2 BHK in Chikuwadi",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 15,
+        "duration_ms": 28428,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "developer_search",
+        "args": {
+          "query": "2 BHK in Chikuwadi",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 1749,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "tavily_search",
+        "args": {
+          "query": "2 BHK in Chikuwadi under construction OR new launch OR near possession",
+          "market": "india",
+          "depth": "basic"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 3534,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_search",
+        "args": {
+          "query": "2 BHK in Chikuwadi",
+          "market": "india",
+          "locations": [
+            "Chikuwadi"
+          ],
+          "configuration": "2 BHK"
+        },
+        "status": "ok",
+        "count": 20,
+        "duration_ms": 1370,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "portal_search",
+        "args": {
+          "query": "2 BHK in Chikuwadi",
+          "market": "india",
+          "locations": [
+            "Chikuwadi"
+          ],
+          "configuration": "2 BHK",
+          "budgetMax": null
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 1713,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "serper_search",
+        "args": {
+          "query": "2 BHK in Chikuwadi",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 3716,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "tavily_search",
+        "args": {
+          "query": "2 BHK in Chikuwadi",
+          "market": "india",
+          "depth": "basic"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 5973,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "web_search",
+        "args": {
+          "query": "2 BHK in Chikuwadi",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 733,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.magicbricks.com/2-bhk-flats-in-chikoowadi-borivali-west-mumbai-for-sale-pppfs",
+          "candidate": "Shreeji Aikyam",
+          "candidate_id": "shreejiaikyam::shreejiaikyam"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 1080,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.magicbricks.com/flats-in-chikoowadi-borivali-west-mumbai-for-sale-pppfs",
+          "candidate": "Shreeji Aikyam",
+          "candidate_id": "shreejiaikyam::shreejiaikyam"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 1412,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Shreeji Aikyam",
+          "locality": "Shreeji Aikyam",
+          "city": null
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 800,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "targeted_research",
+        "status": "error",
+        "count": 0,
+        "duration_ms": 40000,
+        "error": "timed out"
+      },
+      {
+        "tool": "web_search",
+        "args": {
+          "query": "Rock Highland By Origin Corp Chikuwadi under construction new launch possession status RERA",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 454,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "tavily_search",
+        "args": {
+          "query": "Rock Highland By Origin Corp Chikuwadi under construction new launch possession status RERA",
+          "market": "india",
+          "depth": "advanced"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 0,
+        "error": null,
+        "cache_hit": true
+      },
+      {
+        "tool": "web_search",
+        "args": {
+          "query": "Rock Highland By Origin Corp Chikuwadi developer builder",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 840,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "tavily_search",
+        "args": {
+          "query": "Rock Highland By Origin Corp Chikuwadi developer builder",
+          "market": "india",
+          "depth": "advanced"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 4685,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "web_search",
+        "args": {
+          "query": "Rock Highland By Origin Corp Chikuwadi RERA number registration",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 748,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "tavily_search",
+        "args": {
+          "query": "Rock Highland By Origin Corp Chikuwadi RERA number registration",
+          "market": "india",
+          "depth": "advanced"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 4527,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "web_search",
+        "args": {
+          "query": "Rock Highland By Origin Corp Chikuwadi possession date",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 459,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "tavily_search",
+        "args": {
+          "query": "Rock Highland By Origin Corp Chikuwadi possession date",
+          "market": "india",
+          "depth": "advanced"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 3439,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "web_search",
+        "args": {
+          "query": "Rock Highland By Origin Corp Chikuwadi carpet area sq ft",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 688,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "tavily_search",
+        "args": {
+          "query": "Rock Highland By Origin Corp Chikuwadi carpet area sq ft",
+          "market": "india",
+          "depth": "advanced"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 4336,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.realestatemumbai.com/passcode-rock-highland-kandivali-west-project-29038",
+          "candidate": "Rock Highland By Origin Corp",
+          "candidate_id": "rockhighlandbyorigincorp::chikuwadi"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 970,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.facebook.com/61568724442082/videos/rock-highland/776366678547485",
+          "candidate": "Rock Highland By Origin Corp",
+          "candidate_id": "rockhighlandbyorigincorp::chikuwadi"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 606,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://housing.com/in/buy/projects/page/44251-origin-rock-highland-by-origin-corp-in-kandivali-west",
+          "candidate": "Rock Highland By Origin Corp",
+          "candidate_id": "rockhighlandbyorigincorp::chikuwadi"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 289,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.mumbaipropertyexchange.com/project/passcode-rock-highland-kandivali-west/29038",
+          "candidate": "Origin Rock Highland in Kandivali West, Mumbai",
+          "candidate_id": "originrockhighlandinkandivaliwestmumbai::kandivaliwest"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 2302,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://cubicalcity.com/listing/ProjectProperty/69b6cd38a1404422e64c8233/origin-rock-highland-kandivali-west-ultra-modern-vertical-luxury-2-and-3-bhk-sky-residences",
+          "candidate": "Origin Rock Highland in Kandivali West, Mumbai",
+          "candidate_id": "originrockhighlandinkandivaliwestmumbai::kandivaliwest"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 7780,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.magicbricks.com/rock-highland-kandivali-west-mumbai-pdpid-4d4235343136333339",
+          "candidate": "Origin Rock Highland in Kandivali West, Mumbai",
+          "candidate_id": "originrockhighlandinkandivaliwestmumbai::kandivaliwest"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 3323,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Rock Highland",
+          "locality": "Kandivali West",
+          "city": "Mumbai"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 654,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.origincorp.in/westcenter-the-center-of-your-bright-future",
+          "candidate": "Westcenter",
+          "candidate_id": "westcenter::westcenter"
+        },
+        "status": "error",
+        "count": 0,
+        "duration_ms": 15650,
+        "error": "ReadTimeout: ",
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Westcenter",
+          "locality": "Westcenter",
+          "city": null
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 895,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.rockhighland.origincorp.in",
+          "candidate": "Rock Highland | 2 & 3 BHK flats In Kandivali west | new project in kandivali",
+          "candidate_id": "rockhighland23bhkflatsinkandivaliwestnewprojectinkandivali::kandivaliwestkandivali"
+        },
+        "status": "error",
+        "count": 0,
+        "duration_ms": 16515,
+        "error": "ReadTimeout: ",
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.homesfy.in/mumbai/kandivali/origin-corp/rock-highland-kandivali-apartments-to-be-updated",
+          "candidate": "Rock Highland | 2 & 3 BHK flats In Kandivali west | new project in kandivali",
+          "candidate_id": "rockhighland23bhkflatsinkandivaliwestnewprojectinkandivali::kandivaliwestkandivali"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 6947,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Rock Highland Kandivali West 2 3 BHK Flats by Origin Corp",
+          "locality": "Kandivali West, Kandivali",
+          "city": "Mumbai"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 608,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://dwello.in/view/origin-claremont-by-origin-at-goregaon_6670afad-5817-437d-9437-ed9503a843d7",
+          "candidate": "Origin Claremont at Goregaon by Origin - Mumbai - Dwello",
+          "candidate_id": "originclaremontatgoregaonbyoriginmumbaidwello::goregaon"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 2464,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Origin Claremont at Goregaon by Origin - Mumbai - Dwello",
+          "locality": "Goregaon",
+          "city": "Mumbai"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 965,
+        "error": null,
+        "cache_hit": false
+      }
+    ],
+    "retrieved_at": "2026-08-22T10:12:16.634895+00:00",
+    "research_iterations": 2,
+    "llm_curator_used": null,
+    "metrics": {
+      "total_searches": 37,
+      "successful_searches": 34,
+      "failed_searches": 3,
+      "cache_hits": 1,
+      "candidate_count": 0,
+      "verified_candidate_count": 0,
+      "pages_fetched": 10,
+      "facts_extracted": 429,
+      "research_iterations": 2,
+      "sources_used": [
+        "apify_search",
+        "bridge_preflight",
+        "fetch_page",
+        "places_search",
+        "places_verify",
+        "portal_search",
+        "serper_search",
+        "tavily_search"
+      ],
+      "source_conflicts": 6,
+      "missing_field_count": 61,
+      "bridge_unavailable": false,
+      "llm_calls": 15,
+      "llm_failures": 1,
+      "llm_fallbacks": 2
+    },
+    "limits": {
+      "max_research_iterations": 2,
+      "max_candidates_for_deep_research": 3,
+      "max_fetches_per_candidate": 3,
+      "max_targeted_searches_per_iteration": 5
+    },
+    "research_gaps": [
+      {
+        "candidate": "Origin Rock Highland in Kandivali West, Mumbai",
+        "missing_fields": [
+          "lifecycle",
+          "rera",
+          "carpet_area"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": [
+          "price_display",
+          "configuration",
+          "possession_display"
+        ]
+      },
+      {
+        "candidate": "Westcenter",
+        "missing_fields": [
+          "lifecycle",
+          "rera",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Rock Highland | 2 & 3 BHK flats In Kandivali west | new project in kandivali",
+        "missing_fields": [
+          "rera",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": [
+          "location"
+        ]
+      },
+      {
+        "candidate": "Origin Claremont at Goregaon by Origin - Mumbai - Dwello",
+        "missing_fields": [
+          "rera",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Acharya Ashram Chs Ltd",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "rera",
+          "possession",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Adinath Tower",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "rera",
+          "possession",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Bhakti apartment",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "rera",
+          "possession",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Bhushan Park View",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "rera",
+          "possession",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Garden Grove Complex",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "rera",
+          "possession",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Green Ridge Tower Cooperative Housing Society Limited",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "rera",
+          "possession",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Jaanu's Apartments",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "rera",
+          "possession",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Krishraj Towers",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "rera",
+          "possession",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      }
+    ],
+    "verification_results": [
+      {
+        "candidate": "Rock Highland By Origin Corp",
+        "conflicts": {
+          "possession_display": [
+            "Aug 2026",
+            "Jun 2027"
+          ],
+          "location": [
+            "Chikuwadi",
+            "Kandivali West"
+          ]
+        },
+        "corroborated_fields": []
+      },
+      {
+        "candidate": "Origin Rock Highland in Kandivali West, Mumbai",
+        "conflicts": {
+          "price_display": [
+            "₹1,22,00,000",
+            "₹1,60,00,000",
+            "₹1,80,00,000"
+          ],
+          "configuration": [
+            "['2 BHK', '3 BHK']",
+            "['3 BHK']",
+            "['5 BHK']"
+          ],
+          "possession_display": [
+            "2010",
+            "Dec 2026",
+            "Dec 2027",
+            "Jan 2024"
+          ]
+        },
+        "corroborated_fields": []
+      },
+      {
+        "candidate": "Origin Rock Highland",
+        "conflicts": {
+          "location": [
+            "Meridian Court",
+            "Origin Rock Highland"
+          ]
+        },
+        "corroborated_fields": []
+      },
+      {
+        "candidate": "Rock Highland | 2 & 3 BHK flats In Kandivali west | new project in kandivali",
+        "conflicts": {
+          "location": [
+            "Kandivali",
+            "Kandivali West",
+            "Kandivali West, Kandivali"
+          ]
+        },
+        "corroborated_fields": []
+      },
+      {
+        "candidate": "Sqft 3 BHK Flat for sale in Origin Rock Highland",
+        "conflicts": {
+          "configuration": [
+            "['2 BHK']",
+            "['3 BHK']"
+          ]
+        },
+        "corroborated_fields": []
+      },
+      {
+        "candidate": "Sqft 2 BHK Flat for sale in Origin Rock Highland | Kandivali ...",
+        "conflicts": {
+          "configuration": [
+            "['2 BHK']",
+            "['3 BHK']"
+          ]
+        },
+        "corroborated_fields": []
+      }
+    ],
+    "duration_ms": 138841,
+    "agent_version": "2.0.0"
+  },
+  "provider_inference": {
+    "inferred": "mixed_groq_then_fallback",
+    "reason": "groq breaker closed at start, open at end — TPM exhausted during this search"
+  },
+  "groq_circuit_before": {
+    "gemini": {
+      "reason": "gemini-3.6-flash: Error code: 429 - [{'error': {'code': 429, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at http",
+      "seconds_remaining": 143.8
+    }
+  },
+  "groq_circuit_after": {
+    "groq": {
+      "reason": "openai/gpt-oss-120b: Error code: 429 - {'error': {'message': 'Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01k6a5fp3jemqr0e45atjmayce` service tier `on_demand` on tokens per minute (TPM): Limit ",
+      "seconds_remaining": 284.0
+    },
+    "gemini": {
+      "reason": "gemini-3.6-flash: Error code: 429 - [{'error': {'code': 429, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at http",
+      "seconds_remaining": 159.4
+    }
+  }
+}

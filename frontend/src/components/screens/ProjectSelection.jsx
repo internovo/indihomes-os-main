@@ -462,9 +462,20 @@ for (const city of new Set([...Object.keys(LOCATION_GROUPS_BASE), ...Object.keys
 const MICRO_ALIASES = gazetteer.aliases || {}
 function resolveLocationTerms(term) {
   const key = String(term).trim().toLowerCase()
-  const alias = MICRO_ALIASES[key]
-  if (!alias) return [key]
-  return [...new Set([key, alias.canonical.toLowerCase(), alias.parent.toLowerCase(), alias.city.toLowerCase()])]
+  const entry = MICRO_ALIASES[key]
+  if (!entry) return [key]
+  // A LIST when the same locality name exists in more than one place —
+  // "Samata Nagar" is in Kandivali East AND in Thane. All of them are real,
+  // so all of them widen the search; picking one silently discarded every
+  // genuine match from the other.
+  const entries = Array.isArray(entry) ? entry : [entry]
+  const out = new Set([key])
+  for (const a of entries) {
+    for (const v of [a?.canonical, a?.parent, a?.city]) {
+      if (v) out.add(String(v).toLowerCase())
+    }
+  }
+  return [...out]
 }
 // Mirrors scoring.cjs's baseLocality() — strips a trailing directional
 // qualifier so "Borivali East"/"Borivali West" are recognized as siblings.
@@ -532,7 +543,28 @@ const LOCATION_INDEX = [
   ...Object.entries(LOCATION_GROUPS).flatMap(([city, locs]) => locs.map(name => ({ name, city, type: 'LOCALITY' }))),
   // Micro-locality pockets (Kandarpada, Gawamin, ...) — shown tagged with
   // their parent suburb so picking one is unambiguous about what it resolves to.
-  ...Object.values(MICRO_ALIASES).map(a => ({ name: a.canonical, city: a.parent, type: 'LOCALITY' })),
+  // An alias value is a LIST when the same locality name exists in more than
+  // one place ("Samata Nagar" is in Kandivali East AND Thane). flatMap, not
+  // map: `a.canonical` on an array is undefined, and this is module-level
+  // code, so one undefined name here crashes the whole bundle at import and
+  // the page renders blank. Each real location gets its own suggestion row,
+  // tagged with its parent, which is what makes picking one unambiguous.
+  //
+  // Deduped on name+parent: several alias KEYS can point at the same real
+  // place (samata nagar / samta nagar / samatanagar are three spellings of
+  // one locality), and without this the user sees the same suggestion six
+  // times. Two rows survive for a genuinely ambiguous name — one per real
+  // location — which is the point, since the parent tag is what tells them
+  // apart.
+  ...[...new Map(
+    Object.values(MICRO_ALIASES).flatMap(entry =>
+      (Array.isArray(entry) ? entry : [entry])
+        .filter(a => a && a.canonical)
+        .map(a => {
+          const row = { name: a.canonical, city: a.parent || a.city, type: 'LOCALITY' };
+          return [`${row.name}|${row.city}`, row];
+        })),
+  ).values()],
   ...STATION_INDEX,
 ]
 
@@ -1047,6 +1079,9 @@ function toAnalysableProject(p, i, siblings) {
     title: p.title || p.name, projectName: p.projectName || p.name, display_name: p.display_name || null,
     match_score: p.match_score ?? null, match_tier: p.match_tier || null,
     match_reasons: p.match_reasons || p.matchReasons || [], limitations: p.limitations || [],
+    match_reasons_structured: p.match_reasons_structured || [],
+    rera_verified: p.rera_verified ?? null, rera_verification_status: p.rera_verification_status || 'unchecked',
+    rera_registered_name: p.rera_registered_name || null, rera_name_matches: p.rera_name_matches ?? null,
     deck: p.deck || null,
     evidence: p.evidence || [], field_evidence: p.field_evidence || {},
     configuration_evidence: p.configuration_evidence || {}, featureEvidence: p.featureEvidence || [],
@@ -1312,15 +1347,56 @@ function PropertyCard({ p, i, onAnalyse, allProperties, selectMode, selected, on
           {/* Extracted from the listing's own text (see external-search.cjs's
               extractReraFromText) — real, but not cross-checked against
               MahaRERA/DLD the way an IndiHomes-catalog project's RERA is
-              (p.rera_verified stays null for every external result). Shown
-              as "unverified" kind, not "verified", so the badge itself never
-              overclaims what this app hasn't actually confirmed.
+              (p.rera_verified stays null for every external result).
               ALWAYS renders something (Part 4) — a missing RERA number is a
               normal, expected state for many real listings, not a failure,
               so it gets an honest neutral "not available" badge rather than
-              silently showing nothing. */}
+              silently showing nothing.
+
+              On THIS card the number is shown plainly — no ⚠, no
+              "(unverified)" suffix. That wording answered a question nobody
+              asks at the search-results stage, and a warning triangle beside
+              a real registration number reads as "this number is suspect"
+              rather than "we haven't cross-checked it yet". The verification
+              state is NOT dropped: it is stated properly, and in more
+              detail, one click away in Project Intelligence's RERA &
+              Compliance panel — "Trust score: Needs Verification", "Source:
+              Third-party listing", and the "Verify on MahaRERA" action —
+              which is where a user who cares about provenance is looking. */}
+          {/* UPDATE: the badge now reflects a REAL check. attachReraVerification
+              (server.cjs) looks the number up on the public MahaRERA
+              register — one cached GET, no key, no CAPTCHA — so "verified"
+              is something we did, not something we assert.
+
+              Three states, deliberately distinct:
+                verified          -> green ✓ with the number. The register
+                                     confirms this registration exists.
+                verified, but the registered name differs from the name we
+                                     display -> still verified (the number is
+                                     genuine), with the registered name shown
+                                     on hover. Mumbai redevelopments are
+                                     routinely registered under the societies
+                                     being redeveloped: P51800047979 is
+                                     "JEEVAN SHOBHA CHSL AND BHANSALI CHSL",
+                                     marketed as "24k Residences by Hirani
+                                     Group". Not a fake — a normal mismatch.
+                not_found / unchecked -> "unverified". This is the ONLY case
+                                     that earns the warning, which is the
+                                     whole point: the old blanket
+                                     "(unverified)" chip fired on every real
+                                     number and so meant nothing. */}
           {p.rera
-            ? <FieldBadge kind="unverified" compact label={`RERA ${p.rera} (unverified)`} />
+            ? (p.rera_verified
+                ? <FieldBadge
+                    kind="verified" compact label={`RERA ${p.rera}`}
+                    title={p.rera_name_matches === false && p.rera_registered_name
+                      ? `Confirmed on the MahaRERA register, registered as "${p.rera_registered_name}"`
+                      : 'Confirmed on the MahaRERA public register'} />
+                : <FieldBadge
+                    kind="unverified" compact label={`RERA ${p.rera} · unverified`}
+                    title={p.rera_verification_status === 'not_found'
+                      ? 'This number was not found on the MahaRERA register'
+                      : 'Not yet checked against the MahaRERA register'} />)
             : <FieldBadge kind="none" compact label="RERA not available" />}
           {/* Source/provider name intentionally never rendered here (explicit
               instruction: no source/debug metadata in end-user UI) —
@@ -1331,11 +1407,65 @@ function PropertyCard({ p, i, onAnalyse, allProperties, selectMode, selected, on
 
         {/* Why this matched — ONE short, plain sentence (Part 2), never the
             old multi-clause "·"-joined string. Backend already picked the
-            single most relevant reason (scoring.pickPrimaryMatchReason);
-            this only truncates for card width, capped around 60 characters. */}
+            single most relevant reason (scoring.pickPrimaryMatchReason).
+
+            Shown IN FULL. The old 60-character hard slice cut mid-word —
+            live: "This 1 BHK in Marol matches your request exactly, is
+            verifi…" — which hid the actual reason at exactly the moment the
+            user is deciding which result to open, and made the agent look
+            like it had nothing to say. This IS the answer to "why did you
+            show me this", the one thing a research agent offers over a
+            plain listing feed; truncating it to fit a card was the wrong
+            trade. Wrapped to at most three lines so a long reason can't
+            push the facts below the fold, with the untruncated text on
+            hover for the rare case that clamps. */}
         {p.why && (
-          <div style={{ fontSize: 12, color: '#75737F', marginBottom: 8 }}>
-            {p.why.length > 60 ? `${p.why.slice(0, 59).trimEnd()}…` : p.why}
+          <div
+            title={p.why}
+            style={{
+              fontSize: 12, color: '#75737F', marginBottom: 8, lineHeight: 1.45,
+              display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+            }}>
+            {p.why}
+          </div>
+        )}
+
+        {/* WHY THIS PROJECT WAS LISTED — the itemised version.
+            The sentence above is the headline; this is the working. Each row
+            is one scoring dimension that actually contributed, carrying the
+            FIELD that produced it (tagged in scoring.py, not grepped out of
+            the sentence here) and whether it was a full or partial match.
+
+            This list has always existed — `match_reasons` reached the
+            browser and was stored, then collapsed to one string in four
+            separate places and never rendered. A research agent's whole
+            claim over a plain listing feed is that it can show its working,
+            so the working is now on the card.
+
+            Partial matches are shown in the SAME list, marked, rather than
+            hidden: "Located in Malad West; Liberty Garden not independently
+            verified" is exactly the kind of thing a buyer should see before
+            they click, and `matched_requirements` could never express it
+            because it only records full credit. */}
+        {Array.isArray(p.match_reasons_structured) && p.match_reasons_structured.length > 0 && (
+          <div style={{ marginBottom: 8, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {p.match_reasons_structured.slice(0, 6).map((r, i) => (
+              <div key={`${r.field}-${i}`}
+                title={r.evidence_text || undefined}
+                style={{ display: 'flex', gap: 6, alignItems: 'baseline', fontSize: 11.5, lineHeight: 1.4 }}>
+                <span style={{
+                  flexShrink: 0, width: 62, textTransform: 'uppercase', letterSpacing: '0.04em',
+                  fontSize: 9, fontWeight: 700, color: '#9A98A6', fontFamily: 'var(--pg-font-mono)',
+                }}>{r.field}</span>
+                <span style={{ color: r.credit === 'partial' ? '#8A5A00' : '#4A4A63' }}>
+                  {r.reason}
+                  {r.credit === 'partial' && (
+                    <span style={{ color: '#9A98A6', fontWeight: 600 }}> · partial</span>
+                  )}
+                </span>
+              </div>
+            ))}
           </div>
         )}
 

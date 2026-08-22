@@ -11,14 +11,19 @@ result", exercised for real, not just planned for.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 from datetime import datetime, timezone
 from typing import Optional
 
+from . import dedupe as dedupe_mod
+from . import fact_extraction as fact_extraction_mod
 from . import normalize as normalize_mod
 from .llm_providers import LLMRouter, get_llm_metrics
 from .state import RankedProperty, ResearchState
+
+logger = logging.getLogger("ai-search-agent.curator")
 
 MAX_SELECTED = 8
 
@@ -186,7 +191,287 @@ def _research_limits() -> dict:
     }
 
 
-def _project_intelligence_payload(prop: RankedProperty) -> dict:
+
+
+
+# ── STEP 9a — the field ledger ──────────────────────────────────────────────
+# The harness's core data structure, built read-only first. For every field
+# the product displays it answers three questions: is it filled, WHO filled
+# it, and if it is empty, was that because nothing was found or because
+# nothing was ever asked.
+#
+# Deliberately an OBSERVATION over the existing pipeline rather than a rewrite
+# of it. The full harness design also has a resolution LOOP that walks this
+# ledger and calls the highest-authority untried source per missing field —
+# that is a real change to how research is scheduled, and shipping it blind
+# is exactly what turned Phase 2.5 into a 481s regression. The ledger is what
+# makes that loop measurable first: once we can see "developer: never asked
+# of the developer site", the loop has something true to act on.
+#
+# `field_evidence` (dedupe.py) already records provenance per field; this
+# reads it, adds the fields it does not track, and states the gap honestly.
+
+# Display field -> where its value lives on a RankedProperty, and which
+# sources in this pipeline can currently supply it at all.
+_LEDGER_FIELDS = {
+    "rera":             ("rera",                  ["page-text", "json-ld", "portal", "developer-site"]),
+    "price":            ("price_display",         ["page-text", "json-ld", "portal", "developer-site"]),
+    "carpet_area":      ("carpet_area_display",   ["page-text", "json-ld", "developer-site"]),
+    "configuration":    ("configuration",         ["page-text", "portal", "developer-site"]),
+    "developer":        ("developer",             ["page-text", "json-ld", "developer-site"]),
+    "possession":       ("possession_display",    ["page-text", "portal", "developer-site"]),
+    "project_status":   ("project_status",        ["page-text"]),
+    "amenities":        ("amenities",             ["page-text", "json-ld", "developer-site"]),
+    "property_type":    ("property_type",         ["page-text", "json-ld"]),
+    "total_floors":     ("total_floors",          ["page-text", "json-ld"]),
+    "tower_count":      ("tower_count",           ["page-text"]),
+    "connectivity":     ("connectivity",          ["google-places-nearby", "page-text"]),
+    "nearby_landmarks": ("nearby_landmarks",      ["google-places-nearby", "page-text"]),
+    "location_score":   ("location_score",        ["google-places-nearby"]),
+    "coordinates":      ("places_lat",            ["google-places-verify", "json-ld"]),
+}
+
+
+def _field_ledger(prop: RankedProperty) -> dict:
+    """Per-field state for ONE candidate: filled/empty, which source answered,
+    how many independent sources agreed, and whether the sources that could
+    have answered were actually consulted.
+    """
+    evidence = prop.get("field_evidence") or {}
+    fetched_any = bool(prop.get("sources"))
+    ledger = {}
+    for field, (attr, possible_sources) in _LEDGER_FIELDS.items():
+        value = prop.get(attr)
+        filled = bool(value)
+        entries = evidence.get(attr) or evidence.get(field) or []
+        answered_by = None
+        if entries:
+            answered_by = entries[0].get("source")
+        elif filled and field in ("connectivity", "nearby_landmarks", "location_score"):
+            # Filled by node_location_enrichment, which writes onto the
+            # property directly rather than through field_evidence.
+            answered_by = (prop.get("location_intel") or {}).get("source") or "google-places-nearby"
+        ledger[field] = {
+            "filled": filled,
+            "answered_by": answered_by,
+            "corroborating_sources": len({e.get("source") for e in entries if e.get("source")}) or (1 if filled else 0),
+            "possible_sources": possible_sources,
+            # The distinction the harness exists to make: "we looked and it
+            # wasn't there" is a real answer; "we never looked" is a gap in
+            # OUR coverage, and the two must never read the same.
+            "status": ("filled" if filled
+                       else "searched_not_found" if fetched_any
+                       else "never_researched"),
+        }
+    filled_count = sum(1 for v in ledger.values() if v["filled"])
+    return {
+        "fields": ledger,
+        "filled": filled_count,
+        "total": len(_LEDGER_FIELDS),
+        "never_researched": [f for f, v in ledger.items() if v["status"] == "never_researched"],
+    }
+
+
+# ── STEP 7 — deterministic AI Project Summary fallback ──────────────────────
+# Used when no LLM is available (or it returned nothing usable). Says only
+# what the extracted fields actually contain, and returns None rather than a
+# sentence when there is nothing real to say — the same honest-null rule the
+# rest of this pipeline follows.
+def _deterministic_project_summary(prop: RankedProperty) -> Optional[str]:
+    configs = ", ".join(str(c) for c in (prop.get("configuration") or []))
+    location = prop.get("location")
+    lifecycle = (prop.get("lifecycle_status") or "").replace("_", " ").lower() or None
+    parts: list[str] = []
+
+    name = prop.get("display_name") or prop.get("name") or "This project"
+    if configs and location:
+        parts.append(f"{name} offers {configs} in {location}.")
+    elif location:
+        parts.append(f"{name} is located in {location}.")
+    elif configs:
+        parts.append(f"{name} offers {configs}.")
+
+    status_bits = []
+    if lifecycle:
+        status_bits.append(f"currently {lifecycle}")
+    if prop.get("possession_display"):
+        status_bits.append(f"with possession {prop['possession_display']}")
+    if prop.get("developer"):
+        status_bits.append(f"by {prop['developer']}")
+    if status_bits:
+        parts.append("It is " + ", ".join(status_bits) + ".")
+
+    if prop.get("price_display"):
+        parts.append(f"Priced at {prop['price_display']}.")
+    if prop.get("rera"):
+        parts.append(f"RERA registered ({prop['rera']}).")
+
+    return " ".join(parts) if parts else None
+
+
+# ── STEP 6 — Competitor Analysis ────────────────────────────────────────────
+# `"competitors": []` was hardcoded. Nothing ever populated it, so the tab was
+# permanently empty. Everything needed is already in hand: the OTHER ranked
+# candidates from this same query are, by construction, real projects in the
+# same locality at a comparable configuration — which is what a competitor is.
+#
+# Deterministic and evidence-only. A competitor is a real candidate we
+# researched in this run, carried with its own price/config/source, never an
+# invented name and never a project we cannot cite.
+_COMPETITOR_MAX = 4
+
+
+def _price_band_inr(prop: RankedProperty) -> Optional[tuple]:
+    lo, hi = prop.get("price_min_inr"), prop.get("price_max_inr")
+    lo = lo if isinstance(lo, (int, float)) else None
+    hi = hi if isinstance(hi, (int, float)) else None
+    if lo is None and hi is None:
+        return None
+    return (lo if lo is not None else hi, hi if hi is not None else lo)
+
+
+def _competitors_for(prop: RankedProperty, peers: list) -> list:
+    """Other real candidates from THIS query, ranked by how comparable they
+    are: same locality first, then overlapping configuration, then closeness
+    of price band. Returns [] rather than reaching for anything invented when
+    there is nothing genuinely comparable.
+    """
+    if not peers:
+        return []
+    own_id = prop.get("id")
+    own_loc = (prop.get("location") or "").strip().lower()
+    own_cfg = {str(c).lower() for c in (prop.get("configuration") or [])}
+    own_band = _price_band_inr(prop)
+
+    scored = []
+    for peer in peers:
+        if peer.get("id") == own_id or not peer.get("name"):
+            continue
+        peer_loc = (peer.get("location") or "").strip().lower()
+        peer_cfg = {str(c).lower() for c in (peer.get("configuration") or [])}
+        same_locality = bool(own_loc and peer_loc and (own_loc in peer_loc or peer_loc in own_loc))
+        shared_cfg = sorted(own_cfg & peer_cfg)
+        peer_band = _price_band_inr(peer)
+        # Lower sorts first.
+        price_gap = float("inf")
+        if own_band and peer_band:
+            price_gap = abs(((own_band[0] + own_band[1]) / 2) - ((peer_band[0] + peer_band[1]) / 2))
+        # Must be comparable on SOMETHING real. Caught in test: a ₹60 L
+        # 1 BHK in Thane West was being offered as a competitor to a ₹1.7 Cr
+        # 2/3 BHK in Kandivali West, on the basis that both turned up in the
+        # same search — which is a fact about our retrieval, not about the
+        # market. Fewer, defensible competitors beat a padded list.
+        if not same_locality and not shared_cfg:
+            continue
+        scored.append((0 if same_locality else 1, 0 if shared_cfg else 1, price_gap, peer, shared_cfg, same_locality))
+
+    scored.sort(key=lambda t: (t[0], t[1], t[2]))
+    out = []
+    for _, _, _, peer, shared_cfg, same_locality in scored[:_COMPETITOR_MAX]:
+        basis = []
+        if same_locality:
+            basis.append("same locality")
+        if shared_cfg:
+            basis.append(f"also offers {', '.join(shared_cfg).upper()}")
+        if peer.get("price_display") and prop.get("price_display"):
+            basis.append("comparable price band")
+        out.append({
+            "name": peer.get("display_name") or peer.get("name"),
+            "developer": peer.get("developer"),
+            "location": peer.get("location"),
+            "configuration": peer.get("configuration") or [],
+            "price": peer.get("price_display"),
+            "possession": peer.get("possession_display"),
+            "rera": peer.get("rera"),
+            # Why this is shown as a competitor, in the user's terms — never a
+            # bare list the reader has to take on trust.
+            "comparison_basis": basis,
+            "sources": [s.get("url") for s in (peer.get("sources") or []) if s.get("url")][:2],
+        })
+    return out
+
+
+# ── STEP 8 — Target Audience Recommendation ─────────────────────────────────
+# Nothing named target_audience existed anywhere in the agent; the tab had no
+# data source at all. This is the single easiest field in the product to fill
+# with confident nonsense ("ideal for young professionals and growing
+# families") that is true of every property ever listed and grounded in
+# nothing — output which is WORSE than an empty tab, because one obviously
+# generic field teaches the reader that the whole panel is guesswork.
+#
+# So: derived ONLY from fields we actually hold, every segment carries the
+# fields it was derived from, and when the inputs are missing the answer is
+# null rather than a plausible sentence.
+_CR = 10_000_000
+
+
+def _target_audience(prop: RankedProperty, location_score: Optional[dict]) -> Optional[dict]:
+    configs = [str(c).upper() for c in (prop.get("configuration") or [])]
+    band = _price_band_inr(prop)
+    possession = prop.get("possession_display")
+    lifecycle = prop.get("lifecycle_status")
+    components = (location_score or {}).get("components") or {}
+
+    segments: list[dict] = []
+
+    def add(segment: str, because: str, derived_from: list):
+        segments.append({"segment": segment, "because": because, "derived_from": derived_from})
+
+    bhk_numbers = sorted({int(c[0]) for c in configs if c and c[0].isdigit()})
+    if bhk_numbers:
+        smallest = bhk_numbers[0]
+        if smallest <= 1:
+            add("First-time buyers and single occupants",
+                f"smallest configuration offered is {smallest} BHK", ["configuration"])
+        elif smallest == 2:
+            add("Small families and first-time upgraders",
+                "2 BHK is the entry configuration", ["configuration"])
+        if max(bhk_numbers) >= 3:
+            add("Larger or multi-generational families",
+                f"{max(bhk_numbers)} BHK configurations available", ["configuration"])
+
+    if band:
+        avg_cr = ((band[0] + band[1]) / 2) / _CR
+        if avg_cr >= 5:
+            add("Luxury segment buyers", f"price band averages ₹{avg_cr:.1f} Cr", ["price"])
+        elif avg_cr >= 2:
+            add("Mid-to-premium segment buyers", f"price band averages ₹{avg_cr:.1f} Cr", ["price"])
+        else:
+            add("Value segment buyers", f"price band averages ₹{avg_cr:.1f} Cr", ["price"])
+
+    # Under-construction inventory suits a buyer who can wait; it does not
+    # suit someone who needs to move now. Only stated when we actually know
+    # the lifecycle stage.
+    if lifecycle in ("NEW_LAUNCH", "PRE_LAUNCH", "UNDER_CONSTRUCTION"):
+        add("Investors and buyers with a flexible move-in date",
+            f"lifecycle stage is {lifecycle.replace('_', ' ').lower()}"
+            + (f", possession {possession}" if possession else ""),
+            ["lifecycle_status"] + (["possession"] if possession else []))
+    elif lifecycle == "NEAR_POSSESSION":
+        add("Buyers needing to move in soon",
+            "project is near possession" + (f" ({possession})" if possession else ""),
+            ["lifecycle_status"] + (["possession"] if possession else []))
+
+    education = components.get("education") or {}
+    transit = components.get("rail_metro") or {}
+    if education.get("nearest") and education["nearest"].get("distance_m", 99999) <= 800:
+        add("Families with school-age children",
+            f"{education['nearest']['name']} is {education['nearest']['distance_m']} m away",
+            ["location_score.education"])
+    if transit.get("nearest") and transit["nearest"].get("distance_m", 99999) <= 1000:
+        add("Daily commuters",
+            f"{transit['nearest']['name']} is {transit['nearest']['distance_m']} m away",
+            ["location_score.rail_metro"])
+
+    if not segments:
+        return None
+    return {
+        "segments": segments,
+        "method": "derived deterministically from this project's own extracted fields — never inferred from general knowledge",
+    }
+
+
+def _project_intelligence_payload(prop: RankedProperty, peers: list | None = None) -> dict:
     """Conforms to the SAME `research` state shape ProjectIntelligence.jsx
     already reads (research?.rera / .configs / .amenities / .usps /
     .competitors / .summary / .possession) — see that component's
@@ -214,13 +499,8 @@ def _project_intelligence_payload(prop: RankedProperty) -> dict:
         bucket = config_evidence.get(c) or next((v for k, v in config_evidence.items() if k.lower() == c.lower()), {})
         if bucket.get("carpet_area"):
             carpet = bucket["carpet_area"]
-        elif single_config and prop.get("carpet_area_display"):
-            # Phase 2 — was prop.get("carpet_area_sqft") (permanently None
-            # before this pass's fix; even now, re-formatting a bare number
-            # here would duplicate " sq ft" logic that already lives in
-            # fact_extraction.py's display-string builder).
-            # carpet_area_display is already the correctly-formatted string.
-            carpet = prop.get("carpet_area_display")
+        elif single_config and prop.get("carpet_area_sqft"):
+            carpet = f"{prop.get('carpet_area_sqft')} sq ft"
         else:
             carpet = None
         if bucket.get("price"):
@@ -256,8 +536,33 @@ def _project_intelligence_payload(prop: RankedProperty) -> dict:
         "features": prop.get("features") or [],
         "usps": [u["insight"] for u in usps],  # flat list — matches ProjectIntelligence.jsx's displayUSPs shape
         "usp_evidence": usps,                   # richer form, kept alongside for anything that wants provenance
-        "competitors": [],
-        "summary": prop.get("description") or None,
+        # STEP 6 — real competitors from this same search, each carried with
+        # its own price/config/source and an explicit comparison_basis. [] when
+        # nothing genuinely comparable was found; never an invented name.
+        "competitors": _competitors_for(prop, peers or []),
+        # STEP 8 — derived only from this project's own extracted fields, each
+        # segment carrying what it was derived from. None when the inputs
+        # aren't there, rather than a plausible-sounding sentence.
+        "target_audience": _target_audience(prop, prop.get("location_score")),
+        # STEP 9a — per-field provenance and coverage for this candidate.
+        "field_ledger": _field_ledger(prop),
+        # Location Score / Nearby Infrastructure tabs. Deterministic, from
+        # Google Places around this candidate's real coordinate; every score
+        # ships its own component breakdown (nearest place, distance, the
+        # thresholds used) so it is defensible to a buyer, not a bare number.
+        "location_score": prop.get("location_score"),
+        "location_intel": prop.get("location_intel"),
+        "connectivity": prop.get("connectivity"),
+        "nearby_landmarks": prop.get("nearby_landmarks") or [],
+        # STEP 7 — the AI Project Summary. Was `prop["description"]`: RAW
+        # SCRAPED PAGE TEXT, which on a 99acres category page describes
+        # several projects at once and on the Places-direct path degrades to
+        # little more than an address. Now an LLM-written summary grounded
+        # strictly in this project's own extracted fields, falling back to a
+        # deterministic sentence built from the same fields when no LLM is
+        # available — never back to the scraped text. The raw text is still
+        # carried, unchanged, under the property's own `description` key.
+        "summary": prop.get("project_summary") or _deterministic_project_summary(prop),
         "possession": prop.get("possession_display"),
         "_provider": "ai-search-agent",
         "_note": "Populated from AI Search Agent research evidence — no separate live-web research re-run.",
@@ -331,11 +636,43 @@ def _deterministic_summary(state: ResearchState, selected: list[RankedProperty])
     return " ".join(bits)
 
 
+def _collapse_duplicate_reras(ranked: list) -> list:
+    """Last gate before the response: never show one project twice.
+
+    A bare `ranked[:MAX_SELECTED]` slice let "Gami Avant" and "Gami Avant -
+    Vashi" — one project, one RERA (P51700079740) — take two of the eight
+    display slots, and did the same for "24K residence Hirani" / "24k
+    Residences by Hirani Group" (P51800047979). node_deep_research now
+    re-dedupes, which fixes the cause; this is the backstop, because the
+    RANKED list is never itself passed through dedupe() at any point.
+
+    First-wins, deliberately: ranking is already final here, so the earlier
+    entry is the better-scoring one. Full dedupe() is NOT used — its
+    _merge_into picks target vs incoming by first-seen, which would take
+    match_score/match_tier/match_reasons from an arbitrary member and
+    silently reorder the results the user sees.
+    """
+    seen: set[str] = set()
+    out = []
+    for p in ranked:
+        rera = p.get("rera")
+        if rera and dedupe_mod._looks_like_real_rera(rera):
+            key = str(rera).upper()
+            if key in seen:
+                logger.warning(
+                    "[curator] dropped duplicate %r — same RERA %s as a higher-ranked result",
+                    p.get("name"), key)
+                continue
+            seen.add(key)
+        out.append(p)
+    return out
+
+
 async def curate(state: ResearchState) -> dict:
-    ranked = state.get("ranked_properties", [])
+    ranked = _collapse_duplicate_reras(state.get("ranked_properties", []))
     selected = ranked[:MAX_SELECTED]
 
-    project_intelligence = {p["id"]: _project_intelligence_payload(p) for p in selected}
+    project_intelligence = {p["id"]: _project_intelligence_payload(p, peers=selected) for p in selected}
     citations = [
         {"name": s.get("name"), "url": s.get("url"), "retrieved_at": s.get("captured_at")}
         for p in selected for s in (p.get("sources") or []) if s.get("url")
@@ -356,13 +693,6 @@ async def curate(state: ResearchState) -> dict:
     # return only the NEW warnings it's adding, never the full accumulated
     # list (that would get concatenated onto itself and duplicate).
     new_warnings: list[str] = []
-    # Phase 1d — an LLM router that's genuinely configured (a real key
-    # present) but whose call still failed used to degrade silently: the
-    # deterministic fallback below is correct and safe, but nothing told
-    # the frontend/an operator that curation quality had actually dropped
-    # for this response. That silent-degradation gap is the actual root
-    # cause the whole Phase 0/1 investigation started from.
-    llm_degraded = False
 
     if router.is_configured() and selected:
         system = (
@@ -388,8 +718,15 @@ async def curate(state: ResearchState) -> dict:
             "or building name (not generic portal boilerplate), keep it as-is \u2014 do not "
             "invent a building name that was never given to you, and do not remove a real "
             "one. When unsure whether a name is real, keep it unchanged rather than guess. "
+            "RULES FOR project_summary: 2-3 sentences describing THIS project, written "
+            "ONLY from the fields given for it — configuration, location, price, possession, "
+            "developer, amenities, RERA, lifecycle stage. This replaces raw scraped page text "
+            "as the AI Project Summary, so it must never restate marketing copy, never mention "
+            "a field that is null for this property, and never add a fact not in the data. If "
+            "too little is known to say anything real, return an empty string for that id "
+            "rather than padding it. "
             "Respond as strict JSON: "
-            '{"summary": str, "key_matches": {"<property_id>": str}, "display_names": {"<property_id>": str}}'
+            '{"summary": str, "key_matches": {"<property_id>": str}, "display_names": {"<property_id>": str}, "project_summaries": {"<property_id>": str}}'
         )
         user = json.dumps({
             "query": state.get("original_query"),
@@ -398,35 +735,77 @@ async def curate(state: ResearchState) -> dict:
                 {"id": p["id"], "name": p["name"], "configuration": p.get("configuration"),
                  "location": p.get("location"), "price": p.get("price_display"),
                  "possession": p.get("possession_display"),
+                 # STEP 7 — the extra grounded fields a project summary is
+                 # written FROM. Sent because the summary must come from
+                 # facts we extracted, never from raw scraped page text.
+                 "developer": p.get("developer"), "rera": p.get("rera"),
+                 "lifecycle_status": p.get("lifecycle_status"),
+                 "carpet_area": p.get("carpet_area_display"),
+                 "amenities": (p.get("amenities") or [])[:8],
                  "match_score": p["match_score"], "match_tier": p["match_tier"],
                  "match_reasons": p["match_reasons"], "limitations": p["limitations"]}
                 for p in selected
             ],
         }, default=str)
-        # Phase 1a — 1200 was the original budget. Phase 0 showed this
-        # specific call succeeding (675/1200 used with 8 candidates), but
-        # that margin shrinks as candidate count grows; raised alongside
-        # the extraction budget for the same reasoning-token-starvation
-        # reason (reasoning_effort="low" in llm_providers.py is the primary
-        # fix, this is the second layer of margin).
-        result, provider_label = await router.complete_json(system, user, max_tokens=int(os.getenv("AI_SEARCH_CURATOR_MAX_TOKENS", "4000")))
+        result, provider_label = await router.complete_json(system, user, max_tokens=1200)
         if result:
             summary = result.get("summary")
             key_matches = result.get("key_matches") or {}
             display_names = result.get("display_names") or {}
+            project_summaries = result.get("project_summaries") or {}
             for p in selected:
                 if p["id"] in key_matches:
                     p["key_match"] = key_matches[p["id"]]
+                written = (project_summaries.get(p["id"]) or "").strip()
+                if written:
+                    p["project_summary"] = written
                 # A presentational relabel only — the real, original scraped
                 # name (p["name"]) is untouched and still carried in the
                 # response separately, so nothing is silently lost even if
                 # the LLM's rewrite is imperfect.
-                if p["id"] in display_names and display_names[p["id"]]:
-                    p["display_name"] = display_names[p["id"]]
+                #
+                # ...except that "carried separately" is not what the user
+                # SEES. Node's adaptAgentProperty does
+                # `name: p.display_name || p.name` (server.cjs), so an
+                # unwanted rewrite becomes the card title and the real name
+                # survives only as `rawName`. Live "1bhk in Marol": the
+                # candidate the graph researched as "Naman Premier" — an
+                # unambiguously real project name — was relabelled
+                # "1 BHK Apartment, Marol — ₹2.00 Cr (possession 2025)",
+                # which is very nearly the exemplar string in the prompt
+                # above. The prompt already says "if the raw name genuinely
+                # IS a real project name, keep it as-is", but that is prose:
+                # nothing enforced it, and the model reached for the
+                # exemplar anyway.
+                #
+                # So the rewrite is now EARNED, not assumed. The candidate
+                # gate (fact_extraction.candidate_name_reject_reason) is the
+                # same deterministic test that already decides, everywhere
+                # else in this pipeline, whether a string is a real project
+                # name or portal SEO furniture. If the raw name passes that
+                # gate, it IS a project name and the LLM does not get to
+                # replace it. Only names the gate rejects — the genuine
+                # "BHK / Flat for rent in JB Nagar Mumbai for 25000 -
+                # Makaan.com" case the rewrite exists for — are relabelled.
+                proposed = (display_names.get(p["id"]) or "").strip()
+                if proposed and proposed != p["name"]:
+                    raw_reject_reason = fact_extraction_mod.candidate_name_reject_reason(p["name"])
+                    if raw_reject_reason:
+                        p["display_name"] = proposed
+                        logger.info(
+                            "[curator] relabelled %r -> %r (raw name rejected by the candidate gate: %s)",
+                            p["name"], proposed, raw_reject_reason)
+                    else:
+                        # Keep the real name. Not a silent drop: this is the
+                        # single most user-visible thing the curator can get
+                        # wrong, so it is logged every time it is prevented.
+                        logger.warning(
+                            "[curator] KEPT real project name %r — ignoring the LLM's proposed relabel %r "
+                            "(the raw name passes the candidate gate, so it is not portal boilerplate)",
+                            p["name"], proposed)
             used_provider = provider_label
         else:
-            llm_degraded = True
-            new_warnings.append("LLM curation unavailable — all providers failed; results are deterministic-only")
+            new_warnings.append("LLM curator was configured but returned no usable result — used deterministic summary instead.")
 
     if not summary:
         summary = _deterministic_summary(state, selected)
@@ -466,13 +845,7 @@ async def curate(state: ResearchState) -> dict:
                 # ── Existing fields — untouched (Part 35 backward compatibility) ──
                 "id": p["id"], "name": p["name"], "display_name": p.get("display_name"), "developer": p.get("developer"),
                 "location": p.get("location"), "city": p.get("city"), "configuration": p.get("configuration"),
-                # Phase 2 — was p.get("carpet_area_sqft") (permanently None
-                # before this pass's fix). Grepped backend/frontend: nothing
-                # reads this exact snake_case "carpet_area" key on the wire
-                # (server.cjs's adaptAgentProperty only reads
-                # carpetAreaDisplay below); fixed anyway per this field's
-                # own "Existing fields — backward compatibility" contract.
-                "price": p.get("price_display"), "carpet_area": p.get("carpet_area_display"),
+                "price": p.get("price_display"), "carpet_area": p.get("carpet_area_sqft"),
                 "possession": p.get("possession_display"),
                 "match_score": p["match_score"], "match_tier": p["match_tier"],
                 "match_reasons": p["match_reasons"], "key_match": p.get("key_match"),
@@ -488,6 +861,11 @@ async def curate(state: ResearchState) -> dict:
                 "projectStatus": p.get("project_status"), "totalFloors": p.get("total_floors"),
                 "towerCount": p.get("tower_count"), "connectivity": p.get("connectivity"),
                 "nearbyLandmarks": p.get("nearby_landmarks") or [], "amenities": p.get("amenities") or [],
+                # Deterministic Google Places location intel (node_location_
+                # enrichment). Null when the candidate had no real coordinate
+                # — never geocoded from a name, because a wrong coordinate
+                # yields a confident wrong score with real place names on it.
+                "locationScore": p.get("location_score"), "locationIntel": p.get("location_intel"),
                 "deck": _deck_status(p, requested_amenities), "description": p.get("description"),
                 "source": (p.get("sources") or [{}])[0].get("name"), "sourceUrl": (p.get("sources") or [{}])[0].get("url"),
                 "matchScore": p["match_score"], "matchReasons": p["match_reasons"],
@@ -533,14 +911,6 @@ async def curate(state: ResearchState) -> dict:
             "retrieved_at": datetime.now(timezone.utc).isoformat(),
             "research_iterations": state.get("research_iterations", 0),
             "llm_curator_used": used_provider,
-            # Phase 1d — explicit, machine-readable signal (not just a
-            # warnings-array string an operator has to notice) that this
-            # response's summary/key_match/display_name are the
-            # deterministic fallback, not genuine LLM curation. False both
-            # when curation succeeded AND when no LLM was configured at all
-            # (that's a config choice, not a degradation) — True only when
-            # a real, configured router tried and every candidate failed.
-            "llm_degraded": llm_degraded,
             # ── New (Part 29/45) — additive keys alongside the ones above.
             "metrics": _research_metrics(state),
             "limits": _research_limits(),

@@ -16,6 +16,9 @@
 const express = require('express')
 const { tavilyConnector, serperConnector, googleCseConnector, bingConnector, apifyConnector, legacyPortalConnector, placesConnector, placesVerify, getConnectorStatus } = require('./external-connectors.cjs')
 const indihomesClient = require('./indihomes-client.cjs')
+// Same shared Places client every other Places caller in this repo uses —
+// one key, one module (see places-client.cjs's header), never a second copy.
+const placesClient = require('./places-client.cjs')
 
 const router = express.Router()
 
@@ -236,6 +239,44 @@ router.post('/places-verify', async (req, res) => {
     res.json({ found: !!match, place: match || null })
   } catch (e) {
     res.status(502).json({ error: e.message, found: false })
+  }
+})
+
+// ── places_nearby — Location Score, Connectivity and Nearby Infrastructure
+// from ONE coordinate, via the same Google Places key every other route here
+// uses. Purely additive: no existing route, node or field changes behaviour
+// because this exists, and nothing calls it until the agent side is wired.
+//
+// Why a route rather than more prompt engineering: `connectivity` and
+// `nearby_landmarks` measured 0/8 in every live run, because an LLM was being
+// asked to infer them from portal marketing prose. They are facts about a
+// coordinate, and Places answers them directly, with real distances.
+//
+// Requires a REAL lat/lon, and deliberately has no geocode-the-name fallback:
+// a wrong coordinate produces a confident, wrong Location Score, which is
+// worse than an absent one. A caller without coordinates gets a 400 and
+// should resolve the coordinate first (places-verify, or the page's own
+// JSON-LD `geo` block).
+router.post('/places-nearby', async (req, res) => {
+  const { lat, lon, radiusM, dimensions } = req.body || {}
+  const latN = Number(lat)
+  const lonN = Number(lon)
+  if (!Number.isFinite(latN) || !Number.isFinite(lonN)) {
+    return res.status(400).json({ error: 'finite lat and lon required — resolve the coordinate first, never guess it' })
+  }
+  if (!placesClient.isPlacesConfigured()) {
+    return res.json({ configured: false, by_dimension: {}, connectivity: null, nearby_landmarks: [], location_score: null, note: 'Google Places not configured (GOOGLE_PLACES_API_KEY).' })
+  }
+  try {
+    // radiusM omitted by default: each dimension carries its OWN sensible
+    // radius (a railway station is worth looking 4 km for, a bus stop is
+    // not), so one global radius would either starve rail or flood buses.
+    res.json(await placesClient.nearbyInfrastructure(latN, lonN, {
+      radiusM: Number.isFinite(Number(radiusM)) ? Number(radiusM) : null,
+      dimensions: Array.isArray(dimensions) ? dimensions : null,
+    }))
+  } catch (e) {
+    res.status(502).json({ error: e.message, configured: true, by_dimension: {}, connectivity: null, nearby_landmarks: [], location_score: null })
   }
 })
 

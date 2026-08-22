@@ -53,7 +53,23 @@ def build_search_plan(parsed: ParsedRequirements, market: str) -> list[str]:
     # a particular project family in mind (heuristic: amenities present
     # alongside a location — "2 BHK with deck on Liberty Garden" reads like
     # someone who's seen a specific listing, not a generic browse).
-    if has_location and parsed.get("amenities"):
+    # STEP 5 of the search harness — developer_search is now FIELD-driven, not
+    # amenity-gated. It used to run only when the user's query happened to
+    # mention an amenity, which meant our second-most-authoritative source sat
+    # out almost every real search: the live "2bhk in bandra west" plan was
+    # [tavily, web, apify, serper, portal, lifecycle_variant, places] — no
+    # developer search at all, because nobody types an amenity.
+    #
+    # A developer's own site is public marketing material, published to be
+    # read, and it is where configurations, carpet areas, amenities, floor
+    # plans, possession and the RERA number actually live — precisely the
+    # fields that measured 0/8 while this node stayed idle. Any query that
+    # named a location is worth one developer-site search.
+    #
+    # The amenity case is kept as-is underneath: an amenity in the query is
+    # still a strong signal the user has a specific project family in mind,
+    # it is just no longer the ONLY way this node ever runs.
+    if has_location:
         plan.append("developer_search")
 
     # Lifecycle-biased search variant (follow-up spec Part 9) — the
@@ -77,13 +93,18 @@ def build_search_plan(parsed: ParsedRequirements, market: str) -> list[str]:
     # pipeline) — a genuinely different signal source (Google's own
     # business/building index, not a web-search snippet), gated on
     # has_location for the same "unbounded/location-less would be noise"
-    # reason as portal_search/lifecycle_variant_search above. Extended to
-    # Dubai after live verification (Places returned 16 real, well-named
-    # Dubai Marina buildings — Marina Vista - Emaar, LIV Marina, Marina
-    # Shores by Emaar, etc. — for a real "residential apartment 2 bedroom
-    # near Dubai Marina" query) — Places' textQuery-based place-name
-    # biasing is not India-specific, it was just never checked against a
-    # Dubai query before this.
+    # reason as portal_search/lifecycle_variant_search above.
+    #
+    # The `and market == "india"` gate that used to be here said Places was
+    # "not verified against Dubai/UAE locality naming" — but by the time it
+    # was written the Node side HAD been verified against Dubai, and says so:
+    # agent-tools-bridge.cjs records the live check ("16 real, well-named
+    # Dubai Marina buildings for a real query") and places-client.cjs carries
+    # a holiday-rental name filter added specifically from Dubai output.
+    # places-client.cjs sets no regionCode and no country filter, so Places
+    # is genuinely market-neutral; the gate was stale, and it removed the
+    # discovery source MOST likely to work in a market with no portal
+    # connector, leaving Dubai with web search alone.
     if has_location:
         plan.append("places_search")
 
@@ -122,18 +143,19 @@ _FIELD_QUERY_HINTS = {
     "possession": "possession date",
     "carpet_area": "carpet area sq ft",
     "price": "price per sq ft",
-    # Phase 2.5a — display-only fields (gap_checker.compute_display_gaps,
-    # never CORE_FIELDS/compute_gaps above) that build_field_aware_
-    # targeted_queries had no hint for before: any of these landing in a
-    # gap's missing_fields fell into the known_amenity_gaps branch below
-    # instead, which is the right shape for a real amenity name ("deck")
-    # but produces an awkward literal-field-name query for these
-    # (e.g. "<name> <loc> tower_count").
-    "amenities": "amenities features",
-    "connectivity": "connectivity metro station road access",
-    "nearby_landmarks": "nearby landmarks location",
-    "tower_count": "number of towers",
-    "property_type": "apartment villa property type",
+    # Phase 2.5a's compute_display_gaps emits these labels, but they were never
+    # given hints here — so targeted research fell through to the amenity-
+    # phrased branch and searched for them as if they were requested features.
+    # Caught by test_lifecycle_and_eligibility, which asserts every display-gap
+    # label has a real hint. Phrased the same way as the ones above: the words
+    # a page that actually STATES the fact would use.
+    "amenities": "amenities facilities list",
+    "connectivity": "distance from metro station railway station connectivity",
+    "nearby_landmarks": "nearby landmarks schools hospitals malls",
+    "tower_count": "number of towers wings buildings",
+    "property_type": "apartment villa penthouse property type",
+    "total_floors": "number of floors G+ storeys",
+    "project_status": "construction status completion percentage",
 }
 
 

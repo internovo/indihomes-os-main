@@ -100,6 +100,13 @@ def _merge_into(target: NormalizedProperty, incoming: NormalizedProperty) -> Non
                   "carpet_area_sqft", "carpet_area_display", "possession_year", "possession_display", "rera", "description"]:
         if not target.get(field) and incoming.get(field):
             target[field] = incoming[field]
+    # `city` is derived from `location`, but derive_city() was only ever
+    # called once — in normalize.py, at the candidate's birth. Any location
+    # that arrives LATER (backfilled on the line above, or written from
+    # JSON-LD by merge_extracted_facts) therefore left `city` stuck at None
+    # forever, which nulls out the geography gate's city tier, the frontend
+    # map's fallback and every city-scoped comparison downstream.
+    _refresh_city(target)
     if incoming.get("configuration"):
         target["configuration"] = list(dict.fromkeys((target.get("configuration") or []) + incoming["configuration"]))
     if incoming.get("amenities"):
@@ -133,10 +140,31 @@ def _merge_into(target: NormalizedProperty, incoming: NormalizedProperty) -> Non
 # deck/balcony/parking are DELIBERATELY absent — those are represented
 # ONLY via the canonical `features` list now (Part P0.1/P0.2), never as a
 # flat top-level string scoring.py could substring-match against.
+def _refresh_city(prop: dict) -> None:
+    """Re-derive `city` from `location` when a location exists and no city
+    does. Imported lazily: normalize.py imports dedupe-adjacent helpers and
+    a module-level import here would close the cycle.
+    """
+    if prop.get("location") and not prop.get("city"):
+        from .normalize import derive_city
+        city = derive_city(prop["location"])
+        if city:
+            prop["city"] = city
+
+
 _EXTRACTED_FIELD_TO_TOP_LEVEL = {
     "rera_number": "rera", "developer": "developer",
     "possession": "possession_display", "price": "price_display",
     "carpet_area": "carpet_area_display", "built_up_area": "built_up_area_display",
+    # The publisher's OWN machine-readable addressLocality, emitted by
+    # fact_extraction's JSON-LD path at confidence="high" — and, until this
+    # line, thrown away. Without an entry here the generic branch below did
+    # `.get(field, field)` and wrote it to a top-level key named
+    # "location_from_structured_data", which nothing in the repo reads:
+    # not the scorer, not the serializer, not adaptAgentProperty. So the
+    # single most authoritative locality available was captured and
+    # discarded, while a regex guess at the project name sat in `location`.
+    "location_from_structured_data": "location",
 }
 
 
@@ -265,6 +293,10 @@ def merge_extracted_facts(prop: NormalizedProperty, facts: list[ExtractedFact], 
     newly_seen_urls = {f["source_url"] for f in facts if f.get("source_url")}
     if newly_seen_urls:
         out["evidence_count"] = out.get("evidence_count", 0) + len(newly_seen_urls)
+    # A JSON-LD addressLocality may have just landed in `location` (see
+    # _EXTRACTED_FIELD_TO_TOP_LEVEL) — derive the city from it now rather
+    # than leaving it null for the rest of the run.
+    _refresh_city(out)
     return out
 
 

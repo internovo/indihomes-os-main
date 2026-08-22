@@ -32,6 +32,7 @@ const redisCache = require('./redis-cache.cjs')
 const leadEvents = require('./lead-events.cjs')
 const qualification = require('./qualification.cjs')
 const placesClient = require('./places-client.cjs')
+const mahareraClient = require('./maharera-client.cjs')
 
 // ── Cache ─────────────────────────────────────────────────────────────────────
 const cache = { projects:[], lastRun:null, nextRun:null, status:'idle', step:'Waiting...', totalFound:0, sources:[], errors:[] }
@@ -172,6 +173,21 @@ async function refreshIndiHomesCatalog() {
 function validateEnv() {
   const lines = []
   lines.push(`IndiHomes Projects API: ${indihomesClient.isEnabled() ? `enabled (${indihomesClient.getConfig().baseUrl})` : 'DISABLED (INDIHOMES_PROJECTS_ENABLED=false)'}`)
+  // The single most consequential AI Search setting, and until now the only
+  // integration NOT reported here. A live incident: LANGGRAPH_ENABLED was
+  // 'false' in .env, so /api/ai-search silently served Places-direct for every
+  // request. Nothing logged it — the agent service was up and healthy, its
+  // /agent/enrich-property route was being called successfully by the fallback
+  // path, and the catch that prints "[ai-search] agent failed" never ran
+  // because the agent block was never entered. Hours went into diagnosing a
+  // one-word config value. It announces itself on boot now.
+  lines.push(`AI Search pipeline: ${process.env.LANGGRAPH_ENABLED === 'true'
+    // process.env, NOT the AGENT_SERVICE_URL const — that is declared with
+    // `const` far below this point, and validateEnv() runs at module load, so
+    // referencing it here hits the temporal dead zone and crashes the server
+    // on boot. Same default as the const's own fallback.
+    ? `LangGraph agent PRIMARY (${process.env.AGENT_SERVICE_URL || 'http://localhost:8008'}), Places-direct as fallback`
+    : 'Places-direct ONLY — the LangGraph agent is DISABLED (LANGGRAPH_ENABLED is not "true")'}`)
   lines.push(`Azure AI Search: ${azureSearch.isConfigured() ? 'configured' : 'not configured (AZURE_SEARCH_ENDPOINT/AZURE_SEARCH_ADMIN_KEY missing)'}`)
   const extStatus = externalSearch.getStatus()
   const activeConnectors = extStatus.connectors.filter(c => c.configured).map(c => c.name)
@@ -1971,16 +1987,26 @@ function cacheSearchContext(query, filters, market) {
 // LANGGRAPH_ENABLED=true routes AI Search through the Python agent service
 // (ai-search-agent/, a real multi-node research pipeline — see its README)
 // instead of the single-pass external-search.cjs path below. Feature-
-// flagged and fully backward compatible: the flag defaults unset/false, in
-// which case this route behaves EXACTLY as it did before this file was
-// touched, byte-for-byte — and even with the flag on, any agent failure
-// (service down, timeout, bad response) falls straight through to that
-// same existing path rather than erroring the request. This is what Part
-// 28 ("production safety... fail gracefully") means in practice: a broken
-// or not-yet-started agent service can never make AI Search worse than it
-// already was.
+// flagged: when enabled, System B is the primary path and Places-direct
+// below becomes the fallback, reached when the agent is disabled,
+// unreachable, times out, or throws.
+//
+// AI_SEARCH_STRICT_AGENT_ONLY (default false) changes what happens on that
+// failure. Off (default): fall through to Places-direct, and the response's
+// existing `pipeline` field tells the client which path answered — the
+// frontend already surfaces this as "via full research" / "via nearby
+// buildings" (ProjectSelection.jsx's PIPELINE_LABEL), so a fallback result
+// is labelled, never silently passed off as researched. On: return 504 with
+// no properties instead, so a caller that must have real research fails
+// loudly rather than receiving the shallower path at all.
+//
+// It defaults OFF deliberately. Strict mode turns any agent slowness into a
+// total outage: with a measured 481s run against a 180000ms timeout, every
+// single search would 504 with zero results. Turn it on only once a healthy
+// run reliably lands inside AI_SEARCH_TIMEOUT_MS.
 const AGENT_SERVICE_URL = process.env.AGENT_SERVICE_URL || 'http://localhost:8008'
 const AGENT_TIMEOUT_MS = parseInt(process.env.AI_SEARCH_TIMEOUT_MS, 10) || 45000
+const AI_SEARCH_STRICT_AGENT_ONLY = process.env.AI_SEARCH_STRICT_AGENT_ONLY === 'true'
 
 async function queryAgent(query, market) {
   const res = await fetch(`${AGENT_SERVICE_URL}/agent/ai-search`, {
@@ -2096,6 +2122,59 @@ async function queryReraLookup(name, locality, city) {
 // (match_tier/match_reasons/key_match/limitations/project_intelligence) are
 // additive, read by the new card UI, ignored by anything that doesn't know
 // about them yet.
+// ── RERA verification against the public MahaRERA register ─────────────────
+// Runs on the RESULTS, after adaptAgentProperty, over the handful of
+// properties actually being returned — not on every candidate the agent
+// considered. One cached GET per unique registration number.
+//
+// Three distinct outcomes reach the card, and conflating them is what the
+// old blanket "(unverified)" chip did wrong:
+//   verified + name corresponds  -> show the number plainly
+//   verified + name differs      -> show the number AND the registered name.
+//                                   NOT an accusation: Mumbai redevelopments
+//                                   are routinely registered under the
+//                                   societies being redeveloped. Live case:
+//                                   P51800047979 is "JEEVAN SHOBHA CHSL AND
+//                                   BHANSALI CHSL", marketed as "24k
+//                                   Residences by Hirani Group".
+//   not_found / unchecked        -> show "unverified"
+//
+// Never blocks the response: bounded, all-or-nothing, and any failure
+// leaves the property exactly as it was.
+const RERA_VERIFY_BUDGET_MS = Number(process.env.RERA_VERIFY_BUDGET_MS || 6000)
+
+async function attachReraVerification(properties, market) {
+  if (market !== 'india' || !Array.isArray(properties) || !properties.length) return
+  const targets = properties.filter(p => p && p.rera && mahareraClient.isMahareraNumber(p.rera))
+  if (!targets.length) return
+  const deadline = new Promise(resolve => setTimeout(resolve, RERA_VERIFY_BUDGET_MS))
+  await Promise.race([
+    Promise.allSettled(targets.map(async p => {
+      const v = await mahareraClient.verifyRegistrationNumber(p.rera)
+      p.rera_verification_status = v.status
+      p.rera_registered_name = v.project_name || null
+      p.rera_promoter_name = v.promoter_name || null
+      p.rera_registry_url = v.source_url || null
+      p.rera_checked_at = v.checked_at || null
+      // The reserved field the frontend already documents as the
+      // verification carrier — null until now, at both write sites.
+      p.rera_verified = v.status === 'verified'
+      p.rera_name_matches = v.status === 'verified'
+        ? mahareraClient.namesCorrespond(p.name, v.project_name, v.promoter_name)
+        : null
+      if (v.status === 'verified' && Array.isArray(p.match_reasons_structured)) {
+        p.match_reasons_structured.push({
+          field: 'rera',
+          reason: `RERA ${p.rera} confirmed on the MahaRERA public register`,
+          credit: 'full', points: 0, max_points: 0,
+          evidence_text: v.project_name ? `Registered as "${v.project_name}"` : null,
+        })
+      }
+    })),
+    deadline,
+  ]).catch(() => {})
+}
+
 function adaptAgentProperty(p) {
   return {
     id: p.id,
@@ -2116,7 +2195,12 @@ function adaptAgentProperty(p) {
     city: p.city || null,
     config: Array.isArray(p.configuration) ? p.configuration.join(' & ') : p.configuration,
     price: p.price, possession: p.possession,
-    rera: p.rera, rera_verified: null,
+    // rera_verified/rera_verification_status are filled in by
+    // attachReraVerification() after this map — null here means "not yet
+    // checked", which the card renders as unverified, same as a failed
+    // check. Never assert verified without having actually checked.
+    rera: p.rera, rera_verified: null, rera_verification_status: 'unchecked',
+    rera_registered_name: null, rera_promoter_name: null, rera_name_matches: null,
     sourceName: p.sources?.[0]?.name || null, sourceUrl: p.sources?.[0]?.url || null,
     sources: p.sources || [],
     // `why` is ONE short reason for the compact search-result card.
@@ -2129,6 +2213,11 @@ function adaptAgentProperty(p) {
     // fuller detail view.
     match_score: p.match_score, why: p.key_match || scoring.pickPrimaryMatchReason(p.match_reasons) || '',
     match_tier: p.match_tier, match_reasons: p.match_reasons, key_match: p.key_match,
+    // Field-tagged reasons for the card's "why this was listed" list.
+    // Same sentences as match_reasons, in the same order, each carrying
+    // the field that produced it and whether it was a full or partial
+    // match — so the UI never has to grep a sentence to know what it is.
+    match_reasons_structured: p.match_reasons_structured || [],
     limitations: p.limitations, project_intelligence: p.project_intelligence,
     // ── Deep-research pipeline additions — additive only, every field
     // above is untouched. Populated once the agent's deep_research/
@@ -2200,12 +2289,17 @@ app.post('/api/ai-search', async (req, res) => {
   // performance optimization. The agent takes real time (tens of seconds
   // to 2+ minutes, observed 35-140s+ in prior testing) where Places-direct
   // was near-instant — that tradeoff is accepted, not a regression to fix.
-  // Places-direct (below) is now the FALLBACK, only reached when this flag
-  // is off, or the agent is unreachable/times out/throws.
+  // Places-direct (below) is the FALLBACK, reached when this flag is off, or
+  // the agent is unreachable/times out/throws. That fallback is never
+  // silent: the response's `pipeline` field says which path answered, and
+  // the frontend renders it as "via nearby buildings" vs "via full
+  // research". Set AI_SEARCH_STRICT_AGENT_ONLY=true to 504 instead of
+  // falling back — see that constant's comment for why it defaults off.
   if (process.env.LANGGRAPH_ENABLED === 'true') {
     try {
       const agentResult = await queryAgent(query, market)
       const properties = (agentResult.properties || []).map(adaptAgentProperty)
+      await attachReraVerification(properties, market)
       const reportId = cacheSearchContext(query, {}, market)
       const ctx = searchReportCache.get(reportId)
       ctx.skip = properties.length
@@ -2241,10 +2335,25 @@ app.post('/api/ai-search', async (req, res) => {
         pipeline: 'agent',
       })
     } catch (e) {
-      console.error('[ai-search] agent service unavailable, falling back to Places-direct/external-search.cjs:', e.message)
-      // Deliberately no error surfaced to the client here — fall through to
-      // the Places-direct path below exactly as if LANGGRAPH_ENABLED were
-      // unset.
+      console.error('[ai-search] agent (System B) failed:', e.message)
+      if (AI_SEARCH_STRICT_AGENT_ONLY) {
+        // Opt-in strict mode: the caller has declared that a shallower
+        // Places-direct answer is worse than no answer, so fail loudly
+        // rather than falling through. Off by default — see the constant's
+        // comment: with the agent currently running past the timeout, this
+        // turns every search into a 504.
+        return res.status(504).json({
+          filters: {}, market, configured: true, enabled: true,
+          properties: [], sources: [],
+          error: `AI Search agent did not complete: ${e.message}`,
+          warning: 'AI_SEARCH_STRICT_AGENT_ONLY is on, so no fallback results were returned.',
+          pipeline: 'agent',
+        })
+      }
+      // Default: fall through to the Places-direct path below. Not silent —
+      // that response carries pipeline: 'places-direct', which the frontend
+      // labels "via nearby buildings", so the user can see this was the
+      // fallback and not full research.
     }
   }
 
@@ -2305,9 +2414,13 @@ app.post('/api/ai-search', async (req, res) => {
             // slice — stays null (honest "Price not available") for
             // anything outside that bound, or if enrichment found nothing.
             price: null, possession: null,
-            rera: null, rera_verified: null,
+            rera: null, rera_verified: null, rera_verification_status: 'skipped',
+            rera_registered_name: null, rera_promoter_name: null, rera_name_matches: null,
             match_score: matchScore, match_tier: tier,
             match_reasons: [whyReason],
+            // Same shape as the agent path so the card never has to branch
+            // on which pipeline answered.
+            match_reasons_structured: [{ field: 'location', reason: whyReason, credit: 'partial', points: 0, max_points: 0 }],
             why: whyReason,
             sourceUrl: p.mapsUrl, sourceName: null,
             placesVerified: true, placesLat: p.lat, placesLon: p.lon,
@@ -3629,7 +3742,13 @@ app.get('/api/competing-projects', async (req, res) => {
 })
 
 app.get('/api/rera-status', (_req, res) => {
-  res.json({ enabled: surepassEnabled(), provider: surepassEnabled() ? 'surepass' : 'none' })
+  // MahaRERA needs no key and is always available for Maharashtra numbers;
+  // Surepass stays as the optional paid path (other states, certificate PDF).
+  res.json({
+    enabled: true,
+    provider: 'maharera',
+    fallback: surepassEnabled() ? 'surepass' : 'none',
+  })
 })
 
 // Authoritative RERA verification (government registry via Surepass) — for a
@@ -3637,10 +3756,37 @@ app.get('/api/rera-status', (_req, res) => {
 app.post('/api/rera-verify', async (req, res) => {
   const { registrationNumber, stateName, registrationType } = req.body || {}
   if (!registrationNumber) return res.status(400).json({ error: 'registrationNumber required' })
-  if (!surepassEnabled()) return res.status(503).json({ error: 'RERA verification not configured. Set SUREPASS_API_TOKEN on the server.' })
+
+  // MahaRERA first: it is the government register itself, needs no key, and
+  // was a permanently-503 route before this because SUREPASS_API_TOKEN is
+  // blank. A Maharashtra number is answerable without any paid provider.
+  if (mahareraClient.isMahareraNumber(registrationNumber)) {
+    const v = await mahareraClient.verifyRegistrationNumber(registrationNumber)
+    if (v.status === 'verified' || v.status === 'not_found') {
+      return res.json({
+        verified: v.status === 'verified',
+        registration_number: v.registration_number,
+        project_name: v.project_name,
+        promoter_name: v.promoter_name,
+        district: v.district,
+        pincode: v.pincode,
+        source: 'maharera',
+        source_url: v.source_url,
+        checked_at: v.checked_at,
+      })
+    }
+    // 'unchecked' — we could not reach or read the register. Fall through to
+    // Surepass if it is configured; otherwise say so honestly rather than
+    // reporting the number as unverified, which it is not known to be.
+    if (!surepassEnabled()) {
+      return res.status(502).json({ error: `Could not reach the MahaRERA register: ${v.error || 'unknown error'}`, source: 'maharera' })
+    }
+  }
+
+  if (!surepassEnabled()) return res.status(503).json({ error: 'RERA verification not configured for this number. Set SUREPASS_API_TOKEN on the server.' })
   try {
     const result = await verifyReraWithSurepass(registrationNumber, stateName || 'maharashtra', registrationType || 'project')
-    res.json(result)
+    res.json({ ...result, source: 'surepass' })
   } catch (e) {
     console.error('[rera-verify] error:', e.message)
     res.status(500).json({ error: e.message })
@@ -3749,4 +3895,25 @@ app.listen(PORT, () => {
 if (AUTO_SCRAPE) {
   const refreshMs = Math.max(60000, indihomesClient.getConfig().ttlMs)
   setInterval(() => { console.log('[server] Auto-refresh (IndiHomes catalog)'); refreshIndiHomesCatalog().catch(console.error) }, refreshMs)
+}
+
+// The page renderer now keeps ONE long-lived headless Chromium and reuses it
+// across requests (legacy-portal-connector.fetchRenderedPage) instead of
+// launching and closing one per call. That is the fix for the ConnectTimeout
+// storms — but a reused browser is a process that outlives any single
+// request, so it has to be closed deliberately on the way out. Without this,
+// Ctrl+C on the dev server leaves a Chromium behind, and a few restarts
+// later the machine is hosting several orphans again — the exact symptom the
+// pooling was meant to remove.
+// Required by PATH here, not via external-connectors.cjs's re-export: this
+// file does not otherwise import the connector, and Node caches by resolved
+// path, so this is the same module instance the bridge renders through.
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.once(signal, async () => {
+    try {
+      const renderer = require('./legacy-portal-connector.cjs')
+      if (typeof renderer.closeRenderer === 'function') await renderer.closeRenderer()
+    } catch (_) { /* best effort on shutdown — never block exit on this */ }
+    process.exit(0)
+  })
 }

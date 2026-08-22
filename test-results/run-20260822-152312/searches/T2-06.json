@@ -1,0 +1,1756 @@
+{
+  "scenario_id": "T2-06",
+  "query": "ready to move 2 BHK in Mulund",
+  "started_at": "2026-08-22T10:51:27.363Z",
+  "finished_at": "2026-08-22T10:53:52.969Z",
+  "duration_ms": 145606,
+  "http_status": 200,
+  "error": null,
+  "pipeline": "agent",
+  "llm_degraded": false,
+  "warnings": null,
+  "result_count": 0,
+  "properties": [],
+  "field_ledger": null,
+  "rejected": null,
+  "agent_log_excerpt": null,
+  "raw_response_top_level_keys": [
+    "filters",
+    "reportId",
+    "market",
+    "configured",
+    "enabled",
+    "properties",
+    "sources",
+    "warning",
+    "summary",
+    "citations",
+    "research_metadata",
+    "retrieval_metrics",
+    "llm_degraded",
+    "_agent",
+    "pipeline"
+  ],
+  "retrieval_metrics": {
+    "total_candidates": 73,
+    "individual_project_candidates": 34,
+    "aggregator_pages": 39,
+    "resale_candidates": 2,
+    "rental_candidates": 4,
+    "unknown_candidates": 25,
+    "invalid_name_candidates": 0,
+    "eligible_candidates": 3,
+    "rejected_candidates": 73,
+    "places_configured": true,
+    "places_contributed_candidates": 20
+  },
+  "research_metadata": {
+    "sources_used": [
+      "bridge_preflight",
+      "fetch_page",
+      "places_search",
+      "places_verify",
+      "portal_search",
+      "serper_search",
+      "tavily_search"
+    ],
+    "tool_calls": [
+      {
+        "tool": "bridge_preflight",
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 0,
+        "error": null
+      },
+      {
+        "tool": "apify_search",
+        "args": {
+          "query": "ready to move 2 BHK in Mulund",
+          "market": "india"
+        },
+        "status": "error",
+        "count": 0,
+        "duration_ms": 60379,
+        "error": "The operation was aborted due to timeout",
+        "cache_hit": false
+      },
+      {
+        "tool": "developer_search",
+        "args": {
+          "query": "ready to move 2 BHK in Mulund",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 1272,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "tavily_search",
+        "args": {
+          "query": "ready to move 2 BHK in Mulund under construction OR new launch OR near possession",
+          "market": "india",
+          "depth": "basic"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 7414,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_search",
+        "args": {
+          "query": "ready to move 2 BHK in Mulund",
+          "market": "india",
+          "locations": [
+            "Mulund"
+          ],
+          "configuration": "2 BHK"
+        },
+        "status": "ok",
+        "count": 20,
+        "duration_ms": 2084,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "portal_search",
+        "args": {
+          "query": "ready to move 2 BHK in Mulund",
+          "market": "india",
+          "locations": [
+            "Mulund"
+          ],
+          "configuration": "2 BHK",
+          "budgetMax": null
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 1975,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "serper_search",
+        "args": {
+          "query": "ready to move 2 BHK in Mulund",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 3986,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "tavily_search",
+        "args": {
+          "query": "ready to move 2 BHK in Mulund",
+          "market": "india",
+          "depth": "basic"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 8098,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "web_search",
+        "args": {
+          "query": "ready to move 2 BHK in Mulund",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 965,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.magicbricks.com/2-bhk-flats-in-mulund-east-mumbai-for-sale-pppfs",
+          "candidate": "Kids Splash Pool",
+          "candidate_id": "kidssplashpool::kidssplashpool"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 1019,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Kids Splash Pool",
+          "locality": "Kids Splash Pool",
+          "city": null
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 709,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "web_search",
+        "args": {
+          "query": "Kids Splash Pool Kids Splash Pool under construction new launch possession status RERA",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 919,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "tavily_search",
+        "args": {
+          "query": "Kids Splash Pool Kids Splash Pool under construction new launch possession status RERA",
+          "market": "india",
+          "depth": "advanced"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 5830,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "web_search",
+        "args": {
+          "query": "Kids Splash Pool Kids Splash Pool developer builder",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 867,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "tavily_search",
+        "args": {
+          "query": "Kids Splash Pool Kids Splash Pool developer builder",
+          "market": "india",
+          "depth": "advanced"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 4982,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "web_search",
+        "args": {
+          "query": "Kids Splash Pool Kids Splash Pool possession date",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 830,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "tavily_search",
+        "args": {
+          "query": "Kids Splash Pool Kids Splash Pool possession date",
+          "market": "india",
+          "depth": "advanced"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 5183,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "web_search",
+        "args": {
+          "query": "Kids Splash Pool Kids Splash Pool carpet area sq ft",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 776,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "tavily_search",
+        "args": {
+          "query": "Kids Splash Pool Kids Splash Pool carpet area sq ft",
+          "market": "india",
+          "depth": "advanced"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 5368,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "web_search",
+        "args": {
+          "query": "Kids Splash Pool Kids Splash Pool price per sq ft",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 773,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "tavily_search",
+        "args": {
+          "query": "Kids Splash Pool Kids Splash Pool price per sq ft",
+          "market": "india",
+          "depth": "advanced"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 4977,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.magicbricks.com/ace-starlit-sector-152-noida-pdpid-4d4235323930333931",
+          "candidate": "Kids Splash Pool",
+          "candidate_id": "kidssplashpool::kidssplashpool"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 2427,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.magicbricks.com/assetz-bloom-",
+          "candidate": "Kids Splash Pool",
+          "candidate_id": "kidssplashpool::kidssplashpool"
+        },
+        "status": "error",
+        "count": 0,
+        "duration_ms": 397,
+        "error": "HTTP 404",
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.magicbricks.com/unique-que-914-keshav-nagar-pune-pdpid-4d4235333335363537",
+          "candidate": "Kids Splash Pool",
+          "candidate_id": "kidssplashpool::kidssplashpool"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 2306,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.magicbricks.com/assetz-bloom-",
+          "candidate": "Assetz Bloom & Dell in Whitefield, Bangalore",
+          "candidate_id": "assetzbloomdellinwhitefieldbangalore::whitefield"
+        },
+        "status": "error",
+        "count": 0,
+        "duration_ms": 353,
+        "error": "HTTP 404",
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.magicbricks.com/assetz-bloom-&-dell-whitefield-bangalore-pdpid-4d4235333838393333",
+          "candidate": "Assetz Bloom & Dell in Whitefield, Bangalore",
+          "candidate_id": "assetzbloomdellinwhitefieldbangalore::whitefield"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 2226,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Assetz Bloom & Dell in Whitefield, Bangalore",
+          "locality": "Whitefield",
+          "city": null
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 589,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.magicbricks.com/property-for-sale-in-lokhandwala-complex-mumbai-pppfs",
+          "candidate": "Aditya Runwal Elegante",
+          "candidate_id": "adityarunwalelegante::adityarunwalelegante"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 1279,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Aditya Runwal Elegante",
+          "locality": "Aditya Runwal Elegante",
+          "city": null
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 1881,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Gurukrupa Ekam",
+          "locality": "Gurukrupa Ekam",
+          "city": null
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 2494,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.wcparksandrec.com/aquatics/pools/franklin_recreation_complex.php",
+          "candidate": "Franklin Recreation Complex Pools & Splash Park",
+          "candidate_id": "franklinrecreationcomplexpoolssplashpark::franklinrecreationcomplexpoolssplashpark"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 8292,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Franklin Recreation Complex Pools & Splash Park",
+          "locality": "Franklin Recreation Complex, Pools, Splash Park",
+          "city": null
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 1805,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.homedepot.com/p/Funphix-Build-n-Splash-Buildable-Swimming-Pool-Outdoor-Building-Toy-Pool-FP-SWP-1/315168351",
+          "candidate": "Funphix Build 'n' Splash Buildable Swimming Pool",
+          "candidate_id": "funphixbuildnsplashbuildableswimmingpool::funphixbuildsplashbuildableswimmingpool"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 5126,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Funphix Build 'n' Splash Buildable Swimming Pool",
+          "locality": "Funphix Build, Splash Buildable Swimming, Pool",
+          "city": null
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 844,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://imagecdn.99acres.com/media1/25086/6/501726141O-1719829388331.pdf",
+          "candidate": "hy ba - hyba bloom",
+          "candidate_id": "hybahybabloom::"
+        },
+        "status": "error",
+        "count": 0,
+        "duration_ms": 3401,
+        "error": "Unsupported content-type: application/pdf",
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "hy ba - hyba bloom",
+          "locality": null,
+          "city": null
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 562,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.magicbricks.com/keltech-kumar-imperial-greens-noida-extension-greater-noida-pdpid-4d4235343232373635",
+          "candidate": "Keltech Kumar Imperial Greens in Noida Extension ...",
+          "candidate_id": "keltechkumarimperialgreensinnoidaextension::noidaextension"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 3003,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Keltech Kumar Imperial Greens in Noida Extension ...",
+          "locality": "Noida Extension",
+          "city": null
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 1044,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.lowes.com/pl/pools/kiddie-pools/4294610256",
+          "candidate": "Kiddie Pools for Outdoor Summer Fun",
+          "candidate_id": "kiddiepoolsforoutdoorsummerfun::kiddiepoolsoutdoorsummerfun"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 3045,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Kiddie Pools for Outdoor Summer Fun",
+          "locality": "Kiddie Pools, Outdoor Summer Fun",
+          "city": null
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 2117,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://bradenton.macaronikid.com/guides/629e2d7b2426f03454040e9a/places-to-swim-splash-and-cool-off-in-bradenton-and-surrounding-areas",
+          "candidate": "Places to Swim, Splash and Cool Off in Bradenton ...",
+          "candidate_id": "placestoswimsplashandcooloffinbradenton::bradenton"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 3738,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Places to Swim, Splash and Cool Off in Bradenton ...",
+          "locality": "Bradenton",
+          "city": null
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 1189,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.amazon.com/Plastic-Kiddie-Pool-Kids-Ages/dp/B08NJS4PV1",
+          "candidate": "Plastic Kiddie Pool for Kids Ages 8-12 - Buildable Backyard ...",
+          "candidate_id": "plastickiddiepoolforkidsages812buildablebackyard::plastickiddiepoolkidsagesbuildablebackyard"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 1431,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Plastic Kiddie Pool for Kids Ages 8-12 - Buildable Backyard ...",
+          "locality": "Plastic Kiddie Pool, Kids Ages, Buildable Backyard",
+          "city": null
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 467,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://mediacdn.99acres.com/media1/22646/0/452920192O-1698233606054.pdf",
+          "candidate": "rr green city",
+          "candidate_id": "rrgreencity::rrgreencity"
+        },
+        "status": "error",
+        "count": 0,
+        "duration_ms": 1168,
+        "error": "Unsupported content-type: application/pdf",
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "rr green city",
+          "locality": "Rr Green City",
+          "city": null
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 678,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.magicbricks.com/project-total-environment-in-that-quiet-earth-for-sale-in-bangalore-pppfs",
+          "candidate": "Total Environment In That Quiet Earth Villas/Flats Price",
+          "candidate_id": "totalenvironmentinthatquietearthvillasflats::totalenvironmentinthatquietearthvillasflatsprice"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 1459,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Total Environment In That Quiet Earth Villas/Flats Price",
+          "locality": "Total Environment In, That Quiet Earth, Villas, Flats Price",
+          "city": null
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 829,
+        "error": null,
+        "cache_hit": false
+      }
+    ],
+    "retrieved_at": "2026-08-22T10:53:52.891700+00:00",
+    "research_iterations": 1,
+    "llm_curator_used": null,
+    "metrics": {
+      "total_searches": 48,
+      "successful_searches": 43,
+      "failed_searches": 5,
+      "cache_hits": 0,
+      "candidate_count": 0,
+      "verified_candidate_count": 0,
+      "pages_fetched": 12,
+      "facts_extracted": 624,
+      "research_iterations": 1,
+      "sources_used": [
+        "bridge_preflight",
+        "fetch_page",
+        "places_search",
+        "places_verify",
+        "portal_search",
+        "serper_search",
+        "tavily_search"
+      ],
+      "source_conflicts": 1,
+      "missing_field_count": 66,
+      "bridge_unavailable": false,
+      "llm_calls": 23,
+      "llm_failures": 22,
+      "llm_fallbacks": 63
+    },
+    "limits": {
+      "max_research_iterations": 2,
+      "max_candidates_for_deep_research": 3,
+      "max_fetches_per_candidate": 3,
+      "max_targeted_searches_per_iteration": 5
+    },
+    "research_gaps": [
+      {
+        "candidate": "Assetz Bloom & Dell in Whitefield, Bangalore",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "rera",
+          "carpet_area"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Aditya Runwal Elegante",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "possession",
+          "carpet_area"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Gurukrupa Ekam",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "possession",
+          "carpet_area"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Franklin Recreation Complex Pools & Splash Park",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "rera",
+          "possession",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Funphix Build 'n' Splash Buildable Swimming Pool",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "rera",
+          "possession",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "hy ba - hyba bloom",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "rera",
+          "possession",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Keltech Kumar Imperial Greens in Noida Extension ...",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "rera",
+          "possession",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Kiddie Pools for Outdoor Summer Fun",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "rera",
+          "possession",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Places to Swim, Splash and Cool Off in Bradenton ...",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "rera",
+          "possession",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Plastic Kiddie Pool for Kids Ages 8-12 - Buildable Backyard ...",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "rera",
+          "possession",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "rr green city",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "rera",
+          "possession",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Total Environment In That Quiet Earth Villas/Flats Price",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "rera",
+          "possession",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      }
+    ],
+    "verification_results": [
+      {
+        "candidate": "Kids Splash Pool",
+        "conflicts": {
+          "rera": [
+            "P51800031360",
+            "P51800049048"
+          ]
+        },
+        "corroborated_fields": []
+      }
+    ],
+    "duration_ms": 145314,
+    "agent_version": "2.0.0"
+  },
+  "summary": "No verified new residential projects found. 73 candidates were reviewed. 39 were portal category/search-results pages, not individual projects, 6 were resale/rental listings, and 25 had a lifecycle stage that couldn't be confidently verified. Google Places was also checked (20 additional candidates found, none eligible). Try a broader location or fewer requirements.",
+  "raw_response_full": {
+    "filters": {},
+    "reportId": "1787396032960_oiy59q3",
+    "market": "india",
+    "configured": true,
+    "enabled": true,
+    "properties": [],
+    "sources": [],
+    "warning": null,
+    "summary": "No verified new residential projects found. 73 candidates were reviewed. 39 were portal category/search-results pages, not individual projects, 6 were resale/rental listings, and 25 had a lifecycle stage that couldn't be confidently verified. Google Places was also checked (20 additional candidates found, none eligible). Try a broader location or fewer requirements.",
+    "citations": [],
+    "research_metadata": {
+      "sources_used": [
+        "bridge_preflight",
+        "fetch_page",
+        "places_search",
+        "places_verify",
+        "portal_search",
+        "serper_search",
+        "tavily_search"
+      ],
+      "tool_calls": [
+        {
+          "tool": "bridge_preflight",
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 0,
+          "error": null
+        },
+        {
+          "tool": "apify_search",
+          "args": {
+            "query": "ready to move 2 BHK in Mulund",
+            "market": "india"
+          },
+          "status": "error",
+          "count": 0,
+          "duration_ms": 60379,
+          "error": "The operation was aborted due to timeout",
+          "cache_hit": false
+        },
+        {
+          "tool": "developer_search",
+          "args": {
+            "query": "ready to move 2 BHK in Mulund",
+            "market": "india"
+          },
+          "status": "ok",
+          "count": 0,
+          "duration_ms": 1272,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "tavily_search",
+          "args": {
+            "query": "ready to move 2 BHK in Mulund under construction OR new launch OR near possession",
+            "market": "india",
+            "depth": "basic"
+          },
+          "status": "ok",
+          "count": 10,
+          "duration_ms": 7414,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "places_search",
+          "args": {
+            "query": "ready to move 2 BHK in Mulund",
+            "market": "india",
+            "locations": [
+              "Mulund"
+            ],
+            "configuration": "2 BHK"
+          },
+          "status": "ok",
+          "count": 20,
+          "duration_ms": 2084,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "portal_search",
+          "args": {
+            "query": "ready to move 2 BHK in Mulund",
+            "market": "india",
+            "locations": [
+              "Mulund"
+            ],
+            "configuration": "2 BHK",
+            "budgetMax": null
+          },
+          "status": "ok",
+          "count": 10,
+          "duration_ms": 1975,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "serper_search",
+          "args": {
+            "query": "ready to move 2 BHK in Mulund",
+            "market": "india"
+          },
+          "status": "ok",
+          "count": 10,
+          "duration_ms": 3986,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "tavily_search",
+          "args": {
+            "query": "ready to move 2 BHK in Mulund",
+            "market": "india",
+            "depth": "basic"
+          },
+          "status": "ok",
+          "count": 10,
+          "duration_ms": 8098,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "web_search",
+          "args": {
+            "query": "ready to move 2 BHK in Mulund",
+            "market": "india"
+          },
+          "status": "ok",
+          "count": 0,
+          "duration_ms": 965,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "fetch_page",
+          "args": {
+            "url": "https://www.magicbricks.com/2-bhk-flats-in-mulund-east-mumbai-for-sale-pppfs",
+            "candidate": "Kids Splash Pool",
+            "candidate_id": "kidssplashpool::kidssplashpool"
+          },
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 1019,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "places_verify",
+          "args": {
+            "name": "Kids Splash Pool",
+            "locality": "Kids Splash Pool",
+            "city": null
+          },
+          "status": "ok",
+          "count": 0,
+          "duration_ms": 709,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "web_search",
+          "args": {
+            "query": "Kids Splash Pool Kids Splash Pool under construction new launch possession status RERA",
+            "market": "india"
+          },
+          "status": "ok",
+          "count": 0,
+          "duration_ms": 919,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "tavily_search",
+          "args": {
+            "query": "Kids Splash Pool Kids Splash Pool under construction new launch possession status RERA",
+            "market": "india",
+            "depth": "advanced"
+          },
+          "status": "ok",
+          "count": 10,
+          "duration_ms": 5830,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "web_search",
+          "args": {
+            "query": "Kids Splash Pool Kids Splash Pool developer builder",
+            "market": "india"
+          },
+          "status": "ok",
+          "count": 0,
+          "duration_ms": 867,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "tavily_search",
+          "args": {
+            "query": "Kids Splash Pool Kids Splash Pool developer builder",
+            "market": "india",
+            "depth": "advanced"
+          },
+          "status": "ok",
+          "count": 10,
+          "duration_ms": 4982,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "web_search",
+          "args": {
+            "query": "Kids Splash Pool Kids Splash Pool possession date",
+            "market": "india"
+          },
+          "status": "ok",
+          "count": 0,
+          "duration_ms": 830,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "tavily_search",
+          "args": {
+            "query": "Kids Splash Pool Kids Splash Pool possession date",
+            "market": "india",
+            "depth": "advanced"
+          },
+          "status": "ok",
+          "count": 10,
+          "duration_ms": 5183,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "web_search",
+          "args": {
+            "query": "Kids Splash Pool Kids Splash Pool carpet area sq ft",
+            "market": "india"
+          },
+          "status": "ok",
+          "count": 0,
+          "duration_ms": 776,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "tavily_search",
+          "args": {
+            "query": "Kids Splash Pool Kids Splash Pool carpet area sq ft",
+            "market": "india",
+            "depth": "advanced"
+          },
+          "status": "ok",
+          "count": 10,
+          "duration_ms": 5368,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "web_search",
+          "args": {
+            "query": "Kids Splash Pool Kids Splash Pool price per sq ft",
+            "market": "india"
+          },
+          "status": "ok",
+          "count": 0,
+          "duration_ms": 773,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "tavily_search",
+          "args": {
+            "query": "Kids Splash Pool Kids Splash Pool price per sq ft",
+            "market": "india",
+            "depth": "advanced"
+          },
+          "status": "ok",
+          "count": 10,
+          "duration_ms": 4977,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "fetch_page",
+          "args": {
+            "url": "https://www.magicbricks.com/ace-starlit-sector-152-noida-pdpid-4d4235323930333931",
+            "candidate": "Kids Splash Pool",
+            "candidate_id": "kidssplashpool::kidssplashpool"
+          },
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 2427,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "fetch_page",
+          "args": {
+            "url": "https://www.magicbricks.com/assetz-bloom-",
+            "candidate": "Kids Splash Pool",
+            "candidate_id": "kidssplashpool::kidssplashpool"
+          },
+          "status": "error",
+          "count": 0,
+          "duration_ms": 397,
+          "error": "HTTP 404",
+          "cache_hit": false
+        },
+        {
+          "tool": "fetch_page",
+          "args": {
+            "url": "https://www.magicbricks.com/unique-que-914-keshav-nagar-pune-pdpid-4d4235333335363537",
+            "candidate": "Kids Splash Pool",
+            "candidate_id": "kidssplashpool::kidssplashpool"
+          },
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 2306,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "fetch_page",
+          "args": {
+            "url": "https://www.magicbricks.com/assetz-bloom-",
+            "candidate": "Assetz Bloom & Dell in Whitefield, Bangalore",
+            "candidate_id": "assetzbloomdellinwhitefieldbangalore::whitefield"
+          },
+          "status": "error",
+          "count": 0,
+          "duration_ms": 353,
+          "error": "HTTP 404",
+          "cache_hit": false
+        },
+        {
+          "tool": "fetch_page",
+          "args": {
+            "url": "https://www.magicbricks.com/assetz-bloom-&-dell-whitefield-bangalore-pdpid-4d4235333838393333",
+            "candidate": "Assetz Bloom & Dell in Whitefield, Bangalore",
+            "candidate_id": "assetzbloomdellinwhitefieldbangalore::whitefield"
+          },
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 2226,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "places_verify",
+          "args": {
+            "name": "Assetz Bloom & Dell in Whitefield, Bangalore",
+            "locality": "Whitefield",
+            "city": null
+          },
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 589,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "fetch_page",
+          "args": {
+            "url": "https://www.magicbricks.com/property-for-sale-in-lokhandwala-complex-mumbai-pppfs",
+            "candidate": "Aditya Runwal Elegante",
+            "candidate_id": "adityarunwalelegante::adityarunwalelegante"
+          },
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 1279,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "places_verify",
+          "args": {
+            "name": "Aditya Runwal Elegante",
+            "locality": "Aditya Runwal Elegante",
+            "city": null
+          },
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 1881,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "places_verify",
+          "args": {
+            "name": "Gurukrupa Ekam",
+            "locality": "Gurukrupa Ekam",
+            "city": null
+          },
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 2494,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "fetch_page",
+          "args": {
+            "url": "https://www.wcparksandrec.com/aquatics/pools/franklin_recreation_complex.php",
+            "candidate": "Franklin Recreation Complex Pools & Splash Park",
+            "candidate_id": "franklinrecreationcomplexpoolssplashpark::franklinrecreationcomplexpoolssplashpark"
+          },
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 8292,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "places_verify",
+          "args": {
+            "name": "Franklin Recreation Complex Pools & Splash Park",
+            "locality": "Franklin Recreation Complex, Pools, Splash Park",
+            "city": null
+          },
+          "status": "ok",
+          "count": 0,
+          "duration_ms": 1805,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "fetch_page",
+          "args": {
+            "url": "https://www.homedepot.com/p/Funphix-Build-n-Splash-Buildable-Swimming-Pool-Outdoor-Building-Toy-Pool-FP-SWP-1/315168351",
+            "candidate": "Funphix Build 'n' Splash Buildable Swimming Pool",
+            "candidate_id": "funphixbuildnsplashbuildableswimmingpool::funphixbuildsplashbuildableswimmingpool"
+          },
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 5126,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "places_verify",
+          "args": {
+            "name": "Funphix Build 'n' Splash Buildable Swimming Pool",
+            "locality": "Funphix Build, Splash Buildable Swimming, Pool",
+            "city": null
+          },
+          "status": "ok",
+          "count": 0,
+          "duration_ms": 844,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "fetch_page",
+          "args": {
+            "url": "https://imagecdn.99acres.com/media1/25086/6/501726141O-1719829388331.pdf",
+            "candidate": "hy ba - hyba bloom",
+            "candidate_id": "hybahybabloom::"
+          },
+          "status": "error",
+          "count": 0,
+          "duration_ms": 3401,
+          "error": "Unsupported content-type: application/pdf",
+          "cache_hit": false
+        },
+        {
+          "tool": "places_verify",
+          "args": {
+            "name": "hy ba - hyba bloom",
+            "locality": null,
+            "city": null
+          },
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 562,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "fetch_page",
+          "args": {
+            "url": "https://www.magicbricks.com/keltech-kumar-imperial-greens-noida-extension-greater-noida-pdpid-4d4235343232373635",
+            "candidate": "Keltech Kumar Imperial Greens in Noida Extension ...",
+            "candidate_id": "keltechkumarimperialgreensinnoidaextension::noidaextension"
+          },
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 3003,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "places_verify",
+          "args": {
+            "name": "Keltech Kumar Imperial Greens in Noida Extension ...",
+            "locality": "Noida Extension",
+            "city": null
+          },
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 1044,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "fetch_page",
+          "args": {
+            "url": "https://www.lowes.com/pl/pools/kiddie-pools/4294610256",
+            "candidate": "Kiddie Pools for Outdoor Summer Fun",
+            "candidate_id": "kiddiepoolsforoutdoorsummerfun::kiddiepoolsoutdoorsummerfun"
+          },
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 3045,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "places_verify",
+          "args": {
+            "name": "Kiddie Pools for Outdoor Summer Fun",
+            "locality": "Kiddie Pools, Outdoor Summer Fun",
+            "city": null
+          },
+          "status": "ok",
+          "count": 0,
+          "duration_ms": 2117,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "fetch_page",
+          "args": {
+            "url": "https://bradenton.macaronikid.com/guides/629e2d7b2426f03454040e9a/places-to-swim-splash-and-cool-off-in-bradenton-and-surrounding-areas",
+            "candidate": "Places to Swim, Splash and Cool Off in Bradenton ...",
+            "candidate_id": "placestoswimsplashandcooloffinbradenton::bradenton"
+          },
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 3738,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "places_verify",
+          "args": {
+            "name": "Places to Swim, Splash and Cool Off in Bradenton ...",
+            "locality": "Bradenton",
+            "city": null
+          },
+          "status": "ok",
+          "count": 0,
+          "duration_ms": 1189,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "fetch_page",
+          "args": {
+            "url": "https://www.amazon.com/Plastic-Kiddie-Pool-Kids-Ages/dp/B08NJS4PV1",
+            "candidate": "Plastic Kiddie Pool for Kids Ages 8-12 - Buildable Backyard ...",
+            "candidate_id": "plastickiddiepoolforkidsages812buildablebackyard::plastickiddiepoolkidsagesbuildablebackyard"
+          },
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 1431,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "places_verify",
+          "args": {
+            "name": "Plastic Kiddie Pool for Kids Ages 8-12 - Buildable Backyard ...",
+            "locality": "Plastic Kiddie Pool, Kids Ages, Buildable Backyard",
+            "city": null
+          },
+          "status": "ok",
+          "count": 0,
+          "duration_ms": 467,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "fetch_page",
+          "args": {
+            "url": "https://mediacdn.99acres.com/media1/22646/0/452920192O-1698233606054.pdf",
+            "candidate": "rr green city",
+            "candidate_id": "rrgreencity::rrgreencity"
+          },
+          "status": "error",
+          "count": 0,
+          "duration_ms": 1168,
+          "error": "Unsupported content-type: application/pdf",
+          "cache_hit": false
+        },
+        {
+          "tool": "places_verify",
+          "args": {
+            "name": "rr green city",
+            "locality": "Rr Green City",
+            "city": null
+          },
+          "status": "ok",
+          "count": 0,
+          "duration_ms": 678,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "fetch_page",
+          "args": {
+            "url": "https://www.magicbricks.com/project-total-environment-in-that-quiet-earth-for-sale-in-bangalore-pppfs",
+            "candidate": "Total Environment In That Quiet Earth Villas/Flats Price",
+            "candidate_id": "totalenvironmentinthatquietearthvillasflats::totalenvironmentinthatquietearthvillasflatsprice"
+          },
+          "status": "ok",
+          "count": 1,
+          "duration_ms": 1459,
+          "error": null,
+          "cache_hit": false
+        },
+        {
+          "tool": "places_verify",
+          "args": {
+            "name": "Total Environment In That Quiet Earth Villas/Flats Price",
+            "locality": "Total Environment In, That Quiet Earth, Villas, Flats Price",
+            "city": null
+          },
+          "status": "ok",
+          "count": 0,
+          "duration_ms": 829,
+          "error": null,
+          "cache_hit": false
+        }
+      ],
+      "retrieved_at": "2026-08-22T10:53:52.891700+00:00",
+      "research_iterations": 1,
+      "llm_curator_used": null,
+      "metrics": {
+        "total_searches": 48,
+        "successful_searches": 43,
+        "failed_searches": 5,
+        "cache_hits": 0,
+        "candidate_count": 0,
+        "verified_candidate_count": 0,
+        "pages_fetched": 12,
+        "facts_extracted": 624,
+        "research_iterations": 1,
+        "sources_used": [
+          "bridge_preflight",
+          "fetch_page",
+          "places_search",
+          "places_verify",
+          "portal_search",
+          "serper_search",
+          "tavily_search"
+        ],
+        "source_conflicts": 1,
+        "missing_field_count": 66,
+        "bridge_unavailable": false,
+        "llm_calls": 23,
+        "llm_failures": 22,
+        "llm_fallbacks": 63
+      },
+      "limits": {
+        "max_research_iterations": 2,
+        "max_candidates_for_deep_research": 3,
+        "max_fetches_per_candidate": 3,
+        "max_targeted_searches_per_iteration": 5
+      },
+      "research_gaps": [
+        {
+          "candidate": "Assetz Bloom & Dell in Whitefield, Bangalore",
+          "missing_fields": [
+            "lifecycle",
+            "developer",
+            "rera",
+            "carpet_area"
+          ],
+          "weak_fields": [],
+          "conflicting_fields": []
+        },
+        {
+          "candidate": "Aditya Runwal Elegante",
+          "missing_fields": [
+            "lifecycle",
+            "developer",
+            "possession",
+            "carpet_area"
+          ],
+          "weak_fields": [],
+          "conflicting_fields": []
+        },
+        {
+          "candidate": "Gurukrupa Ekam",
+          "missing_fields": [
+            "lifecycle",
+            "developer",
+            "possession",
+            "carpet_area"
+          ],
+          "weak_fields": [],
+          "conflicting_fields": []
+        },
+        {
+          "candidate": "Franklin Recreation Complex Pools & Splash Park",
+          "missing_fields": [
+            "lifecycle",
+            "developer",
+            "rera",
+            "possession",
+            "carpet_area",
+            "price"
+          ],
+          "weak_fields": [],
+          "conflicting_fields": []
+        },
+        {
+          "candidate": "Funphix Build 'n' Splash Buildable Swimming Pool",
+          "missing_fields": [
+            "lifecycle",
+            "developer",
+            "rera",
+            "possession",
+            "carpet_area",
+            "price"
+          ],
+          "weak_fields": [],
+          "conflicting_fields": []
+        },
+        {
+          "candidate": "hy ba - hyba bloom",
+          "missing_fields": [
+            "lifecycle",
+            "developer",
+            "rera",
+            "possession",
+            "carpet_area",
+            "price"
+          ],
+          "weak_fields": [],
+          "conflicting_fields": []
+        },
+        {
+          "candidate": "Keltech Kumar Imperial Greens in Noida Extension ...",
+          "missing_fields": [
+            "lifecycle",
+            "developer",
+            "rera",
+            "possession",
+            "carpet_area",
+            "price"
+          ],
+          "weak_fields": [],
+          "conflicting_fields": []
+        },
+        {
+          "candidate": "Kiddie Pools for Outdoor Summer Fun",
+          "missing_fields": [
+            "lifecycle",
+            "developer",
+            "rera",
+            "possession",
+            "carpet_area",
+            "price"
+          ],
+          "weak_fields": [],
+          "conflicting_fields": []
+        },
+        {
+          "candidate": "Places to Swim, Splash and Cool Off in Bradenton ...",
+          "missing_fields": [
+            "lifecycle",
+            "developer",
+            "rera",
+            "possession",
+            "carpet_area",
+            "price"
+          ],
+          "weak_fields": [],
+          "conflicting_fields": []
+        },
+        {
+          "candidate": "Plastic Kiddie Pool for Kids Ages 8-12 - Buildable Backyard ...",
+          "missing_fields": [
+            "lifecycle",
+            "developer",
+            "rera",
+            "possession",
+            "carpet_area",
+            "price"
+          ],
+          "weak_fields": [],
+          "conflicting_fields": []
+        },
+        {
+          "candidate": "rr green city",
+          "missing_fields": [
+            "lifecycle",
+            "developer",
+            "rera",
+            "possession",
+            "carpet_area",
+            "price"
+          ],
+          "weak_fields": [],
+          "conflicting_fields": []
+        },
+        {
+          "candidate": "Total Environment In That Quiet Earth Villas/Flats Price",
+          "missing_fields": [
+            "lifecycle",
+            "developer",
+            "rera",
+            "possession",
+            "carpet_area",
+            "price"
+          ],
+          "weak_fields": [],
+          "conflicting_fields": []
+        }
+      ],
+      "verification_results": [
+        {
+          "candidate": "Kids Splash Pool",
+          "conflicts": {
+            "rera": [
+              "P51800031360",
+              "P51800049048"
+            ]
+          },
+          "corroborated_fields": []
+        }
+      ],
+      "duration_ms": 145314,
+      "agent_version": "2.0.0"
+    },
+    "retrieval_metrics": {
+      "total_candidates": 73,
+      "individual_project_candidates": 34,
+      "aggregator_pages": 39,
+      "resale_candidates": 2,
+      "rental_candidates": 4,
+      "unknown_candidates": 25,
+      "invalid_name_candidates": 0,
+      "eligible_candidates": 3,
+      "rejected_candidates": 73,
+      "places_configured": true,
+      "places_contributed_candidates": 20
+    },
+    "llm_degraded": false,
+    "_agent": true,
+    "pipeline": "agent"
+  },
+  "provider_inference": {
+    "inferred": "mixed_groq_then_fallback",
+    "reason": "groq breaker closed at start, open at end — TPM exhausted during this search"
+  },
+  "groq_circuit_before": {
+    "gemini": {
+      "reason": "gemini-3.6-flash: Error code: 429 - [{'error': {'code': 429, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at http",
+      "seconds_remaining": 287.1
+    }
+  },
+  "groq_circuit_after": {
+    "groq": {
+      "reason": "openai/gpt-oss-120b: Error code: 429 - {'error': {'message': 'Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01k6a5fp3jemqr0e45atjmayce` service tier `on_demand` on tokens per day (TPD): Limit 200",
+      "seconds_remaining": 220.0
+    },
+    "gemini": {
+      "reason": "gemini-3.6-flash: Error code: 429 - [{'error': {'code': 429, 'message': 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at http",
+      "seconds_remaining": 152.9
+    }
+  }
+}

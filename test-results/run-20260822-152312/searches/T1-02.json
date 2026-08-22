@@ -1,0 +1,3324 @@
+{
+  "scenario_id": "T1-02",
+  "query": "2 BHK in Andheri West",
+  "started_at": "2026-08-22T10:02:24.323Z",
+  "finished_at": "2026-08-22T10:05:11.086Z",
+  "duration_ms": 166762,
+  "http_status": 200,
+  "error": null,
+  "pipeline": "agent",
+  "llm_degraded": false,
+  "warnings": null,
+  "result_count": 5,
+  "properties": [
+    {
+      "id": "linkbayresidences::linkbayresidences",
+      "name": "Linkbay Residences",
+      "rawName": "Linkbay Residences",
+      "developer": null,
+      "location": "Linkbay Residences",
+      "city": null,
+      "config": "2 BHK & 3 BHK & 4 BHK",
+      "price": "₹7.89 Cr",
+      "possession": "Oct 2028",
+      "rera": "P51800047539",
+      "rera_verified": null,
+      "sourceName": "99acres.com",
+      "sourceUrl": "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+      "sources": [
+        {
+          "name": "99acres.com",
+          "url": "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+          "captured_at": "2026-08-22T10:02:30.839Z",
+          "source_type": "category_page_extract"
+        },
+        {
+          "name": "99acres.com",
+          "url": "https://www.99acres.com/2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+          "captured_at": "2026-08-22T10:02:30.840Z",
+          "source_type": "category_page_extract"
+        },
+        {
+          "name": "99acres.com",
+          "url": "https://www.99acres.com/new-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+          "captured_at": "2026-08-22T10:02:30.840Z",
+          "source_type": "category_page_extract"
+        }
+      ],
+      "match_score": 51,
+      "why": "2 BHK available",
+      "match_tier": "TERTIARY",
+      "match_reasons": [
+        "2 BHK available"
+      ],
+      "key_match": "2 BHK available",
+      "limitations": [
+        "Location does not match your requested area"
+      ],
+      "project_intelligence": {
+        "official": null,
+        "rera": "P51800047539",
+        "rera_confidence": 0.6,
+        "rera_conflict": false,
+        "rera_conflicting_values": [],
+        "configs": [
+          {
+            "type": "2 BHK",
+            "carpet": null,
+            "total": null,
+            "available": null,
+            "price": null
+          },
+          {
+            "type": "3 BHK",
+            "carpet": null,
+            "total": null,
+            "available": null,
+            "price": null
+          },
+          {
+            "type": "4 BHK",
+            "carpet": null,
+            "total": null,
+            "available": null,
+            "price": null
+          }
+        ],
+        "configuration_evidence": {},
+        "amenities": [],
+        "features": [],
+        "usps": [
+          "RERA registered (P51800047539)"
+        ],
+        "usp_evidence": [
+          {
+            "insight": "RERA registered (P51800047539)",
+            "reason": "RERA number found in source evidence",
+            "sources": [
+              "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+              "https://www.99acres.com/2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid"
+            ]
+          }
+        ],
+        "competitors": [
+          {
+            "name": "Western",
+            "developer": null,
+            "location": "Western",
+            "configuration": [
+              "2 BHK",
+              "3 BHK"
+            ],
+            "price": "₹7.77 Cr",
+            "possession": "Jul 2032",
+            "rera": "PM1180002501525",
+            "comparison_basis": [
+              "also offers 2 BHK, 3 BHK",
+              "comparable price band"
+            ],
+            "sources": [
+              "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+              "https://www.99acres.com/2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid"
+            ]
+          },
+          {
+            "name": "Spenta Anthea",
+            "developer": null,
+            "location": "Spenta Anthea",
+            "configuration": [
+              "2 BHK",
+              "3 BHK"
+            ],
+            "price": "₹5.4 Cr",
+            "possession": "Dec 2029",
+            "rera": "PR1180002502840",
+            "comparison_basis": [
+              "also offers 2 BHK, 3 BHK",
+              "comparable price band"
+            ],
+            "sources": [
+              "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid"
+            ]
+          },
+          {
+            "name": "Transcon Triumph",
+            "developer": null,
+            "location": "Transcon Triumph",
+            "configuration": [
+              "1 BHK",
+              "2 BHK",
+              "3 BHK",
+              "4 BHK"
+            ],
+            "price": "₹11.74 Cr",
+            "possession": "Mar 2030",
+            "rera": "P51800005361",
+            "comparison_basis": [
+              "also offers 2 BHK, 3 BHK, 4 BHK",
+              "comparable price band"
+            ],
+            "sources": [
+              "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+              "https://www.99acres.com/2-bhk-flats-in-andheri-west-mumbai-andheri-dahisar-ffid"
+            ]
+          },
+          {
+            "name": "Sunbeam Heights",
+            "developer": null,
+            "location": "Sunbeam Heights",
+            "configuration": [
+              "1 BHK",
+              "2 BHK",
+              "3 BHK"
+            ],
+            "price": "₹3.14 Cr",
+            "possession": "Dec 2027",
+            "rera": "P51800049875",
+            "comparison_basis": [
+              "also offers 2 BHK, 3 BHK",
+              "comparable price band"
+            ],
+            "sources": [
+              "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid"
+            ]
+          }
+        ],
+        "target_audience": {
+          "segments": [
+            {
+              "segment": "Small families and first-time upgraders",
+              "because": "2 BHK is the entry configuration",
+              "derived_from": [
+                "configuration"
+              ]
+            },
+            {
+              "segment": "Larger or multi-generational families",
+              "because": "4 BHK configurations available",
+              "derived_from": [
+                "configuration"
+              ]
+            },
+            {
+              "segment": "Luxury segment buyers",
+              "because": "price band averages ₹7.9 Cr",
+              "derived_from": [
+                "price"
+              ]
+            },
+            {
+              "segment": "Investors and buyers with a flexible move-in date",
+              "because": "lifecycle stage is under construction, possession Oct 2028",
+              "derived_from": [
+                "lifecycle_status",
+                "possession"
+              ]
+            }
+          ],
+          "method": "derived deterministically from this project's own extracted fields — never inferred from general knowledge"
+        },
+        "field_ledger": {
+          "fields": {
+            "rera": {
+              "filled": true,
+              "answered_by": "99acres.com",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "portal",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "price": {
+              "filled": true,
+              "answered_by": "99acres.com",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "portal",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "carpet_area": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "developer-site"
+              ],
+              "status": "searched_not_found"
+            },
+            "configuration": {
+              "filled": true,
+              "answered_by": "99acres.com",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "portal",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "developer": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "developer-site"
+              ],
+              "status": "searched_not_found"
+            },
+            "possession": {
+              "filled": true,
+              "answered_by": "99acres.com",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "portal",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "project_status": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text"
+              ],
+              "status": "searched_not_found"
+            },
+            "amenities": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "developer-site"
+              ],
+              "status": "searched_not_found"
+            },
+            "property_type": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text",
+                "json-ld"
+              ],
+              "status": "searched_not_found"
+            },
+            "total_floors": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text",
+                "json-ld"
+              ],
+              "status": "searched_not_found"
+            },
+            "tower_count": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text"
+              ],
+              "status": "searched_not_found"
+            },
+            "connectivity": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "google-places-nearby",
+                "page-text"
+              ],
+              "status": "searched_not_found"
+            },
+            "nearby_landmarks": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "google-places-nearby",
+                "page-text"
+              ],
+              "status": "searched_not_found"
+            },
+            "location_score": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "google-places-nearby"
+              ],
+              "status": "searched_not_found"
+            },
+            "coordinates": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "google-places-verify",
+                "json-ld"
+              ],
+              "status": "searched_not_found"
+            }
+          },
+          "filled": 4,
+          "total": 15,
+          "never_researched": []
+        },
+        "location_score": null,
+        "location_intel": null,
+        "connectivity": null,
+        "nearby_landmarks": [],
+        "summary": "Linkbay Residences offers 2 BHK, 3 BHK, 4 BHK in Linkbay Residences. It is currently under construction, with possession Oct 2028. Priced at ₹7.89 Cr. RERA registered (P51800047539).",
+        "possession": "Oct 2028",
+        "_provider": "ai-search-agent",
+        "_note": "Populated from AI Search Agent research evidence — no separate live-web research re-run.",
+        "_webSources": [
+          "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+          "https://www.99acres.com/2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+          "https://www.99acres.com/new-projects-in-andheri-west-mumbai-andheri-dahisar-ffid"
+        ],
+        "fetchedAt": "2026-08-22T10:04:34.511376+00:00"
+      },
+      "propertyType": null,
+      "carpetArea": null,
+      "builtUpArea": null,
+      "pricePerSqFt": null,
+      "projectStatus": null,
+      "totalFloors": null,
+      "towerCount": null,
+      "connectivity": null,
+      "nearbyLandmarks": [],
+      "amenities": [],
+      "deck": null,
+      "description": "--- | Linkbay Residences Andheri West, Western Mumbai | | | | 2, 3, 4 BHK Apartment | ₹ 3.65 - 7.89 Cr | Under Construction | | | | Possession: Oct 2028 | | Choose your dream home from the wide variety of 2,3,4 BHK apartments in Andheri West, available for sale in Linkbay Residences.",
+      "warnings": [
+        "Location does not match your requested area"
+      ],
+      "evidence": [
+        {
+          "field": "price_display",
+          "value": "₹7.89 Cr",
+          "source": "99acres.com",
+          "url": "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+          "confidence": "medium"
+        },
+        {
+          "field": "configuration",
+          "value": [
+            "2 BHK",
+            "3 BHK",
+            "4 BHK"
+          ],
+          "source": "99acres.com",
+          "url": "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+          "confidence": "medium"
+        },
+        {
+          "field": "possession_display",
+          "value": "Oct 2028",
+          "source": "99acres.com",
+          "url": "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+          "confidence": "medium"
+        },
+        {
+          "field": "rera",
+          "value": "P51800047539",
+          "source": "99acres.com",
+          "url": "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+          "confidence": "medium"
+        },
+        {
+          "field": "location",
+          "value": "Linkbay Residences",
+          "source": "99acres.com",
+          "url": "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+          "confidence": "medium"
+        }
+      ],
+      "dataQuality": "high",
+      "title": "Linkbay Residences",
+      "projectName": "Linkbay Residences",
+      "field_evidence": {
+        "price_display": [
+          {
+            "field": "price_display",
+            "value": "₹7.89 Cr",
+            "source": "99acres.com",
+            "source_url": "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+            "captured_at": "2026-08-22T10:02:30.839Z",
+            "confidence": "medium"
+          }
+        ],
+        "configuration": [
+          {
+            "field": "configuration",
+            "value": [
+              "2 BHK",
+              "3 BHK",
+              "4 BHK"
+            ],
+            "source": "99acres.com",
+            "source_url": "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+            "captured_at": "2026-08-22T10:02:30.839Z",
+            "confidence": "medium"
+          }
+        ],
+        "possession_display": [
+          {
+            "field": "possession_display",
+            "value": "Oct 2028",
+            "source": "99acres.com",
+            "source_url": "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+            "captured_at": "2026-08-22T10:02:30.839Z",
+            "confidence": "medium"
+          }
+        ],
+        "rera": [
+          {
+            "field": "rera",
+            "value": "P51800047539",
+            "source": "99acres.com",
+            "source_url": "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+            "captured_at": "2026-08-22T10:02:30.839Z",
+            "confidence": "medium"
+          }
+        ],
+        "location": [
+          {
+            "field": "location",
+            "value": "Linkbay Residences",
+            "source": "99acres.com",
+            "source_url": "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+            "captured_at": "2026-08-22T10:02:30.839Z",
+            "confidence": "medium"
+          }
+        ]
+      },
+      "configuration_evidence": {},
+      "featureEvidence": [],
+      "sourceType": "external",
+      "lifecycleStatus": "UNDER_CONSTRUCTION",
+      "lifecycleEvidence": "ent | ₹ 3.65 - 7.89 Cr | Under Construction | | | | Possession: Oct",
+      "placesVerified": null,
+      "placesLat": null,
+      "placesLon": null,
+      "placesPlaceId": null,
+      "placesAddress": null
+    },
+    {
+      "id": "spentaanthea::spentaanthea",
+      "name": "Spenta Anthea",
+      "rawName": "Spenta Anthea",
+      "developer": null,
+      "location": "Spenta Anthea",
+      "city": null,
+      "config": "2 BHK & 3 BHK",
+      "price": "₹5.4 Cr",
+      "possession": "Dec 2029",
+      "rera": "PR1180002502840",
+      "rera_verified": null,
+      "sourceName": "99acres.com",
+      "sourceUrl": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+      "sources": [
+        {
+          "name": "99acres.com",
+          "url": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+          "captured_at": "2026-08-22T10:02:30.841Z",
+          "source_type": "category_page_extract"
+        }
+      ],
+      "match_score": 51,
+      "why": "2 BHK available",
+      "match_tier": "TERTIARY",
+      "match_reasons": [
+        "2 BHK available"
+      ],
+      "key_match": "2 BHK available",
+      "limitations": [
+        "Location does not match your requested area"
+      ],
+      "project_intelligence": {
+        "official": null,
+        "rera": "PR1180002502840",
+        "rera_confidence": 0.6,
+        "rera_conflict": false,
+        "rera_conflicting_values": [],
+        "configs": [
+          {
+            "type": "2 BHK",
+            "carpet": null,
+            "total": null,
+            "available": null,
+            "price": null
+          },
+          {
+            "type": "3 BHK",
+            "carpet": null,
+            "total": null,
+            "available": null,
+            "price": null
+          }
+        ],
+        "configuration_evidence": {},
+        "amenities": [],
+        "features": [],
+        "usps": [
+          "RERA registered (PR1180002502840)"
+        ],
+        "usp_evidence": [
+          {
+            "insight": "RERA registered (PR1180002502840)",
+            "reason": "RERA number found in source evidence",
+            "sources": [
+              "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid"
+            ]
+          }
+        ],
+        "competitors": [
+          {
+            "name": "Sunbeam Heights",
+            "developer": null,
+            "location": "Sunbeam Heights",
+            "configuration": [
+              "1 BHK",
+              "2 BHK",
+              "3 BHK"
+            ],
+            "price": "₹3.14 Cr",
+            "possession": "Dec 2027",
+            "rera": "P51800049875",
+            "comparison_basis": [
+              "also offers 2 BHK, 3 BHK",
+              "comparable price band"
+            ],
+            "sources": [
+              "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid"
+            ]
+          },
+          {
+            "name": "Western",
+            "developer": null,
+            "location": "Western",
+            "configuration": [
+              "2 BHK",
+              "3 BHK"
+            ],
+            "price": "₹7.77 Cr",
+            "possession": "Jul 2032",
+            "rera": "PM1180002501525",
+            "comparison_basis": [
+              "also offers 2 BHK, 3 BHK",
+              "comparable price band"
+            ],
+            "sources": [
+              "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+              "https://www.99acres.com/2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid"
+            ]
+          },
+          {
+            "name": "Linkbay Residences",
+            "developer": null,
+            "location": "Linkbay Residences",
+            "configuration": [
+              "2 BHK",
+              "3 BHK",
+              "4 BHK"
+            ],
+            "price": "₹7.89 Cr",
+            "possession": "Oct 2028",
+            "rera": "P51800047539",
+            "comparison_basis": [
+              "also offers 2 BHK, 3 BHK",
+              "comparable price band"
+            ],
+            "sources": [
+              "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+              "https://www.99acres.com/2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid"
+            ]
+          },
+          {
+            "name": "Transcon Triumph",
+            "developer": null,
+            "location": "Transcon Triumph",
+            "configuration": [
+              "1 BHK",
+              "2 BHK",
+              "3 BHK",
+              "4 BHK"
+            ],
+            "price": "₹11.74 Cr",
+            "possession": "Mar 2030",
+            "rera": "P51800005361",
+            "comparison_basis": [
+              "also offers 2 BHK, 3 BHK",
+              "comparable price band"
+            ],
+            "sources": [
+              "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+              "https://www.99acres.com/2-bhk-flats-in-andheri-west-mumbai-andheri-dahisar-ffid"
+            ]
+          }
+        ],
+        "target_audience": {
+          "segments": [
+            {
+              "segment": "Small families and first-time upgraders",
+              "because": "2 BHK is the entry configuration",
+              "derived_from": [
+                "configuration"
+              ]
+            },
+            {
+              "segment": "Larger or multi-generational families",
+              "because": "3 BHK configurations available",
+              "derived_from": [
+                "configuration"
+              ]
+            },
+            {
+              "segment": "Luxury segment buyers",
+              "because": "price band averages ₹5.4 Cr",
+              "derived_from": [
+                "price"
+              ]
+            },
+            {
+              "segment": "Investors and buyers with a flexible move-in date",
+              "because": "lifecycle stage is new launch, possession Dec 2029",
+              "derived_from": [
+                "lifecycle_status",
+                "possession"
+              ]
+            }
+          ],
+          "method": "derived deterministically from this project's own extracted fields — never inferred from general knowledge"
+        },
+        "field_ledger": {
+          "fields": {
+            "rera": {
+              "filled": true,
+              "answered_by": "99acres.com",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "portal",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "price": {
+              "filled": true,
+              "answered_by": "99acres.com",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "portal",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "carpet_area": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "developer-site"
+              ],
+              "status": "searched_not_found"
+            },
+            "configuration": {
+              "filled": true,
+              "answered_by": "99acres.com",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "portal",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "developer": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "developer-site"
+              ],
+              "status": "searched_not_found"
+            },
+            "possession": {
+              "filled": true,
+              "answered_by": "99acres.com",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "portal",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "project_status": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text"
+              ],
+              "status": "searched_not_found"
+            },
+            "amenities": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "developer-site"
+              ],
+              "status": "searched_not_found"
+            },
+            "property_type": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text",
+                "json-ld"
+              ],
+              "status": "searched_not_found"
+            },
+            "total_floors": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text",
+                "json-ld"
+              ],
+              "status": "searched_not_found"
+            },
+            "tower_count": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text"
+              ],
+              "status": "searched_not_found"
+            },
+            "connectivity": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "google-places-nearby",
+                "page-text"
+              ],
+              "status": "searched_not_found"
+            },
+            "nearby_landmarks": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "google-places-nearby",
+                "page-text"
+              ],
+              "status": "searched_not_found"
+            },
+            "location_score": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "google-places-nearby"
+              ],
+              "status": "searched_not_found"
+            },
+            "coordinates": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "google-places-verify",
+                "json-ld"
+              ],
+              "status": "searched_not_found"
+            }
+          },
+          "filled": 4,
+          "total": 15,
+          "never_researched": []
+        },
+        "location_score": null,
+        "location_intel": null,
+        "connectivity": null,
+        "nearby_landmarks": [],
+        "summary": "Spenta Anthea offers 2 BHK, 3 BHK in Spenta Anthea. It is currently new launch, with possession Dec 2029. Priced at ₹5.4 Cr. RERA registered (PR1180002502840).",
+        "possession": "Dec 2029",
+        "_provider": "ai-search-agent",
+        "_note": "Populated from AI Search Agent research evidence — no separate live-web research re-run.",
+        "_webSources": [
+          "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid"
+        ],
+        "fetchedAt": "2026-08-22T10:04:34.511500+00:00"
+      },
+      "propertyType": null,
+      "carpetArea": null,
+      "builtUpArea": null,
+      "pricePerSqFt": null,
+      "projectStatus": null,
+      "totalFloors": null,
+      "towerCount": null,
+      "connectivity": null,
+      "nearbyLandmarks": [],
+      "amenities": [],
+      "deck": null,
+      "description": "ist-Button Spenta Anthea Aerial View | | | | --- | Spenta Anthea Andheri West, Western Mumbai | | | | 2, 3 BHK Apartment | ₹ 3 - 5.4 Cr | New Launch | | | | Possession: Dec 2029 | | Looking for your dream home? Explore 2,3 BHK apartments in Andheri West, now available in Spenta Anthea. Apartments in Spenta Anthea have CARPET area ranging between 679 - 1,133 sqft. Explore 2,3 BHK apartments in Andheri West, now available in Spenta Anthea. Apartments in Spenta Anthea have CARPET area ranging between 679 - 1,133 sqft.",
+      "warnings": [
+        "Location does not match your requested area"
+      ],
+      "evidence": [
+        {
+          "field": "price_display",
+          "value": "₹5.4 Cr",
+          "source": "99acres.com",
+          "url": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+          "confidence": "medium"
+        },
+        {
+          "field": "configuration",
+          "value": [
+            "2 BHK",
+            "3 BHK"
+          ],
+          "source": "99acres.com",
+          "url": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+          "confidence": "medium"
+        },
+        {
+          "field": "possession_display",
+          "value": "Dec 2029",
+          "source": "99acres.com",
+          "url": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+          "confidence": "medium"
+        },
+        {
+          "field": "rera",
+          "value": "PR1180002502840",
+          "source": "99acres.com",
+          "url": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+          "confidence": "medium"
+        },
+        {
+          "field": "location",
+          "value": "Spenta Anthea",
+          "source": "99acres.com",
+          "url": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+          "confidence": "medium"
+        }
+      ],
+      "dataQuality": "low",
+      "title": "Spenta Anthea",
+      "projectName": "Spenta Anthea",
+      "field_evidence": {
+        "price_display": [
+          {
+            "field": "price_display",
+            "value": "₹5.4 Cr",
+            "source": "99acres.com",
+            "source_url": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+            "captured_at": "2026-08-22T10:02:30.841Z",
+            "confidence": "medium"
+          }
+        ],
+        "configuration": [
+          {
+            "field": "configuration",
+            "value": [
+              "2 BHK",
+              "3 BHK"
+            ],
+            "source": "99acres.com",
+            "source_url": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+            "captured_at": "2026-08-22T10:02:30.841Z",
+            "confidence": "medium"
+          }
+        ],
+        "possession_display": [
+          {
+            "field": "possession_display",
+            "value": "Dec 2029",
+            "source": "99acres.com",
+            "source_url": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+            "captured_at": "2026-08-22T10:02:30.841Z",
+            "confidence": "medium"
+          }
+        ],
+        "rera": [
+          {
+            "field": "rera",
+            "value": "PR1180002502840",
+            "source": "99acres.com",
+            "source_url": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+            "captured_at": "2026-08-22T10:02:30.841Z",
+            "confidence": "medium"
+          }
+        ],
+        "location": [
+          {
+            "field": "location",
+            "value": "Spenta Anthea",
+            "source": "99acres.com",
+            "source_url": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+            "captured_at": "2026-08-22T10:02:30.841Z",
+            "confidence": "medium"
+          }
+        ]
+      },
+      "configuration_evidence": {},
+      "featureEvidence": [],
+      "sourceType": "external",
+      "lifecycleStatus": "NEW_LAUNCH",
+      "lifecycleEvidence": "artment | ₹ 3 - 5.4 Cr | New Launch | | | | Possession: Dec",
+      "placesVerified": null,
+      "placesLat": null,
+      "placesLon": null,
+      "placesPlaceId": null,
+      "placesAddress": null
+    },
+    {
+      "id": "sunbeamheights::sunbeamheights",
+      "name": "Sunbeam Heights",
+      "rawName": "Sunbeam Heights",
+      "developer": null,
+      "location": "Sunbeam Heights",
+      "city": null,
+      "config": "1 BHK & 2 BHK & 3 BHK",
+      "price": "₹3.14 Cr",
+      "possession": "Dec 2027",
+      "rera": "P51800049875",
+      "rera_verified": null,
+      "sourceName": "99acres.com",
+      "sourceUrl": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+      "sources": [
+        {
+          "name": "99acres.com",
+          "url": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+          "captured_at": "2026-08-22T10:02:30.841Z",
+          "source_type": "category_page_extract"
+        }
+      ],
+      "match_score": 51,
+      "why": "2 BHK available",
+      "match_tier": "TERTIARY",
+      "match_reasons": [
+        "2 BHK available"
+      ],
+      "key_match": "2 BHK available",
+      "limitations": [
+        "Location does not match your requested area"
+      ],
+      "project_intelligence": {
+        "official": null,
+        "rera": "P51800049875",
+        "rera_confidence": 0.6,
+        "rera_conflict": false,
+        "rera_conflicting_values": [],
+        "configs": [
+          {
+            "type": "1 BHK",
+            "carpet": null,
+            "total": null,
+            "available": null,
+            "price": null
+          },
+          {
+            "type": "2 BHK",
+            "carpet": null,
+            "total": null,
+            "available": null,
+            "price": null
+          },
+          {
+            "type": "3 BHK",
+            "carpet": null,
+            "total": null,
+            "available": null,
+            "price": null
+          }
+        ],
+        "configuration_evidence": {},
+        "amenities": [],
+        "features": [],
+        "usps": [
+          "RERA registered (P51800049875)"
+        ],
+        "usp_evidence": [
+          {
+            "insight": "RERA registered (P51800049875)",
+            "reason": "RERA number found in source evidence",
+            "sources": [
+              "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid"
+            ]
+          }
+        ],
+        "competitors": [
+          {
+            "name": "Spenta Anthea",
+            "developer": null,
+            "location": "Spenta Anthea",
+            "configuration": [
+              "2 BHK",
+              "3 BHK"
+            ],
+            "price": "₹5.4 Cr",
+            "possession": "Dec 2029",
+            "rera": "PR1180002502840",
+            "comparison_basis": [
+              "also offers 2 BHK, 3 BHK",
+              "comparable price band"
+            ],
+            "sources": [
+              "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid"
+            ]
+          },
+          {
+            "name": "Western",
+            "developer": null,
+            "location": "Western",
+            "configuration": [
+              "2 BHK",
+              "3 BHK"
+            ],
+            "price": "₹7.77 Cr",
+            "possession": "Jul 2032",
+            "rera": "PM1180002501525",
+            "comparison_basis": [
+              "also offers 2 BHK, 3 BHK",
+              "comparable price band"
+            ],
+            "sources": [
+              "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+              "https://www.99acres.com/2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid"
+            ]
+          },
+          {
+            "name": "Linkbay Residences",
+            "developer": null,
+            "location": "Linkbay Residences",
+            "configuration": [
+              "2 BHK",
+              "3 BHK",
+              "4 BHK"
+            ],
+            "price": "₹7.89 Cr",
+            "possession": "Oct 2028",
+            "rera": "P51800047539",
+            "comparison_basis": [
+              "also offers 2 BHK, 3 BHK",
+              "comparable price band"
+            ],
+            "sources": [
+              "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+              "https://www.99acres.com/2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid"
+            ]
+          },
+          {
+            "name": "Transcon Triumph",
+            "developer": null,
+            "location": "Transcon Triumph",
+            "configuration": [
+              "1 BHK",
+              "2 BHK",
+              "3 BHK",
+              "4 BHK"
+            ],
+            "price": "₹11.74 Cr",
+            "possession": "Mar 2030",
+            "rera": "P51800005361",
+            "comparison_basis": [
+              "also offers 1 BHK, 2 BHK, 3 BHK",
+              "comparable price band"
+            ],
+            "sources": [
+              "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+              "https://www.99acres.com/2-bhk-flats-in-andheri-west-mumbai-andheri-dahisar-ffid"
+            ]
+          }
+        ],
+        "target_audience": {
+          "segments": [
+            {
+              "segment": "First-time buyers and single occupants",
+              "because": "smallest configuration offered is 1 BHK",
+              "derived_from": [
+                "configuration"
+              ]
+            },
+            {
+              "segment": "Larger or multi-generational families",
+              "because": "3 BHK configurations available",
+              "derived_from": [
+                "configuration"
+              ]
+            },
+            {
+              "segment": "Mid-to-premium segment buyers",
+              "because": "price band averages ₹3.1 Cr",
+              "derived_from": [
+                "price"
+              ]
+            },
+            {
+              "segment": "Investors and buyers with a flexible move-in date",
+              "because": "lifecycle stage is new launch, possession Dec 2027",
+              "derived_from": [
+                "lifecycle_status",
+                "possession"
+              ]
+            }
+          ],
+          "method": "derived deterministically from this project's own extracted fields — never inferred from general knowledge"
+        },
+        "field_ledger": {
+          "fields": {
+            "rera": {
+              "filled": true,
+              "answered_by": "99acres.com",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "portal",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "price": {
+              "filled": true,
+              "answered_by": "99acres.com",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "portal",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "carpet_area": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "developer-site"
+              ],
+              "status": "searched_not_found"
+            },
+            "configuration": {
+              "filled": true,
+              "answered_by": "99acres.com",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "portal",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "developer": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "developer-site"
+              ],
+              "status": "searched_not_found"
+            },
+            "possession": {
+              "filled": true,
+              "answered_by": "99acres.com",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "portal",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "project_status": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text"
+              ],
+              "status": "searched_not_found"
+            },
+            "amenities": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "developer-site"
+              ],
+              "status": "searched_not_found"
+            },
+            "property_type": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text",
+                "json-ld"
+              ],
+              "status": "searched_not_found"
+            },
+            "total_floors": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text",
+                "json-ld"
+              ],
+              "status": "searched_not_found"
+            },
+            "tower_count": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text"
+              ],
+              "status": "searched_not_found"
+            },
+            "connectivity": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "google-places-nearby",
+                "page-text"
+              ],
+              "status": "searched_not_found"
+            },
+            "nearby_landmarks": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "google-places-nearby",
+                "page-text"
+              ],
+              "status": "searched_not_found"
+            },
+            "location_score": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "google-places-nearby"
+              ],
+              "status": "searched_not_found"
+            },
+            "coordinates": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "google-places-verify",
+                "json-ld"
+              ],
+              "status": "searched_not_found"
+            }
+          },
+          "filled": 4,
+          "total": 15,
+          "never_researched": []
+        },
+        "location_score": null,
+        "location_intel": null,
+        "connectivity": null,
+        "nearby_landmarks": [],
+        "summary": "Sunbeam Heights offers 1 BHK, 2 BHK, 3 BHK in Sunbeam Heights. It is currently new launch, with possession Dec 2027. Priced at ₹3.14 Cr. RERA registered (P51800049875).",
+        "possession": "Dec 2027",
+        "_provider": "ai-search-agent",
+        "_note": "Populated from AI Search Agent research evidence — no separate live-web research re-run.",
+        "_webSources": [
+          "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid"
+        ],
+        "fetchedAt": "2026-08-22T10:04:34.511590+00:00"
+      },
+      "propertyType": null,
+      "carpetArea": null,
+      "builtUpArea": null,
+      "pricePerSqFt": null,
+      "projectStatus": null,
+      "totalFloors": null,
+      "towerCount": null,
+      "connectivity": null,
+      "nearbyLandmarks": [],
+      "amenities": [],
+      "deck": null,
+      "description": "Sunbeam Heights Elevation | | | | --- | Sunbeam Heights Andheri West, Western Mumbai | | | | 1, 2, 3 BHK Apartment | ₹ 1.35 - 3.14 Cr | New Launch | | | | Possession: Dec 2027 | | Check out 1,2,3 BHK apartments in Andheri West, now available for sale at Sunbeam Heights. Sunbeam Heights is a RERA- registered society and P51800049875 is the RERA registration number. Here units have differen | Check out 1,2,3 BHK apartments in Andheri West, now available for sale at Sunbeam Heights. Sunbeam Heights is a RERA- registered society and P51800049875 is the RERA registration number.",
+      "warnings": [
+        "Location does not match your requested area"
+      ],
+      "evidence": [
+        {
+          "field": "price_display",
+          "value": "₹3.14 Cr",
+          "source": "99acres.com",
+          "url": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+          "confidence": "medium"
+        },
+        {
+          "field": "configuration",
+          "value": [
+            "1 BHK",
+            "2 BHK",
+            "3 BHK"
+          ],
+          "source": "99acres.com",
+          "url": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+          "confidence": "medium"
+        },
+        {
+          "field": "possession_display",
+          "value": "Dec 2027",
+          "source": "99acres.com",
+          "url": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+          "confidence": "medium"
+        },
+        {
+          "field": "rera",
+          "value": "P51800049875",
+          "source": "99acres.com",
+          "url": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+          "confidence": "medium"
+        },
+        {
+          "field": "location",
+          "value": "Sunbeam Heights",
+          "source": "99acres.com",
+          "url": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+          "confidence": "medium"
+        }
+      ],
+      "dataQuality": "low",
+      "title": "Sunbeam Heights",
+      "projectName": "Sunbeam Heights",
+      "field_evidence": {
+        "price_display": [
+          {
+            "field": "price_display",
+            "value": "₹3.14 Cr",
+            "source": "99acres.com",
+            "source_url": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+            "captured_at": "2026-08-22T10:02:30.841Z",
+            "confidence": "medium"
+          }
+        ],
+        "configuration": [
+          {
+            "field": "configuration",
+            "value": [
+              "1 BHK",
+              "2 BHK",
+              "3 BHK"
+            ],
+            "source": "99acres.com",
+            "source_url": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+            "captured_at": "2026-08-22T10:02:30.841Z",
+            "confidence": "medium"
+          }
+        ],
+        "possession_display": [
+          {
+            "field": "possession_display",
+            "value": "Dec 2027",
+            "source": "99acres.com",
+            "source_url": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+            "captured_at": "2026-08-22T10:02:30.841Z",
+            "confidence": "medium"
+          }
+        ],
+        "rera": [
+          {
+            "field": "rera",
+            "value": "P51800049875",
+            "source": "99acres.com",
+            "source_url": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+            "captured_at": "2026-08-22T10:02:30.841Z",
+            "confidence": "medium"
+          }
+        ],
+        "location": [
+          {
+            "field": "location",
+            "value": "Sunbeam Heights",
+            "source": "99acres.com",
+            "source_url": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+            "captured_at": "2026-08-22T10:02:30.841Z",
+            "confidence": "medium"
+          }
+        ]
+      },
+      "configuration_evidence": {},
+      "featureEvidence": [],
+      "sourceType": "external",
+      "lifecycleStatus": "NEW_LAUNCH",
+      "lifecycleEvidence": "ent | ₹ 1.35 - 3.14 Cr | New Launch | | | | Possession: Dec",
+      "placesVerified": null,
+      "placesLat": null,
+      "placesLon": null,
+      "placesPlaceId": null,
+      "placesAddress": null
+    },
+    {
+      "id": "transcontriumph::transcontriumph",
+      "name": "Transcon Triumph",
+      "rawName": "Transcon Triumph",
+      "developer": null,
+      "location": "Transcon Triumph",
+      "city": null,
+      "config": "1 BHK & 2 BHK & 3 BHK & 4 BHK",
+      "price": "₹11.74 Cr",
+      "possession": "Mar 2030",
+      "rera": "P51800005361",
+      "rera_verified": null,
+      "sourceName": "99acres.com",
+      "sourceUrl": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+      "sources": [
+        {
+          "name": "99acres.com",
+          "url": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+          "captured_at": "2026-08-22T10:02:30.841Z",
+          "source_type": "category_page_extract"
+        },
+        {
+          "name": "99acres.com",
+          "url": "https://www.99acres.com/2-bhk-flats-in-andheri-west-mumbai-andheri-dahisar-ffid",
+          "captured_at": "2026-08-22T10:02:34.102Z",
+          "source_type": "category_page_extract"
+        },
+        {
+          "name": "99acres.com",
+          "url": "https://www.99acres.com/2-bhk-flats-in-andheri-west-mumbai-andheri-dahisar-ffid",
+          "captured_at": "2026-08-22T10:02:30.501Z",
+          "source_type": "category_page_extract"
+        }
+      ],
+      "match_score": 51,
+      "why": "2 BHK available",
+      "match_tier": "TERTIARY",
+      "match_reasons": [
+        "2 BHK available"
+      ],
+      "key_match": "2 BHK available",
+      "limitations": [
+        "Location does not match your requested area"
+      ],
+      "project_intelligence": {
+        "official": null,
+        "rera": "P51800005361",
+        "rera_confidence": 0.6,
+        "rera_conflict": false,
+        "rera_conflicting_values": [],
+        "configs": [
+          {
+            "type": "1 BHK",
+            "carpet": null,
+            "total": null,
+            "available": null,
+            "price": null
+          },
+          {
+            "type": "2 BHK",
+            "carpet": null,
+            "total": null,
+            "available": null,
+            "price": null
+          },
+          {
+            "type": "3 BHK",
+            "carpet": null,
+            "total": null,
+            "available": null,
+            "price": null
+          },
+          {
+            "type": "4 BHK",
+            "carpet": null,
+            "total": null,
+            "available": null,
+            "price": null
+          }
+        ],
+        "configuration_evidence": {},
+        "amenities": [],
+        "features": [],
+        "usps": [
+          "RERA registered (P51800005361)"
+        ],
+        "usp_evidence": [
+          {
+            "insight": "RERA registered (P51800005361)",
+            "reason": "RERA number found in source evidence",
+            "sources": [
+              "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+              "https://www.99acres.com/2-bhk-flats-in-andheri-west-mumbai-andheri-dahisar-ffid"
+            ]
+          }
+        ],
+        "competitors": [
+          {
+            "name": "Linkbay Residences",
+            "developer": null,
+            "location": "Linkbay Residences",
+            "configuration": [
+              "2 BHK",
+              "3 BHK",
+              "4 BHK"
+            ],
+            "price": "₹7.89 Cr",
+            "possession": "Oct 2028",
+            "rera": "P51800047539",
+            "comparison_basis": [
+              "also offers 2 BHK, 3 BHK, 4 BHK",
+              "comparable price band"
+            ],
+            "sources": [
+              "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+              "https://www.99acres.com/2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid"
+            ]
+          },
+          {
+            "name": "Western",
+            "developer": null,
+            "location": "Western",
+            "configuration": [
+              "2 BHK",
+              "3 BHK"
+            ],
+            "price": "₹7.77 Cr",
+            "possession": "Jul 2032",
+            "rera": "PM1180002501525",
+            "comparison_basis": [
+              "also offers 2 BHK, 3 BHK",
+              "comparable price band"
+            ],
+            "sources": [
+              "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+              "https://www.99acres.com/2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid"
+            ]
+          },
+          {
+            "name": "Spenta Anthea",
+            "developer": null,
+            "location": "Spenta Anthea",
+            "configuration": [
+              "2 BHK",
+              "3 BHK"
+            ],
+            "price": "₹5.4 Cr",
+            "possession": "Dec 2029",
+            "rera": "PR1180002502840",
+            "comparison_basis": [
+              "also offers 2 BHK, 3 BHK",
+              "comparable price band"
+            ],
+            "sources": [
+              "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid"
+            ]
+          },
+          {
+            "name": "Sunbeam Heights",
+            "developer": null,
+            "location": "Sunbeam Heights",
+            "configuration": [
+              "1 BHK",
+              "2 BHK",
+              "3 BHK"
+            ],
+            "price": "₹3.14 Cr",
+            "possession": "Dec 2027",
+            "rera": "P51800049875",
+            "comparison_basis": [
+              "also offers 1 BHK, 2 BHK, 3 BHK",
+              "comparable price band"
+            ],
+            "sources": [
+              "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid"
+            ]
+          }
+        ],
+        "target_audience": {
+          "segments": [
+            {
+              "segment": "First-time buyers and single occupants",
+              "because": "smallest configuration offered is 1 BHK",
+              "derived_from": [
+                "configuration"
+              ]
+            },
+            {
+              "segment": "Larger or multi-generational families",
+              "because": "4 BHK configurations available",
+              "derived_from": [
+                "configuration"
+              ]
+            },
+            {
+              "segment": "Luxury segment buyers",
+              "because": "price band averages ₹11.7 Cr",
+              "derived_from": [
+                "price"
+              ]
+            },
+            {
+              "segment": "Investors and buyers with a flexible move-in date",
+              "because": "lifecycle stage is new launch, possession Mar 2030",
+              "derived_from": [
+                "lifecycle_status",
+                "possession"
+              ]
+            }
+          ],
+          "method": "derived deterministically from this project's own extracted fields — never inferred from general knowledge"
+        },
+        "field_ledger": {
+          "fields": {
+            "rera": {
+              "filled": true,
+              "answered_by": "99acres.com",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "portal",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "price": {
+              "filled": true,
+              "answered_by": "99acres.com",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "portal",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "carpet_area": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "developer-site"
+              ],
+              "status": "searched_not_found"
+            },
+            "configuration": {
+              "filled": true,
+              "answered_by": "99acres.com",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "portal",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "developer": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "developer-site"
+              ],
+              "status": "searched_not_found"
+            },
+            "possession": {
+              "filled": true,
+              "answered_by": "99acres.com",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "portal",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "project_status": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text"
+              ],
+              "status": "searched_not_found"
+            },
+            "amenities": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "developer-site"
+              ],
+              "status": "searched_not_found"
+            },
+            "property_type": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text",
+                "json-ld"
+              ],
+              "status": "searched_not_found"
+            },
+            "total_floors": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text",
+                "json-ld"
+              ],
+              "status": "searched_not_found"
+            },
+            "tower_count": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text"
+              ],
+              "status": "searched_not_found"
+            },
+            "connectivity": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "google-places-nearby",
+                "page-text"
+              ],
+              "status": "searched_not_found"
+            },
+            "nearby_landmarks": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "google-places-nearby",
+                "page-text"
+              ],
+              "status": "searched_not_found"
+            },
+            "location_score": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "google-places-nearby"
+              ],
+              "status": "searched_not_found"
+            },
+            "coordinates": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "google-places-verify",
+                "json-ld"
+              ],
+              "status": "searched_not_found"
+            }
+          },
+          "filled": 4,
+          "total": 15,
+          "never_researched": []
+        },
+        "location_score": null,
+        "location_intel": null,
+        "connectivity": null,
+        "nearby_landmarks": [],
+        "summary": "Transcon Triumph offers 1 BHK, 2 BHK, 3 BHK, 4 BHK in Transcon Triumph. It is currently new launch, with possession Mar 2030. Priced at ₹11.74 Cr. RERA registered (P51800005361).",
+        "possession": "Mar 2030",
+        "_provider": "ai-search-agent",
+        "_note": "Populated from AI Search Agent research evidence — no separate live-web research re-run.",
+        "_webSources": [
+          "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+          "https://www.99acres.com/2-bhk-flats-in-andheri-west-mumbai-andheri-dahisar-ffid",
+          "https://www.99acres.com/2-bhk-flats-in-andheri-west-mumbai-andheri-dahisar-ffid"
+        ],
+        "fetchedAt": "2026-08-22T10:04:34.511697+00:00"
+      },
+      "propertyType": null,
+      "carpetArea": null,
+      "builtUpArea": null,
+      "pricePerSqFt": null,
+      "projectStatus": null,
+      "totalFloors": null,
+      "towerCount": null,
+      "connectivity": null,
+      "nearbyLandmarks": [],
+      "amenities": [],
+      "deck": null,
+      "description": "Apartment prices in this housing soc [...] Check out 1,2,3,4 BHK apartments in Andheri West, now available for sale at Transcon Triumph. Transcon Triumph 's RERA registration number is P51800005361. Transcon Triumph apartments are available in multiples sizes, Shortlist-Button Signia Entrance | | | | --- | Signia Andheri West, Western Mumbai | | | | 2, 3, 4 BHK Apartment | ₹ 2.42 - 11.74 Cr | New Launch | | | | Possession: Mar 2030 | | Check out 2,3,4 BHK apartments in Andheri West, now available for sale at Signia.",
+      "warnings": [
+        "Location does not match your requested area"
+      ],
+      "evidence": [
+        {
+          "field": "price_display",
+          "value": "₹11.74 Cr",
+          "source": "99acres.com",
+          "url": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+          "confidence": "medium"
+        },
+        {
+          "field": "configuration",
+          "value": [
+            "1 BHK",
+            "2 BHK",
+            "3 BHK",
+            "4 BHK"
+          ],
+          "source": "99acres.com",
+          "url": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+          "confidence": "medium"
+        },
+        {
+          "field": "possession_display",
+          "value": "Mar 2030",
+          "source": "99acres.com",
+          "url": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+          "confidence": "medium"
+        },
+        {
+          "field": "rera",
+          "value": "P51800005361",
+          "source": "99acres.com",
+          "url": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+          "confidence": "medium"
+        },
+        {
+          "field": "location",
+          "value": "Transcon Triumph",
+          "source": "99acres.com",
+          "url": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+          "confidence": "medium"
+        }
+      ],
+      "dataQuality": "high",
+      "title": "Transcon Triumph",
+      "projectName": "Transcon Triumph",
+      "field_evidence": {
+        "price_display": [
+          {
+            "field": "price_display",
+            "value": "₹11.74 Cr",
+            "source": "99acres.com",
+            "source_url": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+            "captured_at": "2026-08-22T10:02:30.841Z",
+            "confidence": "medium"
+          }
+        ],
+        "configuration": [
+          {
+            "field": "configuration",
+            "value": [
+              "1 BHK",
+              "2 BHK",
+              "3 BHK",
+              "4 BHK"
+            ],
+            "source": "99acres.com",
+            "source_url": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+            "captured_at": "2026-08-22T10:02:30.841Z",
+            "confidence": "medium"
+          }
+        ],
+        "possession_display": [
+          {
+            "field": "possession_display",
+            "value": "Mar 2030",
+            "source": "99acres.com",
+            "source_url": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+            "captured_at": "2026-08-22T10:02:30.841Z",
+            "confidence": "medium"
+          }
+        ],
+        "rera": [
+          {
+            "field": "rera",
+            "value": "P51800005361",
+            "source": "99acres.com",
+            "source_url": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+            "captured_at": "2026-08-22T10:02:30.841Z",
+            "confidence": "medium"
+          }
+        ],
+        "location": [
+          {
+            "field": "location",
+            "value": "Transcon Triumph",
+            "source": "99acres.com",
+            "source_url": "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+            "captured_at": "2026-08-22T10:02:30.841Z",
+            "confidence": "medium"
+          }
+        ]
+      },
+      "configuration_evidence": {},
+      "featureEvidence": [],
+      "sourceType": "external",
+      "lifecycleStatus": "NEW_LAUNCH",
+      "lifecycleEvidence": "nt | ₹ 2.42 - 11.74 Cr | New Launch | | | | Possession: Mar",
+      "placesVerified": null,
+      "placesLat": null,
+      "placesLon": null,
+      "placesPlaceId": null,
+      "placesAddress": null
+    },
+    {
+      "id": "western::western",
+      "name": "Western",
+      "rawName": "Western",
+      "developer": null,
+      "location": "Western",
+      "city": null,
+      "config": "2 BHK & 3 BHK",
+      "price": "₹7.77 Cr",
+      "possession": "Jul 2032",
+      "rera": "PM1180002501525",
+      "rera_verified": null,
+      "sourceName": "99acres.com",
+      "sourceUrl": "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+      "sources": [
+        {
+          "name": "99acres.com",
+          "url": "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+          "captured_at": "2026-08-22T10:02:30.839Z",
+          "source_type": "category_page_extract"
+        },
+        {
+          "name": "99acres.com",
+          "url": "https://www.99acres.com/2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+          "captured_at": "2026-08-22T10:02:30.840Z",
+          "source_type": "category_page_extract"
+        },
+        {
+          "name": "99acres.com",
+          "url": "https://www.99acres.com/new-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+          "captured_at": "2026-08-22T10:02:30.840Z",
+          "source_type": "category_page_extract"
+        }
+      ],
+      "match_score": 51,
+      "why": "2 BHK available",
+      "match_tier": "TERTIARY",
+      "match_reasons": [
+        "2 BHK available"
+      ],
+      "key_match": "2 BHK available",
+      "limitations": [
+        "Location does not match your requested area"
+      ],
+      "project_intelligence": {
+        "official": null,
+        "rera": "PM1180002501525",
+        "rera_confidence": 0.6,
+        "rera_conflict": false,
+        "rera_conflicting_values": [],
+        "configs": [
+          {
+            "type": "2 BHK",
+            "carpet": null,
+            "total": null,
+            "available": null,
+            "price": null
+          },
+          {
+            "type": "3 BHK",
+            "carpet": null,
+            "total": null,
+            "available": null,
+            "price": null
+          }
+        ],
+        "configuration_evidence": {},
+        "amenities": [],
+        "features": [],
+        "usps": [
+          "RERA registered (PM1180002501525)"
+        ],
+        "usp_evidence": [
+          {
+            "insight": "RERA registered (PM1180002501525)",
+            "reason": "RERA number found in source evidence",
+            "sources": [
+              "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+              "https://www.99acres.com/2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid"
+            ]
+          }
+        ],
+        "competitors": [
+          {
+            "name": "Linkbay Residences",
+            "developer": null,
+            "location": "Linkbay Residences",
+            "configuration": [
+              "2 BHK",
+              "3 BHK",
+              "4 BHK"
+            ],
+            "price": "₹7.89 Cr",
+            "possession": "Oct 2028",
+            "rera": "P51800047539",
+            "comparison_basis": [
+              "also offers 2 BHK, 3 BHK",
+              "comparable price band"
+            ],
+            "sources": [
+              "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+              "https://www.99acres.com/2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid"
+            ]
+          },
+          {
+            "name": "Spenta Anthea",
+            "developer": null,
+            "location": "Spenta Anthea",
+            "configuration": [
+              "2 BHK",
+              "3 BHK"
+            ],
+            "price": "₹5.4 Cr",
+            "possession": "Dec 2029",
+            "rera": "PR1180002502840",
+            "comparison_basis": [
+              "also offers 2 BHK, 3 BHK",
+              "comparable price band"
+            ],
+            "sources": [
+              "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid"
+            ]
+          },
+          {
+            "name": "Transcon Triumph",
+            "developer": null,
+            "location": "Transcon Triumph",
+            "configuration": [
+              "1 BHK",
+              "2 BHK",
+              "3 BHK",
+              "4 BHK"
+            ],
+            "price": "₹11.74 Cr",
+            "possession": "Mar 2030",
+            "rera": "P51800005361",
+            "comparison_basis": [
+              "also offers 2 BHK, 3 BHK",
+              "comparable price band"
+            ],
+            "sources": [
+              "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid",
+              "https://www.99acres.com/2-bhk-flats-in-andheri-west-mumbai-andheri-dahisar-ffid"
+            ]
+          },
+          {
+            "name": "Sunbeam Heights",
+            "developer": null,
+            "location": "Sunbeam Heights",
+            "configuration": [
+              "1 BHK",
+              "2 BHK",
+              "3 BHK"
+            ],
+            "price": "₹3.14 Cr",
+            "possession": "Dec 2027",
+            "rera": "P51800049875",
+            "comparison_basis": [
+              "also offers 2 BHK, 3 BHK",
+              "comparable price band"
+            ],
+            "sources": [
+              "https://www.99acres.com/3-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-2-crores-to-3-crores-ffid"
+            ]
+          }
+        ],
+        "target_audience": {
+          "segments": [
+            {
+              "segment": "Small families and first-time upgraders",
+              "because": "2 BHK is the entry configuration",
+              "derived_from": [
+                "configuration"
+              ]
+            },
+            {
+              "segment": "Larger or multi-generational families",
+              "because": "3 BHK configurations available",
+              "derived_from": [
+                "configuration"
+              ]
+            },
+            {
+              "segment": "Luxury segment buyers",
+              "because": "price band averages ₹7.8 Cr",
+              "derived_from": [
+                "price"
+              ]
+            },
+            {
+              "segment": "Investors and buyers with a flexible move-in date",
+              "because": "lifecycle stage is new launch, possession Jul 2032",
+              "derived_from": [
+                "lifecycle_status",
+                "possession"
+              ]
+            }
+          ],
+          "method": "derived deterministically from this project's own extracted fields — never inferred from general knowledge"
+        },
+        "field_ledger": {
+          "fields": {
+            "rera": {
+              "filled": true,
+              "answered_by": "99acres.com",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "portal",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "price": {
+              "filled": true,
+              "answered_by": "99acres.com",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "portal",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "carpet_area": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "developer-site"
+              ],
+              "status": "searched_not_found"
+            },
+            "configuration": {
+              "filled": true,
+              "answered_by": "99acres.com",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "portal",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "developer": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "developer-site"
+              ],
+              "status": "searched_not_found"
+            },
+            "possession": {
+              "filled": true,
+              "answered_by": "99acres.com",
+              "corroborating_sources": 1,
+              "possible_sources": [
+                "page-text",
+                "portal",
+                "developer-site"
+              ],
+              "status": "filled"
+            },
+            "project_status": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text"
+              ],
+              "status": "searched_not_found"
+            },
+            "amenities": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text",
+                "json-ld",
+                "developer-site"
+              ],
+              "status": "searched_not_found"
+            },
+            "property_type": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text",
+                "json-ld"
+              ],
+              "status": "searched_not_found"
+            },
+            "total_floors": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text",
+                "json-ld"
+              ],
+              "status": "searched_not_found"
+            },
+            "tower_count": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "page-text"
+              ],
+              "status": "searched_not_found"
+            },
+            "connectivity": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "google-places-nearby",
+                "page-text"
+              ],
+              "status": "searched_not_found"
+            },
+            "nearby_landmarks": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "google-places-nearby",
+                "page-text"
+              ],
+              "status": "searched_not_found"
+            },
+            "location_score": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "google-places-nearby"
+              ],
+              "status": "searched_not_found"
+            },
+            "coordinates": {
+              "filled": false,
+              "answered_by": null,
+              "corroborating_sources": 0,
+              "possible_sources": [
+                "google-places-verify",
+                "json-ld"
+              ],
+              "status": "searched_not_found"
+            }
+          },
+          "filled": 4,
+          "total": 15,
+          "never_researched": []
+        },
+        "location_score": null,
+        "location_intel": null,
+        "connectivity": null,
+        "nearby_landmarks": [],
+        "summary": "Western offers 2 BHK, 3 BHK in Western. It is currently new launch, with possession Jul 2032. Priced at ₹7.77 Cr. RERA registered (PM1180002501525).",
+        "possession": "Jul 2032",
+        "_provider": "ai-search-agent",
+        "_note": "Populated from AI Search Agent research evidence — no separate live-web research re-run.",
+        "_webSources": [
+          "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+          "https://www.99acres.com/2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+          "https://www.99acres.com/new-projects-in-andheri-west-mumbai-andheri-dahisar-ffid"
+        ],
+        "fetchedAt": "2026-08-22T10:04:34.511798+00:00"
+      },
+      "propertyType": null,
+      "carpetArea": null,
+      "builtUpArea": null,
+      "pricePerSqFt": null,
+      "projectStatus": null,
+      "totalFloors": null,
+      "towerCount": null,
+      "connectivity": null,
+      "nearbyLandmarks": [],
+      "amenities": [],
+      "deck": null,
+      "description": "Linkbay Resid | [...] Gurukrupa Ekam, one of the known housing societes in Western Mumbai, brings classic yet modern 2,3 BHK apartments in Andheri West. Gurukrupa Ekam has Shortlist-Button | | | | --- | Puravankara Purva Estrella Andheri West, Western Mumbai | | | | 2, 3, 4 BHK Apartment | ₹ 3.37 - 7.77 Cr | New Launch | | | | Possession: Jul 2032 | | Looking for your dream home?",
+      "warnings": [
+        "Location does not match your requested area",
+        "Sources disagree on price_display: ₹4.49 Cr, ₹7.77 Cr",
+        "Sources disagree on possession_display: Apr 2029, Jul 2032"
+      ],
+      "evidence": [
+        {
+          "field": "price_display",
+          "value": "₹7.77 Cr",
+          "source": "99acres.com",
+          "url": "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+          "confidence": "medium"
+        },
+        {
+          "field": "price_display",
+          "value": "₹4.49 Cr",
+          "source": "99acres.com",
+          "url": "https://www.99acres.com/new-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+          "confidence": "medium"
+        },
+        {
+          "field": "configuration",
+          "value": [
+            "2 BHK",
+            "3 BHK"
+          ],
+          "source": "99acres.com",
+          "url": "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+          "confidence": "medium"
+        },
+        {
+          "field": "possession_display",
+          "value": "Jul 2032",
+          "source": "99acres.com",
+          "url": "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+          "confidence": "medium"
+        },
+        {
+          "field": "possession_display",
+          "value": "Apr 2029",
+          "source": "99acres.com",
+          "url": "https://www.99acres.com/new-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+          "confidence": "medium"
+        },
+        {
+          "field": "rera",
+          "value": "PM1180002501525",
+          "source": "99acres.com",
+          "url": "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+          "confidence": "medium"
+        },
+        {
+          "field": "location",
+          "value": "Western",
+          "source": "99acres.com",
+          "url": "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+          "confidence": "medium"
+        }
+      ],
+      "dataQuality": "high",
+      "title": "Western",
+      "projectName": "Western",
+      "field_evidence": {
+        "price_display": [
+          {
+            "field": "price_display",
+            "value": "₹7.77 Cr",
+            "source": "99acres.com",
+            "source_url": "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+            "captured_at": "2026-08-22T10:02:30.839Z",
+            "confidence": "medium"
+          },
+          {
+            "field": "price_display",
+            "value": "₹4.49 Cr",
+            "source": "99acres.com",
+            "source_url": "https://www.99acres.com/new-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+            "captured_at": "2026-08-22T10:02:30.840Z",
+            "confidence": "medium"
+          }
+        ],
+        "configuration": [
+          {
+            "field": "configuration",
+            "value": [
+              "2 BHK",
+              "3 BHK"
+            ],
+            "source": "99acres.com",
+            "source_url": "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+            "captured_at": "2026-08-22T10:02:30.839Z",
+            "confidence": "medium"
+          }
+        ],
+        "possession_display": [
+          {
+            "field": "possession_display",
+            "value": "Jul 2032",
+            "source": "99acres.com",
+            "source_url": "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+            "captured_at": "2026-08-22T10:02:30.839Z",
+            "confidence": "medium"
+          },
+          {
+            "field": "possession_display",
+            "value": "Apr 2029",
+            "source": "99acres.com",
+            "source_url": "https://www.99acres.com/new-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+            "captured_at": "2026-08-22T10:02:30.840Z",
+            "confidence": "medium"
+          }
+        ],
+        "rera": [
+          {
+            "field": "rera",
+            "value": "PM1180002501525",
+            "source": "99acres.com",
+            "source_url": "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+            "captured_at": "2026-08-22T10:02:30.839Z",
+            "confidence": "medium"
+          }
+        ],
+        "location": [
+          {
+            "field": "location",
+            "value": "Western",
+            "source": "99acres.com",
+            "source_url": "https://www.99acres.com/new-2-bhk-projects-in-andheri-west-mumbai-andheri-dahisar-ffid",
+            "captured_at": "2026-08-22T10:02:30.839Z",
+            "confidence": "medium"
+          }
+        ]
+      },
+      "configuration_evidence": {},
+      "featureEvidence": [],
+      "sourceType": "external",
+      "lifecycleStatus": "NEW_LAUNCH",
+      "lifecycleEvidence": "ent | ₹ 3.37 - 7.77 Cr | New Launch | | | | Possession: Jul",
+      "placesVerified": null,
+      "placesLat": null,
+      "placesLon": null,
+      "placesPlaceId": null,
+      "placesAddress": null
+    }
+  ],
+  "field_ledger": {
+    "fields": {
+      "rera": {
+        "filled": true,
+        "answered_by": "99acres.com",
+        "corroborating_sources": 1,
+        "possible_sources": [
+          "page-text",
+          "json-ld",
+          "portal",
+          "developer-site"
+        ],
+        "status": "filled"
+      },
+      "price": {
+        "filled": true,
+        "answered_by": "99acres.com",
+        "corroborating_sources": 1,
+        "possible_sources": [
+          "page-text",
+          "json-ld",
+          "portal",
+          "developer-site"
+        ],
+        "status": "filled"
+      },
+      "carpet_area": {
+        "filled": false,
+        "answered_by": null,
+        "corroborating_sources": 0,
+        "possible_sources": [
+          "page-text",
+          "json-ld",
+          "developer-site"
+        ],
+        "status": "searched_not_found"
+      },
+      "configuration": {
+        "filled": true,
+        "answered_by": "99acres.com",
+        "corroborating_sources": 1,
+        "possible_sources": [
+          "page-text",
+          "portal",
+          "developer-site"
+        ],
+        "status": "filled"
+      },
+      "developer": {
+        "filled": false,
+        "answered_by": null,
+        "corroborating_sources": 0,
+        "possible_sources": [
+          "page-text",
+          "json-ld",
+          "developer-site"
+        ],
+        "status": "searched_not_found"
+      },
+      "possession": {
+        "filled": true,
+        "answered_by": "99acres.com",
+        "corroborating_sources": 1,
+        "possible_sources": [
+          "page-text",
+          "portal",
+          "developer-site"
+        ],
+        "status": "filled"
+      },
+      "project_status": {
+        "filled": false,
+        "answered_by": null,
+        "corroborating_sources": 0,
+        "possible_sources": [
+          "page-text"
+        ],
+        "status": "searched_not_found"
+      },
+      "amenities": {
+        "filled": false,
+        "answered_by": null,
+        "corroborating_sources": 0,
+        "possible_sources": [
+          "page-text",
+          "json-ld",
+          "developer-site"
+        ],
+        "status": "searched_not_found"
+      },
+      "property_type": {
+        "filled": false,
+        "answered_by": null,
+        "corroborating_sources": 0,
+        "possible_sources": [
+          "page-text",
+          "json-ld"
+        ],
+        "status": "searched_not_found"
+      },
+      "total_floors": {
+        "filled": false,
+        "answered_by": null,
+        "corroborating_sources": 0,
+        "possible_sources": [
+          "page-text",
+          "json-ld"
+        ],
+        "status": "searched_not_found"
+      },
+      "tower_count": {
+        "filled": false,
+        "answered_by": null,
+        "corroborating_sources": 0,
+        "possible_sources": [
+          "page-text"
+        ],
+        "status": "searched_not_found"
+      },
+      "connectivity": {
+        "filled": false,
+        "answered_by": null,
+        "corroborating_sources": 0,
+        "possible_sources": [
+          "google-places-nearby",
+          "page-text"
+        ],
+        "status": "searched_not_found"
+      },
+      "nearby_landmarks": {
+        "filled": false,
+        "answered_by": null,
+        "corroborating_sources": 0,
+        "possible_sources": [
+          "google-places-nearby",
+          "page-text"
+        ],
+        "status": "searched_not_found"
+      },
+      "location_score": {
+        "filled": false,
+        "answered_by": null,
+        "corroborating_sources": 0,
+        "possible_sources": [
+          "google-places-nearby"
+        ],
+        "status": "searched_not_found"
+      },
+      "coordinates": {
+        "filled": false,
+        "answered_by": null,
+        "corroborating_sources": 0,
+        "possible_sources": [
+          "google-places-verify",
+          "json-ld"
+        ],
+        "status": "searched_not_found"
+      }
+    },
+    "filled": 4,
+    "total": 15,
+    "never_researched": []
+  },
+  "rejected": null,
+  "agent_log_excerpt": null,
+  "raw_response_top_level_keys": [
+    "filters",
+    "reportId",
+    "market",
+    "configured",
+    "enabled",
+    "properties",
+    "sources",
+    "warning",
+    "summary",
+    "citations",
+    "research_metadata",
+    "retrieval_metrics",
+    "llm_degraded",
+    "_agent",
+    "pipeline"
+  ],
+  "retrieval_metrics": {
+    "total_candidates": 46,
+    "individual_project_candidates": 31,
+    "aggregator_pages": 15,
+    "resale_candidates": 5,
+    "rental_candidates": 0,
+    "unknown_candidates": 20,
+    "invalid_name_candidates": 0,
+    "eligible_candidates": 6,
+    "rejected_candidates": 41,
+    "places_configured": true,
+    "places_contributed_candidates": 19
+  },
+  "research_metadata": {
+    "sources_used": [
+      "apify_search",
+      "bridge_preflight",
+      "fetch_page",
+      "places_search",
+      "places_verify",
+      "portal_search",
+      "serper_search",
+      "tavily_search"
+    ],
+    "tool_calls": [
+      {
+        "tool": "bridge_preflight",
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 0,
+        "error": null
+      },
+      {
+        "tool": "apify_search",
+        "args": {
+          "query": "2 BHK in Andheri West",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 15,
+        "duration_ms": 47032,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "developer_search",
+        "args": {
+          "query": "2 BHK in Andheri West",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 637,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "tavily_search",
+        "args": {
+          "query": "2 BHK in Andheri West under construction OR new launch OR near possession",
+          "market": "india",
+          "depth": "basic"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 5045,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_search",
+        "args": {
+          "query": "2 BHK in Andheri West",
+          "market": "india",
+          "locations": [
+            "Andheri West"
+          ],
+          "configuration": "2 BHK"
+        },
+        "status": "ok",
+        "count": 19,
+        "duration_ms": 2077,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "portal_search",
+        "args": {
+          "query": "2 BHK in Andheri West",
+          "market": "india",
+          "locations": [
+            "Andheri West"
+          ],
+          "configuration": "2 BHK",
+          "budgetMax": null
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 2238,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "serper_search",
+        "args": {
+          "query": "2 BHK in Andheri West",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 2263,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "tavily_search",
+        "args": {
+          "query": "2 BHK in Andheri West",
+          "market": "india",
+          "depth": "basic"
+        },
+        "status": "ok",
+        "count": 10,
+        "duration_ms": 5649,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "web_search",
+        "args": {
+          "query": "2 BHK in Andheri West",
+          "market": "india"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 2272,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.99acres.com/2-bhk-flats-in-new-link-road-mumbai-andheri-dahisar-ffid",
+          "candidate": "Andheri West Dream Aspire",
+          "candidate_id": "andheriwestdreamaspire::andheriwest"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 1796,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Andheri West Dream Aspire",
+          "locality": "Andheri West",
+          "city": "Mumbai"
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 965,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.magicbricks.com/2-bhk-flats-in-andheri-west-mumbai-for-sale-pppfs",
+          "candidate": "Ajmera Divyam Heights",
+          "candidate_id": "ajmeradivyamheights::ajmeradivyamheights"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 2118,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Ajmera Divyam Heights",
+          "locality": "Ajmera Divyam Heights",
+          "city": null
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 879,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.magicbricks.com/ready-to-move-flats-in-andheri-west-mumbai-pppfs",
+          "candidate": "Platinum Casa Divine",
+          "candidate_id": "platinumcasadivine::platinumcasadivine"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 1307,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Platinum Casa Divine",
+          "locality": "Platinum Casa Divine",
+          "city": null
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 2255,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Platinum Life",
+          "locality": "Platinum Life",
+          "city": null
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 2743,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.99acres.com/2-bhk-flats-in-andheri-west-mumbai-andheri-dahisar-ffid",
+          "candidate": "Bharat Auravistas",
+          "candidate_id": "bharatauravistas::bharatauravistas"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 4555,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Bharat Auravistas",
+          "locality": "Bharat Auravistas",
+          "city": null
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 565,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Platinum Crest",
+          "locality": "Platinum Crest",
+          "city": null
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 531,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "fetch_page",
+        "args": {
+          "url": "https://www.magicbricks.com/2-bhk-flats-in-lokhandwala-complex-mumbai-for-sale-pppfs",
+          "candidate": "Near Monginis Cake Factory",
+          "candidate_id": "nearmonginiscakefactory::monginiscakefactory"
+        },
+        "status": "ok",
+        "count": 1,
+        "duration_ms": 1498,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "places_verify",
+        "args": {
+          "name": "Near Monginis Cake Factory",
+          "locality": "Monginis Cake Factory",
+          "city": null
+        },
+        "status": "ok",
+        "count": 0,
+        "duration_ms": 641,
+        "error": null,
+        "cache_hit": false
+      },
+      {
+        "tool": "display_enrichment",
+        "status": "error",
+        "count": 0,
+        "duration_ms": 20883,
+        "error": "timed out"
+      }
+    ],
+    "retrieved_at": "2026-08-22T10:05:11.022781+00:00",
+    "research_iterations": 0,
+    "llm_curator_used": "Local/open-source model",
+    "metrics": {
+      "total_searches": 22,
+      "successful_searches": 21,
+      "failed_searches": 1,
+      "cache_hits": 0,
+      "candidate_count": 5,
+      "verified_candidate_count": 3,
+      "pages_fetched": 5,
+      "facts_extracted": 366,
+      "research_iterations": 0,
+      "sources_used": [
+        "apify_search",
+        "bridge_preflight",
+        "fetch_page",
+        "places_search",
+        "places_verify",
+        "portal_search",
+        "serper_search",
+        "tavily_search"
+      ],
+      "source_conflicts": 5,
+      "missing_field_count": 42,
+      "bridge_unavailable": false,
+      "llm_calls": 20,
+      "llm_failures": 3,
+      "llm_fallbacks": 10
+    },
+    "limits": {
+      "max_research_iterations": 2,
+      "max_candidates_for_deep_research": 3,
+      "max_fetches_per_candidate": 3,
+      "max_targeted_searches_per_iteration": 5
+    },
+    "research_gaps": [
+      {
+        "candidate": "Andheri West Dream Aspire",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "possession",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Ajmera Divyam Heights",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "possession",
+          "carpet_area"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Platinum Casa Divine",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "possession",
+          "carpet_area"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Platinum Life",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "possession",
+          "carpet_area"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Bharat Auravistas",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "possession",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Platinum Crest",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "possession",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Near Monginis Cake Factory",
+        "missing_fields": [
+          "lifecycle",
+          "developer",
+          "possession",
+          "carpet_area",
+          "price"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Linkbay Residences",
+        "missing_fields": [
+          "developer",
+          "carpet_area"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Spenta Anthea",
+        "missing_fields": [
+          "developer",
+          "carpet_area"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Stay Project",
+        "missing_fields": [
+          "developer",
+          "carpet_area"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Sunbeam Heights",
+        "missing_fields": [
+          "developer",
+          "carpet_area"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      },
+      {
+        "candidate": "Transcon Triumph",
+        "missing_fields": [
+          "developer",
+          "carpet_area"
+        ],
+        "weak_fields": [],
+        "conflicting_fields": []
+      }
+    ],
+    "verification_results": [
+      {
+        "candidate": "BHK Flats in Andheri West, Mumbai",
+        "conflicts": {
+          "configuration": [
+            "['1 BHK', '2 BHK', '3 BHK', '4 BHK']",
+            "['1 BHK', '2 BHK']",
+            "['2 BHK', '3 BHK', '4 BHK']",
+            "['2 BHK', '3 BHK']",
+            "['2 BHK']"
+          ],
+          "location": [
+            "Andheri",
+            "Andheri West",
+            "Andheri, Andheri West",
+            "Four Bungalows, Andheri West",
+            "Lokhandwala, Andheri West",
+            "Yari Road, Andheri West"
+          ],
+          "price_display": [
+            "₹1,00,00,000",
+            "₹1,61,00,000",
+            "₹1,80,00,000",
+            "₹2,00,00,000",
+            "₹2,10,00,000",
+            "₹2,40,00,000",
+            "₹2,74,00,000",
+            "₹3,45,00,000",
+            "₹70,00,000"
+          ]
+        },
+        "corroborated_fields": []
+      },
+      {
+        "candidate": "BHK Property in Andheri West, Mumbai from 2 crores to 3 ...",
+        "conflicts": {
+          "price_display": [
+            "₹2,00,00,000",
+            "₹5,40,00,000"
+          ],
+          "configuration": [
+            "['2 BHK', '3 BHK']",
+            "['2 BHK']"
+          ]
+        },
+        "corroborated_fields": []
+      },
+      {
+        "candidate": "BHK New Projects in Andheri West Mumbai for Sale",
+        "conflicts": {
+          "configuration": [
+            "['2 BHK', '3 BHK', '4 BHK']",
+            "['2 BHK']"
+          ],
+          "possession_display": [
+            "Apr 2029",
+            "Oct 2028"
+          ]
+        },
+        "corroborated_fields": []
+      },
+      {
+        "candidate": "Western",
+        "conflicts": {
+          "price_display": [
+            "₹4.49 Cr",
+            "₹7.77 Cr"
+          ],
+          "possession_display": [
+            "Apr 2029",
+            "Jul 2032"
+          ]
+        },
+        "corroborated_fields": []
+      },
+      {
+        "candidate": "BHK Flats in New Link Road, Andheri West - 2 BHK Flats in New Link Road, Andheri West",
+        "conflicts": {
+          "configuration": [
+            "['2 BHK', '3 BHK']",
+            "['2 BHK']"
+          ],
+          "possession_display": [
+            "Ready to Move",
+            "dec 2029"
+          ]
+        },
+        "corroborated_fields": []
+      }
+    ],
+    "duration_ms": 166681,
+    "agent_version": "2.0.0"
+  },
+  "provider_inference": {
+    "inferred": "mixed_groq_then_fallback",
+    "reason": "groq breaker closed at start, open at end -- TPM exhausted during this search",
+    "note": "Backfilled from real /health?probe=true snapshots captured live during this conversation, immediately before/after this search ran (not a synthetic/estimated value)."
+  },
+  "groq_circuit_before": {
+    "gemini": {
+      "reason": "gemini-3.6-flash: Error code: 429 - RESOURCE_EXHAUSTED prepayment credits depleted",
+      "seconds_remaining": 197.9
+    }
+  },
+  "groq_circuit_after": {
+    "groq": {
+      "reason": "openai/gpt-oss-120b: Error code: 429 - Rate limit reached for model openai/gpt-oss-120b (TPM)",
+      "seconds_remaining": 108.6
+    },
+    "gemini": {
+      "reason": "gemini-3.6-flash: Error code: 429 - RESOURCE_EXHAUSTED prepayment credits depleted",
+      "seconds_remaining": 1.6
+    }
+  }
+}

@@ -13,6 +13,7 @@ single monolithic prompt.
            - needs_more_research -> targeted_research (field-aware search + fetch + extract)
                                        -> candidate_verifier (loop back)
            - sufficient -> final_scoring -> display_enrichment (Phase 2.5a — top-MAX_SELECTED only, gap-aware, wall-clock-bounded)
+                                              -> location_enrichment (Places: score/connectivity/landmarks, deterministic)
                                               -> curator -> structured_output -> END
 
 `deep_research` and `research_gap_checker` are the two genuinely new nodes
@@ -44,6 +45,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import time
 from datetime import datetime, timezone
 
 from langgraph.graph import END, START, StateGraph
@@ -80,6 +82,69 @@ MIN_STRONG_RESULTS = int(os.getenv("AI_SEARCH_MIN_STRONG_RESULTS", "2"))  # if w
 # Places-direct; a hard cap here, not a soft one, on purpose.
 DISPLAY_ENRICHMENT_BUDGET_S = int(os.getenv("AI_SEARCH_DISPLAY_ENRICHMENT_BUDGET_MS", "90000")) / 1000
 
+# The whole run's wall clock. Deliberately below the Node side's
+# AI_SEARCH_TIMEOUT_MS (180000) with margin to spare: a result the caller
+# never receives is worth nothing, and overrunning that timeout drops the
+# user onto the shallower Places-direct pipeline, throwing away everything
+# this pipeline just did.
+TOTAL_BUDGET_S = float(os.getenv("AI_SEARCH_TOTAL_BUDGET_MS", "150000")) / 1000
+# targeted_research was the last unbounded node. Live "1bhk in Marol": it ran
+# TWICE between the deep_research passes, each time firing 5 web + 5 tavily
+# searches plus page fetches with no ceiling — so by the third deep_research
+# pass the run clock was already spent ("budget 0s") and both enrichment nodes
+# were clamped to nothing. Every other bounded node had a budget; this one
+# quietly consumed whatever was left.
+TARGETED_RESEARCH_BUDGET_S = float(os.getenv("AI_SEARCH_TARGETED_RESEARCH_BUDGET_MS", "40000")) / 1000
+
+# Bounding each node individually is not enough: the ELIGIBILITY LOOP
+# (deep_research → targeted_research → deep_research …) always has one more
+# gap to chase, so it will spend every second the clock allows and leave the
+# tail with nothing. The tail — display_enrichment and location_enrichment —
+# is what fills the EIGHT CARDS THE USER ACTUALLY SEES (price, carpet, RERA,
+# location score). Live "1bhk in Marol": the loop ran to the end of the run,
+# display_enrichment logged "timed out after 90s" having in fact waited ~0s,
+# location_enrichment got 0s, and every card rendered "Price not available"
+# even though earlier passes had already found prices. This many seconds are
+# fenced off from the loop and cannot be spent by it.
+#
+# 45s = location_enrichment's full 20s + a ~25s display slice. Sized to be
+# the SMALLER share of the run on purpose: the loop is what finds candidates
+# at all, and starving discovery to polish cards that then have nothing on
+# them is the opposite failure. Enough for the tail to do real work, not
+# enough to squeeze research.
+TAIL_RESERVE_S = float(os.getenv("AI_SEARCH_TAIL_RESERVE_MS", "45000")) / 1000
+# Left for curation, scoring and serialising the response after the tail.
+CURATION_MARGIN_S = 15.0
+
+
+def _remaining_budget(state: "ResearchState") -> float:
+    """Seconds left in the whole run. Large-but-finite when no deadline was
+    set (a node invoked directly in a test), never unbounded.
+
+    time.monotonic(), NOT asyncio.get_event_loop().time(). Live crash this
+    fixes: LangGraph runs a conditional-edge router (route_research_gap) in a
+    worker thread via run_in_executor, and that thread has no event loop, so
+    get_event_loop() raises "There is no current event loop in thread
+    'asyncio_0'" and the whole request 500s. time.monotonic() is the same
+    clock the default loop uses, needs no loop, and is safe from any thread —
+    which is why the deadline is SET with it too, so both ends agree.
+    """
+    deadline = state.get("deadline_at")
+    if not deadline:
+        return TOTAL_BUDGET_S
+    return max(0.0, deadline - time.monotonic())
+
+
+def _budget_for(state: "ResearchState", node_budget_s: float, reserve_s: float = 0.0) -> float:
+    """A node's own budget, clamped to what the run actually has left, minus
+    any slice reserved for nodes that still have to run AFTER this one.
+
+    Without the reserve, a node that is merely well-behaved about its own
+    clamp still starves everything downstream: display_enrichment taking the
+    whole remaining clock left location_enrichment with 0s in every live run.
+    """
+    return max(0.0, min(node_budget_s, _remaining_budget(state) - reserve_s))
+
 
 # ── Bridge preflight (Part 3.2) ─────────────────────────────────────────────
 # Every discovery/deep-research tool depends on the SAME Node bridge
@@ -100,15 +165,21 @@ async def node_bridge_preflight(state: ResearchState) -> dict:
     # or a permanently-broken model would just get re-discovered broken on
     # every single new search.
     llm_providers.reset_llm_metrics()
+    # One clock for the whole run, started here — the first node of every
+    # request. Set on BOTH exits so the bridge-down path is bounded too.
+    deadline_at = time.monotonic() + TOTAL_BUDGET_S
+    logger.warning("[bridge-preflight] run budget %.0fs", TOTAL_BUDGET_S)
     available, error = await tools_mod.check_bridge_available(force=True)
     if not available:
         logger.error("[bridge-preflight] bridge unavailable: %s", error)
         return {
+            "deadline_at": deadline_at,
             "bridge_unavailable": True,
             "errors": [f"Node tool bridge unavailable ({tools_mod.NODE_BASE_URL}): {error}"],
             "tool_calls": [{"tool": "bridge_preflight", "status": "error", "count": 0, "duration_ms": 0, "error": error}],
         }
-    return {"bridge_unavailable": False, "tool_calls": [{"tool": "bridge_preflight", "status": "ok", "count": 1, "duration_ms": 0, "error": None}]}
+    return {"deadline_at": deadline_at, "bridge_unavailable": False,
+            "tool_calls": [{"tool": "bridge_preflight", "status": "ok", "count": 1, "duration_ms": 0, "error": None}]}
 
 
 def _bridge_skip_record(tool: str) -> dict:
@@ -135,7 +206,46 @@ async def node_query_understanding(state: ResearchState) -> dict:
 
 async def node_location_resolution(state: ResearchState) -> dict:
     resolved = resolve_all_locations(state.get("locations", []))
-    return {"micro_locations": resolved}
+    # A locality the shared gazetteer doesn't know resolves to itself with no
+    # parent and no city, which silently makes the geography gate below far
+    # stricter: _location_terms() then has exactly ONE term to match on, so a
+    # real project that describes itself by its parent suburb ("Kandivali
+    # West") instead of the micro-locality the user typed is rejected as
+    # wrong-geography.
+    #
+    # Confirmed live: "2 BHK in Chikuwadi" found 64 candidates, several of
+    # them real under-construction projects, and returned zero — Chikuwadi is
+    # absent from shared/mmr-gazetteer.json, while the otherwise identical
+    # "Kandarpada" query works because that alias IS present (parent Borivali
+    # West, city Mumbai). Surfaced as a warning rather than silently widened:
+    # guessing a parent suburb is exactly how a Las Vegas listing once
+    # reached a Mumbai search (see _location_terms' own comment).
+    unresolved = [r["query_term"] for r in resolved if not r.get("city") and not r.get("parent")]
+    warnings: list[str] = []
+    # A locality that was spelling-corrected is told to the user in their own
+    # terms, ALWAYS. Live: "1bhk in Sampta Nagar" found 64 real candidates and
+    # returned zero, because the gazetteer holds "Samata Nagar" (Kandivali
+    # East) and the typed spelling was one letter off. Correcting it silently
+    # would be worse than the zero — the user must be able to see we searched
+    # something other than what they typed, and say we got it wrong.
+    corrected = [r for r in resolved if r.get("corrected_from")]
+    for r in corrected:
+        logger.warning("[location_resolution] corrected %r -> %r", r["corrected_from"], r["canonical"])
+        where = f" ({r['parent']})" if r.get("parent") else (f" ({r['city']})" if r.get("city") else "")
+        warnings.append(
+            f"Showing results for {r['canonical']}{where}. "
+            f"“{r['corrected_from']}” is not a locality we recognise — "
+            f"search again with a different spelling if that is not what you meant."
+        )
+    if unresolved:
+        logger.warning("[location_resolution] not in the shared gazetteer: %s — geography gate will be strict", unresolved)
+        # User-facing wording only: the old text told a home buyer to edit a
+        # JSON file in the repo.
+        warnings.append(
+            f"We don't recognise “{', '.join(unresolved)}” as a locality, so results were matched "
+            f"on that exact name only. Try the parent suburb, or a different spelling."
+        )
+    return {"micro_locations": resolved, "warnings": warnings}
 
 
 async def node_research_planner(state: ResearchState) -> dict:
@@ -348,14 +458,48 @@ def _location_terms(state: ResearchState) -> list[str]:
     return list(dict.fromkeys(t for t in terms if t and len(t) >= 3))
 
 
-def _matches_searched_location(prop: dict, location_terms: list[str]) -> bool:
+def _specific_location_terms(state: ResearchState) -> list[str]:
+    """The terms that actually pin down WHERE the user asked about: the
+    locality phrases they typed, plus each one's parent suburb. Deliberately
+    NOT the resolved city.
+
+    Live bug: "2 BHK in Chikuwadi" returned a Nerul, NAVI MUMBAI project as its
+    top result. Chikuwadi resolves to city "Mumbai", "Navi Mumbai" contains the
+    substring "mumbai", and the gate passed on that alone — so a whole
+    different city satisfied a micro-locality query. A city is the right
+    fallback ONLY when the city is what was asked for.
+    """
+    terms = list(state.get("locations", []) or [])
+    for loc in state.get("micro_locations", []) or []:
+        if loc.get("parent"):
+            terms.append(loc["parent"])
+        # An ambiguous locality's OTHER real locations count too. "Samata
+        # Nagar" exists in Kandivali East and in Thane; the gazetteer names
+        # one as primary, and without this every candidate from the other one
+        # is thrown away as wrong-location. Live: a "2bhk in Samata Nagar"
+        # search surfaced TenX Habitat, Dosti Vihar and Tarangan — all real
+        # Thane West projects — and rejected all of them.
+        for alt in loc.get("alternatives") or []:
+            if alt.get("parent"):
+                terms.append(alt["parent"])
+            if alt.get("canonical"):
+                terms.append(alt["canonical"])
+    return list(dict.fromkeys(t for t in terms if t and len(t) >= 3))
+
+
+def _matches_searched_location(prop: dict, location_terms: list[str], specific_terms: list[str] | None = None) -> bool:
     if not location_terms:
         return True  # nothing to check against — query had no resolvable location
     text = " ".join(str(prop.get(k) or "") for k in ("name", "location", "micro_location", "city", "description")).lower()
+    # A specific term (the locality asked for, or its parent suburb) is what
+    # counts. Matching the city alone is not geographic relevance when the
+    # query named something smaller than a city — see _specific_location_terms.
+    if specific_terms:
+        return any(term.lower() in text for term in specific_terms)
     return any(term.lower() in text for term in location_terms)
 
 
-def _apply_hard_eligibility_filter(scored: list, final: bool = False, location_terms: list[str] | None = None, state: "ResearchState | None" = None) -> tuple[list, list]:
+def _apply_hard_eligibility_filter(scored: list, final: bool = False, location_terms: list[str] | None = None, state: "ResearchState | None" = None, specific_terms: list[str] | None = None) -> tuple[list, list]:
     accepted, rejected = [], []
     for p in scored:
         if p.get("is_aggregator"):
@@ -457,7 +601,7 @@ def _apply_hard_eligibility_filter(scored: list, final: bool = False, location_t
         # research. Only reject CONFIRMED WRONG LOCATION before expensive research.
         # On the final pass, enforce strictly using enriched text from deep research.
         if location_terms:
-            matched = _matches_searched_location(p, location_terms)
+            matched = _matches_searched_location(p, location_terms, specific_terms)
 
             if matched:
                 # Candidate mentions at least one searched location term — accept
@@ -510,7 +654,8 @@ async def node_candidate_scorer(state: ResearchState) -> dict:
     # candidate is rejected before wasting deep-research budget on it, same
     # efficiency argument as the lifecycle-status two-pass gate right above
     # it; an AMBIGUOUS-location candidate is deferred, never rejected here.
-    ranked, rejected = _apply_hard_eligibility_filter(scored, location_terms=_location_terms(state), state=state)
+    ranked, rejected = _apply_hard_eligibility_filter(scored, location_terms=_location_terms(state), state=state,
+                                                     specific_terms=_specific_location_terms(state))
     return {"ranked_properties": ranked, "debug_rejected_candidates": rejected}
 
 
@@ -618,14 +763,46 @@ def _candidate_priority_score(p: dict, batch: list) -> float:
     return base * _near_duplicate_penalty(p, batch)
 
 
+def _has_fetchable_source(p: dict) -> bool:
+    """Whether deep research could actually READ anything for this candidate.
+
+    A candidate discovered by Google Places carries a maps URL and nothing
+    fetchable, so no amount of deep-research budget can resolve its lifecycle
+    status — there is no page to open.
+    """
+    for src in (p.get("sources") or []):
+        url = src.get("url")
+        if url and not deep_research_mod._is_unfetchable_url(url):
+            return True
+    return False
+
+
 def _prioritize_for_deep_research(candidates: list) -> list:
     def undetermined_first(p) -> int:
         status = p.get("lifecycle_status") or "UNKNOWN"
         return 0 if status not in normalize_mod.ALLOWED_LIFECYCLE_STATUSES else 1
+
+    # Live bug, surfaced by deep_research's new "researched N/M" line:
+    # node_deep_research was researching ZERO candidates, run after run, while
+    # every actual page fetch came from targeted_research instead. Cause: this
+    # ordering put lifecycle-UNDETERMINED candidates first (correct — those are
+    # the ones research can change), but ~20 of them per query come from Google
+    # Places, which supplies a maps URL and no readable page. They filled every
+    # budget slot, contributed nothing, and the candidates that DID have a
+    # fetchable page never got a slot.
+    #
+    # Fetchability now sorts ahead of everything: a candidate research cannot
+    # read is a candidate research cannot help, whatever its eligibility state.
+    # Unfetchable candidates are not dropped — they sort last, and still get
+    # their Places name-verification pass.
+    def fetchable_first(p) -> int:
+        return 0 if _has_fetchable_source(p) else 1
+
     # Deterministic: ties broken on original (already score_all()-ordered)
     # index, never on dict/insertion-order accidents.
     indexed = list(enumerate(candidates))
-    indexed.sort(key=lambda t: (undetermined_first(t[1]), -_candidate_priority_score(t[1], candidates), t[0]))
+    indexed.sort(key=lambda t: (fetchable_first(t[1]), undetermined_first(t[1]),
+                                -_candidate_priority_score(t[1], candidates), t[0]))
     return [p for _, p in indexed]
 
 
@@ -640,10 +817,27 @@ async def node_deep_research(state: ResearchState) -> dict:
     candidates = _prioritize_for_deep_research(state.get("ranked_properties", []))
     logger.warning("[node:deep_research] ELIGIBILITY-LOOP first pass, %d candidates: %s", len(candidates), [c.get("name") for c in candidates])
     already_fetched = {p["url"] for p in state.get("fetched_pages", []) if p.get("url")}
+    budget_s = _budget_for(state, deep_research_mod.DEEP_RESEARCH_BUDGET_S)
     updated, tool_calls, pages, facts = await deep_research_mod.research_candidates(
         candidates, market=state.get("market", "india"), already_fetched=already_fetched,
+        budget_s=budget_s,
     )
-    merged = dedupe_mod.merge_updated_candidates(state.get("deduplicated_properties", []), updated)
+    # Re-dedupe AFTER the merge, matching node_targeted_research and
+    # node_display_enrichment, which both already do this. This node was the
+    # one merge point without it — and it is the single most important place
+    # to have it, because merge_extracted_facts is where a fetched page's
+    # rera_number first becomes the candidate's top-level `rera`. Two
+    # candidates that were legitimately distinct at discovery time (one had
+    # no RERA yet) become provably the same project at exactly this moment.
+    #
+    # Live: "Gami Avant" + "Gami Avant - Vashi" both reached the user sharing
+    # RERA P51700079740, and "24K residence Hirani" + "24k Residences by
+    # Hirani Group" both reached the user sharing P51800047979. Without this
+    # line the "sufficient" branch runs final_scoring -> display_enrichment
+    # -> location_enrichment -> curator, none of which re-dedupes the RANKED
+    # list, so the duplicate pair occupies two of the eight display slots.
+    merged = dedupe_mod.dedupe(
+        dedupe_mod.merge_updated_candidates(state.get("deduplicated_properties", []), updated))
     return {"deduplicated_properties": merged, "tool_calls": tool_calls, "fetched_pages": pages, "extracted_facts": facts}
 
 
@@ -673,6 +867,17 @@ def route_research_gap(state: ResearchState) -> str:
         return "sufficient"
     iterations = state.get("research_iterations", 0)
     if iterations >= MAX_RESEARCH_ITERATIONS:
+        return "sufficient"
+    # Out of wall clock — stop looping and return what we have. Another
+    # research pass that finishes after the caller has given up is not a
+    # better answer, it is no answer: the request falls through to the
+    # shallower Places-direct pipeline and all of this work is discarded.
+    # TAIL_RESERVE_S is fenced off for display/location enrichment (the nodes
+    # that fill the visible cards) plus a margin for curation and output —
+    # the loop is not allowed to spend it, however many gaps are still open.
+    remaining = _remaining_budget(state)
+    if remaining <= TAIL_RESERVE_S + CURATION_MARGIN_S:
+        logger.warning("[route_research_gap] %.0fs left (tail reserve %.0fs) — stopping the research loop so the displayed candidates can be enriched", remaining, TAIL_RESERVE_S)
         return "sufficient"
     ranked = state.get("ranked_properties", [])
     if not ranked:
@@ -731,9 +936,24 @@ async def node_targeted_research(state: ResearchState) -> dict:
     already_fetched = {p["url"] for p in state.get("fetched_pages", []) if p.get("url")}
     logger.warning("[node:targeted_research] ELIGIBILITY-LOOP gap-driven pass, %d candidates: %s", len(top), [p.get("name") for p in top])
 
-    updated, tool_calls, pages, facts, new_evidence = await deep_research_mod.targeted_research_candidates(
-        top, gaps, market=state.get("market", "india"), already_fetched=already_fetched,
-    )
+    budget_s = _budget_for(state, TARGETED_RESEARCH_BUDGET_S)
+    try:
+        updated, tool_calls, pages, facts, new_evidence = await asyncio.wait_for(
+            deep_research_mod.targeted_research_candidates(
+                top, gaps, market=state.get("market", "india"), already_fetched=already_fetched,
+            ),
+            timeout=budget_s,
+        )
+    except asyncio.TimeoutError:
+        # Same all-or-nothing shape as every other bounded node here: the
+        # candidates keep whatever the earlier passes established, and the
+        # run moves on to curation with time still on the clock.
+        logger.warning("[targeted_research] timed out after %.0fs — continuing with what earlier passes found", budget_s)
+        return {
+            "tool_calls": [{"tool": "targeted_research", "status": "error", "count": 0,
+                            "duration_ms": int(budget_s * 1000), "error": "timed out"}],
+            "research_iterations": state.get("research_iterations", 0) + 1,
+        }
 
     newly_normalized = normalize_mod.normalize_all(new_evidence)
     merged = dedupe_mod.merge_updated_candidates(state.get("deduplicated_properties", []), updated)
@@ -763,7 +983,8 @@ async def node_final_scoring(state: ResearchState) -> dict:
     # BEFORE the final=True hard filter below makes the real call.
     enriched = [normalize_mod.reclassify_lifecycle_from_enriched_evidence(p) for p in state.get("deduplicated_properties", [])]
     scored = score_all(enriched, state.get("parsed_requirements", {}))
-    ranked, rejected = _apply_hard_eligibility_filter(scored, final=True, location_terms=_location_terms(state), state=state)
+    ranked, rejected = _apply_hard_eligibility_filter(scored, final=True, location_terms=_location_terms(state), state=state,
+                                                     specific_terms=_specific_location_terms(state))
     return {"ranked_properties": ranked, "debug_rejected_candidates": rejected}
 
 
@@ -795,16 +1016,21 @@ async def node_display_enrichment(state: ResearchState) -> dict:
         return {}  # every candidate we're about to show already has every display field
     already_fetched = {p["url"] for p in state.get("fetched_pages", []) if p.get("url")}
     logger.warning("[node:display_enrichment] DISPLAY-SCOPED pass, %d/%d displayed candidates have a gap: %s", len(gaps), len(top), [(g["candidate"], g["missing_fields"]) for g in gaps])
+    # Reserve location_enrichment's slice: this node runs immediately before
+    # it, and left unreserved it takes the whole remaining clock every time.
+    display_budget_s = _budget_for(state, DISPLAY_ENRICHMENT_BUDGET_S,
+                                   reserve_s=LOCATION_ENRICHMENT_BUDGET_S)
     try:
         updated, tool_calls, pages, facts, new_evidence = await asyncio.wait_for(
             deep_research_mod.targeted_research_candidates(
                 top, gaps, market=state.get("market", "india"), already_fetched=already_fetched,
             ),
-            timeout=DISPLAY_ENRICHMENT_BUDGET_S,
+            timeout=display_budget_s,
         )
     except asyncio.TimeoutError:
-        logger.warning("[display_enrichment] timed out after %ss — showing the top-%d unenriched (bounded, all-or-nothing, matching every other timeout in this pipeline)", DISPLAY_ENRICHMENT_BUDGET_S, MAX_SELECTED)
-        return {"tool_calls": [{"tool": "display_enrichment", "status": "error", "count": 0, "duration_ms": int(DISPLAY_ENRICHMENT_BUDGET_S * 1000), "error": "timed out"}]}
+        # The CLAMPED budget, not the constant — see location_enrichment.
+        logger.warning("[display_enrichment] timed out after %.0fs (run clock) — showing the top-%d unenriched (bounded, all-or-nothing, matching every other timeout in this pipeline)", display_budget_s, MAX_SELECTED)
+        return {"tool_calls": [{"tool": "display_enrichment", "status": "error", "count": 0, "duration_ms": int(display_budget_s * 1000), "error": "timed out"}]}
 
     newly_normalized = normalize_mod.normalize_all(new_evidence)
     merged_dedup = dedupe_mod.merge_updated_candidates(state.get("deduplicated_properties", []), updated)
@@ -825,6 +1051,109 @@ async def node_display_enrichment(state: ResearchState) -> dict:
         "extracted_facts": facts,
         "raw_evidence": new_evidence,
     }
+
+
+LOCATION_ENRICHMENT_BUDGET_S = float(os.getenv("AI_SEARCH_LOCATION_ENRICHMENT_BUDGET_MS", "20000")) / 1000
+
+
+def _candidate_coordinate(p: dict) -> "tuple[float, float] | None":
+    """The candidate's real coordinate, or None. Two honest sources, in
+    authority order: a Places-verified location (places_lat/places_lon, set by
+    normalize.py from a real Places match), then a `geo` block read out of the
+    page's own JSON-LD (fact_extraction.extract_from_structured_data).
+
+    Deliberately does NOT geocode the name as a fallback. A wrong coordinate
+    produces a confident, wrong Location Score with real-looking place names
+    attached to it, which is worse for a buyer than an empty tab.
+    """
+    for lat_key, lon_key in (("places_lat", "places_lon"), ("latitude", "longitude")):
+        lat, lon = p.get(lat_key), p.get(lon_key)
+        try:
+            if lat is not None and lon is not None:
+                lat_f, lon_f = float(lat), float(lon)
+                # Guard against a 0,0 placeholder ever being treated as real.
+                if lat_f or lon_f:
+                    return lat_f, lon_f
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+async def node_location_enrichment(state: ResearchState) -> dict:
+    """Location Score, connectivity and nearby landmarks for the candidates
+    actually about to be displayed — one deterministic Google Places call
+    each, no LLM, run in parallel and bounded by its own wall clock.
+
+    Scoped to the top-MAX_SELECTED slice for the same reason
+    display_enrichment is: research budget spent on candidates that never get
+    shown is the mismatch the live traces kept surfacing.
+
+    ADDITIVE by construction:
+      * `connectivity` / `nearby_landmarks` are only filled when the existing
+        pipeline left them empty — this never overwrites an extracted value.
+      * `location_score` / `location_intel` are new fields; nothing else reads
+        them today, so nothing else can change behaviour because of them.
+      * A candidate with no real coordinate is skipped, not geocoded.
+      * Any failure returns the candidates untouched — this node can make the
+        result poorer only by being slow, which is what the budget bounds.
+    """
+    ranked = state.get("ranked_properties", [])
+    if not ranked:
+        return {}
+    if state.get("bridge_unavailable"):
+        return _bridge_skip_record("location_enrichment")
+
+    top = ranked[:MAX_SELECTED]
+    targets = [(i, p, coord) for i, p in enumerate(top) if (coord := _candidate_coordinate(p))]
+    if not targets:
+        logger.warning("[node:location_enrichment] none of the %d displayed candidates has a real coordinate — skipped (never geocoded from a name)", len(top))
+        return {}
+
+    logger.warning("[node:location_enrichment] %d/%d displayed candidates have a coordinate", len(targets), len(top))
+    try:
+        location_budget_s = _budget_for(state, LOCATION_ENRICHMENT_BUDGET_S)
+        results = await asyncio.wait_for(
+            asyncio.gather(*[tools_mod.places_nearby(lat, lon) for _, _, (lat, lon) in targets],
+                           return_exceptions=True),
+            timeout=location_budget_s,
+        )
+    except asyncio.TimeoutError:
+        # The CLAMPED budget, not the constant — a run with no clock left
+        # reported "timed out after 20.0s" having actually waited ~0s, which
+        # made an exhausted run look like a slow Places call.
+        logger.warning("[location_enrichment] timed out after %.0fs (run clock) — displaying candidates without location intel", location_budget_s)
+        return {"tool_calls": [{"tool": "location_enrichment", "status": "error", "count": 0,
+                                "duration_ms": int(location_budget_s * 1000), "error": "timed out"}]}
+
+    enriched = list(ranked)
+    tool_calls: list = []
+    filled = 0
+    for (idx, prop, _coord), result in zip(targets, results):
+        if isinstance(result, Exception):
+            logger.warning("[location_enrichment] %s failed: %s", prop.get("name"), result)
+            continue
+        data, record = result
+        tool_calls.append(record)
+        if not data or not data.get("configured"):
+            continue
+        updated = dict(prop)
+        updated["location_intel"] = {
+            "by_dimension": data.get("by_dimension") or {},
+            "source": "google-places-nearby",
+        }
+        if data.get("location_score"):
+            updated["location_score"] = data["location_score"]
+        # Fill-if-empty only — an extracted value always wins, so this can
+        # never regress a candidate that already had these.
+        if data.get("connectivity") and not updated.get("connectivity"):
+            updated["connectivity"] = data["connectivity"]
+        if data.get("nearby_landmarks") and not updated.get("nearby_landmarks"):
+            updated["nearby_landmarks"] = data["nearby_landmarks"]
+        enriched[idx] = updated
+        filled += 1
+
+    logger.warning("[node:location_enrichment] enriched %d/%d displayed candidates", filled, len(top))
+    return {"ranked_properties": enriched, "tool_calls": tool_calls}
 
 
 async def node_curator(state: ResearchState) -> dict:
@@ -862,6 +1191,7 @@ def build_graph():
     g.add_node("targeted_research", node_targeted_research)
     g.add_node("final_scoring", node_final_scoring)
     g.add_node("display_enrichment", node_display_enrichment)
+    g.add_node("location_enrichment", node_location_enrichment)
     g.add_node("curator", node_curator)
     g.add_node("structured_output", node_structured_output)
 
@@ -887,7 +1217,8 @@ def build_graph():
     g.add_edge("targeted_research", "candidate_verifier")  # loop back through verify -> score -> deep_research -> gap_check
 
     g.add_edge("final_scoring", "display_enrichment")
-    g.add_edge("display_enrichment", "curator")
+    g.add_edge("display_enrichment", "location_enrichment")
+    g.add_edge("location_enrichment", "curator")
     g.add_edge("curator", "structured_output")
     g.add_edge("structured_output", END)
 
